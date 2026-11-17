@@ -1,0 +1,4331 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Original Pharma CRM API",
+    "version": "v1"
+  },
+  "paths": {
+    "/api/visits": {
+      "get": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsList",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/VisitStatus"
+            }
+          },
+          {
+            "name": "needsReview",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VisitListItemDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VisitListItemDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VisitListItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/visits/check-in": {
+      "post": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsCheckIn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/visits/{visitId}/check-out": {
+      "post": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsCheckOut",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckOutRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckOutRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckOutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/visits/{visitId}/photos": {
+      "post": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsUploadPhoto",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photo": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitPhotoDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitPhotoDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitPhotoDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/visits/{visitId}": {
+      "get": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsGet",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/locations": {
+      "post": {
+        "tags": [
+          "Tracking"
+        ],
+        "operationId": "trackingPostLocations",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationBatchRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationBatchRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationBatchResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationBatchResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationBatchResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/test-point": {
+      "post": {
+        "tags": [
+          "Tracking"
+        ],
+        "operationId": "trackingPostTestPoint",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestPointRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestPointRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestPointRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestPointResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestPointResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestPointResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/config": {
+      "get": {
+        "tags": [
+          "Tracking"
+        ],
+        "operationId": "trackingGetConfig",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingConfigDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingConfigDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/shifts/current": {
+      "get": {
+        "tags": [
+          "Tracking"
+        ],
+        "operationId": "trackingGetCurrentShift",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentShiftResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentShiftResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentShiftResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/shifts/start": {
+      "post": {
+        "tags": [
+          "Tracking"
+        ],
+        "operationId": "trackingStartShift",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartShiftRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartShiftRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartShiftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartShiftResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartShiftResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartShiftResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/shifts/end": {
+      "post": {
+        "tags": [
+          "Tracking"
+        ],
+        "operationId": "trackingEndShift",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndShiftRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndShiftRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndShiftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShiftDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShiftDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShiftDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/device-health": {
+      "post": {
+        "tags": [
+          "Tracking"
+        ],
+        "operationId": "trackingReportDeviceHealth",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceHealthReportRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceHealthReportRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceHealthReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceHealthResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceHealthResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceHealthResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/consent": {
+      "get": {
+        "tags": [
+          "Tracking"
+        ],
+        "operationId": "trackingGetConsent",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentStatusDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentStatusDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentStatusDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tracking"
+        ],
+        "operationId": "trackingRecordConsent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordConsentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordConsentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordConsentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentStatusDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentStatusDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentStatusDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/monitor/presence": {
+      "get": {
+        "tags": [
+          "TrackingMonitor"
+        ],
+        "operationId": "trackingMonitorGetPresence",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RepPresenceDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RepPresenceDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RepPresenceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/monitor/live-view/{repId}": {
+      "post": {
+        "tags": [
+          "TrackingMonitor"
+        ],
+        "operationId": "trackingMonitorStartLiveView",
+        "parameters": [
+          {
+            "name": "repId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveViewResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveViewResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveViewResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "TrackingMonitor"
+        ],
+        "operationId": "trackingMonitorStopLiveView",
+        "parameters": [
+          {
+            "name": "repId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/tracking/monitor/flags": {
+      "get": {
+        "tags": [
+          "TrackingMonitor"
+        ],
+        "operationId": "trackingMonitorGetFlags",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TrackingFlagStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackingFlagDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackingFlagDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackingFlagDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/monitor/flags/{flagId}/review": {
+      "post": {
+        "tags": [
+          "TrackingMonitor"
+        ],
+        "operationId": "trackingMonitorReviewFlag",
+        "parameters": [
+          {
+            "name": "flagId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFlagRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFlagRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFlagRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingFlagDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingFlagDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingFlagDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/monitor/devices": {
+      "get": {
+        "tags": [
+          "TrackingMonitor"
+        ],
+        "operationId": "trackingMonitorGetDevices",
+        "parameters": [
+          {
+            "name": "healthy",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracking/monitor/history/{userId}": {
+      "get": {
+        "tags": [
+          "TrackingMonitor"
+        ],
+        "operationId": "trackingMonitorGetHistory",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryPointDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryPointDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryPointDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles": {
+      "get": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "rolesList",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "rolesCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/permissions": {
+      "get": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "rolesListPermissions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles/{roleId}": {
+      "put": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "rolesUpdate",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "rolesDelete",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles/{roleId}/permissions": {
+      "put": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "rolesSetPermissions",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRolePermissionsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRolePermissionsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRolePermissionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles/{roleId}/reassign": {
+      "post": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "rolesReassignUsers",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReassignRoleUsersRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReassignRoleUsersRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReassignRoleUsersRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReassignRoleUsersResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReassignRoleUsersResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReassignRoleUsersResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles/{roleId}/audit": {
+      "get": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "rolesGetAudit",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleAuditEntryDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleAuditEntryDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleAuditEntryDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "usersList",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserListItemDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserListItemDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserListItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "usersCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListItemDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListItemDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{userId}": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "usersUpdate",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListItemDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListItemDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{userId}/roles": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "usersSetRoles",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUserRolesRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUserRolesRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUserRolesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/users/{userId}/permission-overrides": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "usersGetPermissionOverrides",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionOverrideDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionOverrideDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionOverrideDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "usersSetPermissionOverrides",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPermissionOverridesRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPermissionOverridesRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPermissionOverridesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/territories": {
+      "get": {
+        "tags": [
+          "Territories"
+        ],
+        "operationId": "territoriesList",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerritoryDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerritoryDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerritoryDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "authLogin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "authRefresh",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RefreshRequest"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RefreshRequest"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RefreshRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "authLogout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LogoutRequest"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LogoutRequest"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LogoutRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "authMe",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/background-session": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "authBackgroundSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackgroundSessionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackgroundSessionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackgroundSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/customers": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customersList",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/CustomerType"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AuthResponse": {
+        "required": [
+          "accessToken",
+          "expiresAt",
+          "expiresIn",
+          "refreshToken",
+          "refreshTokenExpiresAt",
+          "user"
+        ],
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "refreshToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "refreshTokenExpiresAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserProfileDto"
+          }
+        }
+      },
+      "BackgroundSessionRequest": {
+        "required": [
+          "deviceId"
+        ],
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          }
+        }
+      },
+      "CheckInRequest": {
+        "required": [
+          "customerId",
+          "deviceId",
+          "lat",
+          "lng",
+          "accuracy",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "lat": {
+            "type": "number",
+            "format": "double"
+          },
+          "lng": {
+            "type": "number",
+            "format": "double"
+          },
+          "accuracy": {
+            "type": "number",
+            "format": "double"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isMock": {
+            "type": "boolean",
+            "default": false
+          },
+          "qrPayload": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CheckOutRequest": {
+        "required": [
+          "lat",
+          "lng",
+          "accuracy",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "format": "double"
+          },
+          "lng": {
+            "type": "number",
+            "format": "double"
+          },
+          "accuracy": {
+            "type": "number",
+            "format": "double"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isMock": {
+            "type": "boolean",
+            "default": false
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ClientKind": {
+        "enum": [
+          "web",
+          "native"
+        ],
+        "default": "web"
+      },
+      "ConsentStatusDto": {
+        "required": [
+          "currentVersion",
+          "accepted",
+          "acceptedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "currentVersion": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "acceptedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateRoleRequest": {
+        "required": [
+          "nameAr",
+          "nameEn"
+        ],
+        "type": "object",
+        "properties": {
+          "nameAr": {
+            "type": "string"
+          },
+          "nameEn": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "level": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "copyFromRoleId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "CreateUserRequest": {
+        "required": [
+          "email",
+          "fullName",
+          "password",
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "managerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "territoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "preferredLanguage": {
+            "type": "string",
+            "default": "ar"
+          }
+        }
+      },
+      "CurrentShiftResponse": {
+        "required": [
+          "shift"
+        ],
+        "type": "object",
+        "properties": {
+          "shift": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ShiftDto"
+              }
+            ]
+          }
+        }
+      },
+      "CustomerDto": {
+        "required": [
+          "id",
+          "type",
+          "name",
+          "nameAr",
+          "address",
+          "territoryId",
+          "territoryName",
+          "territoryNameAr",
+          "lat",
+          "lng",
+          "geofenceRadiusMeters",
+          "hasQrCode",
+          "isActive",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/CustomerType"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "territoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "territoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "territoryNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "lng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "geofenceRadiusMeters": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasQrCode": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CustomerType": {
+        "enum": [
+          "doctor",
+          "pharmacy"
+        ]
+      },
+      "DeviceDto": {
+        "required": [
+          "id",
+          "userId",
+          "userName",
+          "deviceId",
+          "platform",
+          "source",
+          "isHealthy",
+          "issues",
+          "locationPermission",
+          "preciseLocation",
+          "notificationPermission",
+          "batteryOptimizationIgnored",
+          "locationServicesEnabled",
+          "mockLocationDetected",
+          "developerOptionsEnabled",
+          "powerSaveMode",
+          "appVersion",
+          "manufacturer",
+          "model",
+          "osVersion",
+          "onboardingCompletedAt",
+          "firstSeenAt",
+          "lastReportedAt",
+          "openFlags"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/DevicePlatform"
+          },
+          "source": {
+            "$ref": "#/components/schemas/LocationSource"
+          },
+          "isHealthy": {
+            "type": "boolean"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "locationPermission": {
+            "$ref": "#/components/schemas/LocationPermissionState"
+          },
+          "preciseLocation": {
+            "type": "boolean"
+          },
+          "notificationPermission": {
+            "$ref": "#/components/schemas/NotificationPermissionState"
+          },
+          "batteryOptimizationIgnored": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "locationServicesEnabled": {
+            "type": "boolean"
+          },
+          "mockLocationDetected": {
+            "type": "boolean"
+          },
+          "developerOptionsEnabled": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "powerSaveMode": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "appVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "manufacturer": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "osVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "onboardingCompletedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "firstSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastReportedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "openFlags": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DeviceHealthReportRequest": {
+        "required": [
+          "deviceId",
+          "source",
+          "platform",
+          "trigger",
+          "locationPermission",
+          "preciseLocation",
+          "notificationPermission",
+          "locationServicesEnabled",
+          "mockLocationDetected"
+        ],
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/LocationSource"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/DevicePlatform"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/HealthReportTrigger"
+          },
+          "locationPermission": {
+            "$ref": "#/components/schemas/LocationPermissionState"
+          },
+          "preciseLocation": {
+            "type": "boolean"
+          },
+          "notificationPermission": {
+            "$ref": "#/components/schemas/NotificationPermissionState"
+          },
+          "locationServicesEnabled": {
+            "type": "boolean"
+          },
+          "mockLocationDetected": {
+            "type": "boolean"
+          },
+          "batteryOptimizationIgnored": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "developerOptionsEnabled": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "powerSaveMode": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "appVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "manufacturer": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "osVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pushToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "onboardingCompleted": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "DeviceHealthResult": {
+        "required": [
+          "isHealthy",
+          "issues",
+          "onboardingCompleted"
+        ],
+        "type": "object",
+        "properties": {
+          "isHealthy": {
+            "type": "boolean"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "onboardingCompleted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DevicePlatform": {
+        "enum": [
+          "android",
+          "ios",
+          "web"
+        ]
+      },
+      "EndShiftRequest": {
+        "required": [
+          "deviceId"
+        ],
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "lat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "lng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "HealthReportTrigger": {
+        "enum": [
+          "onboarding",
+          "appOpen",
+          "resume",
+          "manual",
+          "periodic"
+        ]
+      },
+      "HistoryPointDto": {
+        "required": [
+          "lat",
+          "lng",
+          "accuracy",
+          "recordedAt",
+          "speed",
+          "isMock",
+          "anomalyScore"
+        ],
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "format": "double"
+          },
+          "lng": {
+            "type": "number",
+            "format": "double"
+          },
+          "accuracy": {
+            "type": "number",
+            "format": "double"
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "speed": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "isMock": {
+            "type": "boolean"
+          },
+          "anomalyScore": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "IFormFile": {
+        "type": "string",
+        "format": "binary"
+      },
+      "LivePositionDto": {
+        "required": [
+          "userId",
+          "lat",
+          "lng",
+          "accuracy",
+          "recordedAt",
+          "receivedAt",
+          "speed",
+          "batteryLevel",
+          "isMock",
+          "anomalyScore",
+          "source",
+          "shiftId"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lat": {
+            "type": "number",
+            "format": "double"
+          },
+          "lng": {
+            "type": "number",
+            "format": "double"
+          },
+          "accuracy": {
+            "type": "number",
+            "format": "double"
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "speed": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "batteryLevel": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "isMock": {
+            "type": "boolean"
+          },
+          "anomalyScore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "source": {
+            "$ref": "#/components/schemas/LocationSource"
+          },
+          "shiftId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "LiveViewResponse": {
+        "required": [
+          "repId",
+          "liveUntil"
+        ],
+        "type": "object",
+        "properties": {
+          "repId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "liveUntil": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LocationBatchRequest": {
+        "required": [
+          "deviceId",
+          "source",
+          "points"
+        ],
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/LocationSource"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationPointDto"
+            }
+          },
+          "sentAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "LocationBatchResult": {
+        "required": [
+          "received",
+          "accepted",
+          "duplicates",
+          "outsideShift",
+          "anomalyScore",
+          "flagged"
+        ],
+        "type": "object",
+        "properties": {
+          "received": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "accepted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "duplicates": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "outsideShift": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "anomalyScore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "flagged": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LocationPermissionState": {
+        "enum": [
+          "none",
+          "whileInUse",
+          "always"
+        ]
+      },
+      "LocationPointDto": {
+        "required": [
+          "lat",
+          "lng",
+          "accuracy",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "format": "double"
+          },
+          "lng": {
+            "type": "number",
+            "format": "double"
+          },
+          "accuracy": {
+            "type": "number",
+            "format": "double"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "speed": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "heading": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "batteryLevel": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "isMock": {
+            "type": "boolean",
+            "default": false
+          },
+          "isMoving": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "uuid": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LocationSource": {
+        "enum": [
+          "native",
+          "pwa"
+        ]
+      },
+      "LoginRequest": {
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "client": {
+            "$ref": "#/components/schemas/ClientKind"
+          },
+          "deviceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LogoutRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MeResponse": {
+        "required": [
+          "user",
+          "permissions",
+          "permissionsVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserProfileDto"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrantDto"
+            }
+          },
+          "permissionsVersion": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "NotificationPermissionState": {
+        "enum": [
+          "unknown",
+          "granted",
+          "denied",
+          "prompt",
+          "notRequired"
+        ]
+      },
+      "PermissionDto": {
+        "required": [
+          "key",
+          "resource",
+          "action",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "resource": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "PermissionGrantDto": {
+        "required": [
+          "key",
+          "scope"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/PermissionScope"
+          }
+        }
+      },
+      "PermissionOverrideDto": {
+        "required": [
+          "key",
+          "isGranted",
+          "scope",
+          "expiresAt",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "isGranted": {
+            "type": "boolean"
+          },
+          "scope": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PermissionScope"
+              }
+            ]
+          },
+          "expiresAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PermissionScope": {
+        "enum": [
+          "own",
+          "team",
+          "territory",
+          "all"
+        ]
+      },
+      "PresenceStatus": {
+        "enum": [
+          "offShift",
+          "online",
+          "idle",
+          "trackingLost"
+        ]
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ReassignRoleUsersRequest": {
+        "required": [
+          "targetRoleId"
+        ],
+        "type": "object",
+        "properties": {
+          "targetRoleId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ReassignRoleUsersResult": {
+        "required": [
+          "movedCount"
+        ],
+        "type": "object",
+        "properties": {
+          "movedCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RecordConsentRequest": {
+        "required": [
+          "consentVersion",
+          "deviceId",
+          "platform",
+          "locale"
+        ],
+        "type": "object",
+        "properties": {
+          "consentVersion": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/DevicePlatform"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "clientAcceptedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "client": {
+            "$ref": "#/components/schemas/ClientKind"
+          },
+          "deviceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RepPresenceDto": {
+        "required": [
+          "userId",
+          "fullName",
+          "territoryId",
+          "status",
+          "shiftId",
+          "lastSeenAt",
+          "position",
+          "deviceHealthy",
+          "healthIssues",
+          "openFlags"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "territoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PresenceStatus"
+          },
+          "shiftId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "lastSeenAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "position": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LivePositionDto"
+              }
+            ]
+          },
+          "deviceHealthy": {
+            "type": "boolean"
+          },
+          "healthIssues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "openFlags": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ReviewFlagRequest": {
+        "required": [
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/TrackingFlagStatus"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RoleAuditAction": {
+        "enum": [
+          "created",
+          "updated",
+          "permissionsChanged",
+          "deleted",
+          "usersReassigned"
+        ]
+      },
+      "RoleAuditChangeDto": {
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "before": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "after": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RoleAuditEntryDto": {
+        "required": [
+          "id",
+          "roleId",
+          "roleKey",
+          "action",
+          "actorId",
+          "actorName",
+          "changes",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roleKey": {
+            "type": "string"
+          },
+          "action": {
+            "$ref": "#/components/schemas/RoleAuditAction"
+          },
+          "actorId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "actorName": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleAuditChangeDto"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RoleDto": {
+        "required": [
+          "id",
+          "key",
+          "nameAr",
+          "nameEn",
+          "description",
+          "isSystem",
+          "level",
+          "permissionsLocked",
+          "userCount",
+          "permissions"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": "string"
+          },
+          "nameEn": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isSystem": {
+            "type": "boolean"
+          },
+          "level": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "permissionsLocked": {
+            "type": "boolean"
+          },
+          "userCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrantDto"
+            }
+          }
+        }
+      },
+      "RoleSummaryDto": {
+        "required": [
+          "id",
+          "key",
+          "nameAr",
+          "nameEn",
+          "level"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": "string"
+          },
+          "nameEn": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SetPermissionOverridesRequest": {
+        "required": [
+          "overrides"
+        ],
+        "type": "object",
+        "properties": {
+          "overrides": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionOverrideDto"
+            }
+          }
+        }
+      },
+      "SetRolePermissionsRequest": {
+        "required": [
+          "permissions"
+        ],
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionGrantDto"
+            }
+          }
+        }
+      },
+      "SetUserRolesRequest": {
+        "required": [
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ShiftDto": {
+        "required": [
+          "id",
+          "status",
+          "deviceId",
+          "startedAt",
+          "endedAt",
+          "lastPointAt",
+          "trackingLostAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ShiftStatus"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastPointAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "trackingLostAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ShiftStatus": {
+        "enum": [
+          "active",
+          "ended"
+        ]
+      },
+      "StartShiftRequest": {
+        "required": [
+          "deviceId",
+          "source"
+        ],
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/LocationSource"
+          },
+          "lat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "lng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "accuracy": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "integrityToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "integrityNonce": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "StartShiftResponse": {
+        "required": [
+          "shift",
+          "config"
+        ],
+        "type": "object",
+        "properties": {
+          "shift": {
+            "$ref": "#/components/schemas/ShiftDto"
+          },
+          "config": {
+            "$ref": "#/components/schemas/TrackingConfigDto"
+          }
+        }
+      },
+      "TerritoryDto": {
+        "required": [
+          "id",
+          "code",
+          "name",
+          "nameAr",
+          "level",
+          "parentId",
+          "userCount",
+          "customerCount"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "level": {
+            "$ref": "#/components/schemas/TerritoryLevel"
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "userCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "customerCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TerritoryLevel": {
+        "enum": [
+          "region",
+          "area",
+          "territory"
+        ]
+      },
+      "TestPointRequest": {
+        "required": [
+          "deviceId",
+          "source",
+          "point"
+        ],
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/LocationSource"
+          },
+          "point": {
+            "$ref": "#/components/schemas/LocationPointDto"
+          },
+          "sentAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "TestPointResult": {
+        "required": [
+          "received",
+          "serverTime",
+          "clockOffsetSeconds",
+          "anomalyScore",
+          "signals"
+        ],
+        "type": "object",
+        "properties": {
+          "received": {
+            "type": "boolean"
+          },
+          "serverTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "clockOffsetSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "anomalyScore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "TrackingConfigDto": {
+        "required": [
+          "mode",
+          "distanceFilterMeters",
+          "uploadBatchSize",
+          "uploadIntervalSeconds",
+          "heartbeatIntervalSeconds",
+          "liveUntil",
+          "consentVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "distanceFilterMeters": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "uploadBatchSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "uploadIntervalSeconds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "heartbeatIntervalSeconds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "liveUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "consentVersion": {
+            "type": "string"
+          }
+        }
+      },
+      "TrackingFlagDto": {
+        "required": [
+          "id",
+          "userId",
+          "userName",
+          "type",
+          "status",
+          "score",
+          "signals",
+          "details",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/TrackingFlagType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TrackingFlagStatus"
+          },
+          "score": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "details": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TrackingFlagStatus": {
+        "enum": [
+          "open",
+          "confirmed",
+          "dismissed"
+        ]
+      },
+      "TrackingFlagType": {
+        "enum": [
+          "anomaly",
+          "mockLocation",
+          "trackingLost",
+          "unhealthyDevice",
+          "integrityFailed",
+          "visitOutsideGeofence"
+        ]
+      },
+      "UpdateRoleRequest": {
+        "required": [
+          "nameAr",
+          "nameEn",
+          "description",
+          "level"
+        ],
+        "type": "object",
+        "properties": {
+          "nameAr": {
+            "type": "string"
+          },
+          "nameEn": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "level": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "UpdateUserRequest": {
+        "required": [
+          "fullName",
+          "managerId",
+          "territoryId"
+        ],
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "managerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "territoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "preferredLanguage": {
+            "type": "string",
+            "default": "ar"
+          }
+        }
+      },
+      "UserListItemDto": {
+        "required": [
+          "id",
+          "email",
+          "fullName",
+          "roles",
+          "managerId",
+          "territoryId",
+          "isActive"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleSummaryDto"
+            }
+          },
+          "managerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "territoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "territoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "territoryNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "managerName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferredLanguage": {
+            "type": "string",
+            "default": "ar"
+          }
+        }
+      },
+      "UserProfileDto": {
+        "required": [
+          "id",
+          "email",
+          "fullName",
+          "preferredLanguage",
+          "roles",
+          "managerId",
+          "territoryId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "preferredLanguage": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleSummaryDto"
+            }
+          },
+          "managerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "territoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "VisitDto": {
+        "required": [
+          "id",
+          "customerId",
+          "customerName",
+          "userId",
+          "status",
+          "checkInAt",
+          "checkInDistanceMeters",
+          "checkInWithinGeofence",
+          "checkOutAt",
+          "checkOutDistanceMeters",
+          "checkOutWithinGeofence",
+          "qrVerified",
+          "needsReview",
+          "photos"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/VisitStatus"
+          },
+          "checkInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checkInDistanceMeters": {
+            "type": "number",
+            "format": "double"
+          },
+          "checkInWithinGeofence": {
+            "type": "boolean"
+          },
+          "checkOutAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "checkOutDistanceMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "checkOutWithinGeofence": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "qrVerified": {
+            "type": "boolean"
+          },
+          "needsReview": {
+            "type": "boolean"
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitPhotoDto"
+            }
+          }
+        }
+      },
+      "VisitListItemDto": {
+        "required": [
+          "id",
+          "userId",
+          "userName",
+          "customerId",
+          "customerName",
+          "customerNameAr",
+          "customerType",
+          "status",
+          "checkInAt",
+          "checkInDistanceMeters",
+          "checkInWithinGeofence",
+          "checkOutAt",
+          "checkOutDistanceMeters",
+          "checkOutWithinGeofence",
+          "qrVerified",
+          "needsReview",
+          "photoCount"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "customerNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "customerType": {
+            "$ref": "#/components/schemas/CustomerType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/VisitStatus"
+          },
+          "checkInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checkInDistanceMeters": {
+            "type": "number",
+            "format": "double"
+          },
+          "checkInWithinGeofence": {
+            "type": "boolean"
+          },
+          "checkOutAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "checkOutDistanceMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "checkOutWithinGeofence": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "qrVerified": {
+            "type": "boolean"
+          },
+          "needsReview": {
+            "type": "boolean"
+          },
+          "photoCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "VisitPhotoDto": {
+        "required": [
+          "id",
+          "contentType",
+          "sizeBytes",
+          "uploadedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VisitStatus": {
+        "enum": [
+          "inProgress",
+          "completed",
+          "cancelled"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "description": "Access token from /api/auth/login or /api/auth/refresh.",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "Bearer": [ ]
+    }
+  ],
+  "tags": [
+    {
+      "name": "Visits"
+    },
+    {
+      "name": "Tracking"
+    },
+    {
+      "name": "TrackingMonitor"
+    },
+    {
+      "name": "Roles"
+    },
+    {
+      "name": "Users"
+    },
+    {
+      "name": "Territories"
+    },
+    {
+      "name": "Auth"
+    },
+    {
+      "name": "Customers"
+    }
+  ]
+}

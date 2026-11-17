@@ -1,0 +1,809 @@
+{
+  "common": {
+    "appName": "Original Pharma",
+    "cancel": "Cancel",
+    "retry": "Try again",
+    "loading": "Loading…",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "close": "Close",
+    "open": "Open",
+    "fix": "Fix",
+    "signOut": "Sign out",
+    "language": "Language",
+    "switchLanguage": "عربي",
+    "comingSoon": "Coming soon",
+    "error": "Something went wrong. Please try again.",
+    "noAccess": "You do not have access to this page.",
+    "offline": "You are offline. Data will be sent when you are back online.",
+    "updateAvailable": "A new version is available.",
+    "reload": "Reload",
+    "save": "Save",
+    "saving": "Saving…",
+    "yes": "Yes"
+  },
+  "status": {
+    "done": "Done",
+    "pending": "Not done yet",
+    "problem": "Needs fixing",
+    "notApplicable": "Not needed on this device"
+  },
+  "auth": {
+    "title": "Sign in",
+    "subtitle": "Use your company email and password.",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "required": "Required",
+    "invalidEmail": "Enter a valid email",
+    "errors": {
+      "invalid-credentials": "Email or password is incorrect.",
+      "locked-out": "Too many failed attempts. Try again in a few minutes.",
+      "generic": "Could not sign in. Check your connection and try again."
+    }
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "liveMap": "Live map",
+    "users": "Users",
+    "roles": "Roles & permissions",
+    "visits": "Visits",
+    "home": "My day",
+    "settings": "Settings",
+    "trackingHealth": "Tracking health",
+    "trackingSetup": "Tracking setup",
+    "openMenu": "Open menu",
+    "repApp": "Rep app",
+    "customers": "Doctors & pharmacies",
+    "territories": "Territories",
+    "flags": "Tracking flags",
+    "devices": "Devices health",
+    "menu": "Menu",
+    "menuHint": "Dashboard navigation",
+    "sections": {
+      "overview": "Overview",
+      "field": "Field work",
+      "tracking": "Tracking",
+      "admin": "Administration"
+    }
+  },
+  "admin": {
+    "welcome": "Welcome, {{name}}",
+    "onlineReps": "Reps online",
+    "unhealthyDevices": "Devices needing attention",
+    "openFlags": "Open tracking flags",
+    "overviewHint": "Live numbers come from the tracking module. Reports and KPIs will be added here.",
+    "staleReps": "Not reporting",
+    "lostReps": "Tracking lost",
+    "needsAttention": "Needs attention",
+    "allClear": "Everyone is reporting normally.",
+    "latestFlags": "Latest open flags",
+    "todayVisits": "Today's visits",
+    "noVisitsToday": "No visits yet today.",
+    "viewAll": "View all",
+    "nothingHere": "Nothing to show yet",
+    "nothingHereHint": "Your role has no dashboard widgets. Use the menu to open the pages you can access.",
+    "visitCounts": {
+      "total": "Visits",
+      "completed": "Completed",
+      "inProgress": "In progress",
+      "review": "Need review"
+    }
+  },
+  "users": {
+    "title": "Users",
+    "name": "Name",
+    "email": "Email",
+    "roles": "Roles",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "empty": "No users to show.",
+    "hint": "People who use the dashboard or the rep app. Roles decide what they can do; overrides adjust one person.",
+    "searchPlaceholder": "Search name or email",
+    "territory": "Territory",
+    "manager": "Manager",
+    "actions": {
+      "roles": "Roles",
+      "overrides": "Permissions",
+      "edit": "Edit"
+    },
+    "create": {
+      "title": "New user",
+      "description": "The user can sign in right away with this email and password.",
+      "submit": "Create user",
+      "generate": "Generate",
+      "passwordHint": "At least 8 characters. Share it with the user securely.",
+      "passwordRule": "At least 8 characters",
+      "language": "Language",
+      "noTerritory": "No territory",
+      "noManager": "No manager",
+      "territoryRequired": "Choose a territory inside your area.",
+      "managerRequired": "Choose a manager from your team.",
+      "scopeTerritoryHint": "You can add users only inside your territory, so a territory is required.",
+      "scopeTeamHint": "You can add users only to your team, so a manager is required."
+    },
+    "rolesDialog": {
+      "title": "Roles of {{name}}",
+      "description": "The user gets the combined permissions of all selected roles. The change applies on their next request.",
+      "atLeastOne": "Select at least one role.",
+      "managerRank": "{{manager}} would no longer outrank this user. Pick a lower role, or change the manager first.",
+      "reportsRank": "Someone reporting to this user would no longer be outranked by them. Pick a higher role, or move their reports first."
+    },
+    "overrides": {
+      "title": "Permission overrides: {{name}}",
+      "description": "Exceptions for this user on top of their roles.",
+      "rules": "A grant replaces the scope that comes from the roles (wider or narrower). A deny removes the permission even if a role grants it. Expired overrides are ignored. Saving applies on the user's next request.",
+      "fromRoles": "From roles",
+      "effective": "Effective",
+      "inherit": "Use roles",
+      "grant": "Grant · {{scope}}",
+      "deny": "Deny",
+      "override": "Override for {{permission}}",
+      "expires": "Expires",
+      "expired": "Expired",
+      "reason": "Reason (optional)",
+      "count_one": "{{count}} override",
+      "count_other": "{{count}} overrides",
+      "readOnly": "Read-only: {{reason}}."
+    },
+    "edit": {
+      "title": "Edit {{name}}",
+      "description": "Name, language, territory and manager. Roles and permissions have their own buttons."
+    },
+    "reporting": {
+      "hint": "The manager must hold a role with a lower level number than this user.",
+      "reportsToUser": "reports to this user",
+      "doesNotOutrank": "does not outrank this user"
+    }
+  },
+  "roles": {
+    "title": "Roles & permissions",
+    "hint": "Roles decide what people can do. A lower level number means more authority: you can only manage, and assign, roles below your own level. Changes apply on each user's next request.",
+    "users": "{{count}} users",
+    "system": "System role",
+    "scope": {
+      "own": "Own",
+      "team": "Team",
+      "territory": "Territory",
+      "all": "All"
+    },
+    "users_one": "{{count}} user",
+    "users_other": "{{count}} users",
+    "adminLocked": "The Admin role always has every permission",
+    "empty": "No roles yet.",
+    "scopeHint": {
+      "own": "only their own records",
+      "team": "their team (everyone reporting to them)",
+      "territory": "their territory and the territories under it",
+      "all": "everything"
+    },
+    "matrix": {
+      "permission": "Permission",
+      "none": "No access",
+      "unsaved": "Unsaved changes: {{count}} ({{roles}})",
+      "discard": "Discard",
+      "save": "Save changes",
+      "saved": "Saved. Affected users get the new permissions on their next request.",
+      "saveFailed": "Could not save the permissions of {{role}}.",
+      "scopeBeyond": "{{scope}} (broader than your access)"
+    },
+    "create": {
+      "title": "New role",
+      "description": "Name the role in both languages and choose its level. Its permissions are set in the matrix.",
+      "copyFrom": "Copy permissions from",
+      "startEmpty": "No permissions",
+      "copyHint": "Starts with the permissions of an existing role. Roles with permissions you do not hold cannot be copied.",
+      "submit": "Create role"
+    },
+    "addRole": "Add role",
+    "level": "Level {{level}}",
+    "levelHint": "Lower number = more authority",
+    "systemHint": "Seeded role: it can be renamed but not deleted.",
+    "adminLockedHint": "Admin always holds every permission with scope All (including role and user management) and stays at level 0, so its permissions are read-only. You can still rename it.",
+    "optionLocked": "{{role}} — {{reason}}",
+    "optionWithLevel": "{{role}} (level {{level}})",
+    "view": {
+      "label": "View",
+      "roles": "Roles",
+      "hierarchy": "Hierarchy"
+    },
+    "list": {
+      "title": "Roles",
+      "order": "By level",
+      "unsaved": "Unsaved permission changes"
+    },
+    "reason": {
+      "aboveYou": "Above your level",
+      "ownLevel": "Your own level",
+      "self": "You cannot change your own roles or permissions",
+      "userAboveYou": "Their role is at or above your level",
+      "noManage": "You can view roles but not change them",
+      "system": "System roles cannot be deleted"
+    },
+    "form": {
+      "nameAr": "Arabic name",
+      "nameEn": "English name",
+      "description": "Description",
+      "level": "Level",
+      "levelHelp": "Lower number = more authority. You can use {{min}} or higher.",
+      "levelInvalid": "Enter a whole number.",
+      "levelRange": "Use a level between {{min}} and {{max}}.",
+      "levelLocked": "Admin always stays at level 0."
+    },
+    "details": {
+      "key": "System key",
+      "keyHint": "used by the system; it does not change when you rename the role",
+      "readOnly": "Read-only: {{reason}}.",
+      "save": "Save details",
+      "reset": "Reset",
+      "unsaved": "Unsaved changes",
+      "saved": "Saved",
+      "delete": "Delete role"
+    },
+    "copy": {
+      "title": "Copy permissions from another role",
+      "choose": "Choose a role",
+      "apply": "Copy",
+      "hint": "Fills this role's column in the matrix below. Review it, then save.",
+      "optionBlocked": "{{role}} — has permissions you do not hold"
+    },
+    "delete": {
+      "title": "Delete “{{role}}”?",
+      "description": "The role is removed for good. Its change history is kept.",
+      "inUse": "Users with this role: {{count}}. Choose a role to move them to; the role is deleted once they are moved.",
+      "moveTo": "Move users to",
+      "choose": "Choose a role",
+      "moveHint": "Users who already have that role just lose this one.",
+      "confirm": "Delete role",
+      "moveAndDelete": "Move users and delete",
+      "deleting": "Deleting…"
+    },
+    "audit": {
+      "title": "Recent changes",
+      "empty": "No changes recorded yet.",
+      "unknownActor": "Unknown user",
+      "action": {
+        "created": "Role created",
+        "updated": "Details changed",
+        "permissionsChanged": "Permissions changed",
+        "deleted": "Role deleted",
+        "usersReassigned": "Users moved"
+      },
+      "field": {
+        "nameAr": "Arabic name",
+        "nameEn": "English name",
+        "description": "Description"
+      },
+      "change": "{{field}}: {{before}} → {{after}}",
+      "set": "{{field}}: {{value}}",
+      "copiedFrom": "Permissions copied from {{role}}",
+      "movedTo": "Users moved to {{role}}: {{count}}",
+      "movedFrom": "Users received from {{role}}: {{count}}",
+      "showMore": "Show {{count}} more",
+      "showLess": "Show less"
+    },
+    "hierarchy": {
+      "title": "Hierarchy",
+      "hint": "Each step down is a higher level number (less authority); roles on the same level sit side by side. People can manage, and assign, only roles below their own level.",
+      "yourLevel": "Your level: {{level}}",
+      "noLevel": "You have no role, so you cannot manage roles.",
+      "yours": "Your role"
+    }
+  },
+  "visits": {
+    "title": "Visits",
+    "hint": "Check-ins of the reps in your scope, with geofence and proof details.",
+    "checkIn": "Check-in",
+    "rep": "Rep",
+    "customer": "Customer",
+    "status": "Status",
+    "duration": "Duration",
+    "distance": "Distance",
+    "inside": "Inside the geofence",
+    "outside": "Outside the geofence",
+    "proof": "Proof",
+    "qrVerified": "QR code scanned",
+    "photos": "Photos",
+    "review": "Review",
+    "needsReview": "Needs review",
+    "reviewOnly": "Needs review only",
+    "from": "From",
+    "to": "To",
+    "searchPlaceholder": "Search rep or customer",
+    "empty": "No visits in this period.",
+    "emptyHint": "Try a wider date range.",
+    "invalidRange": "Choose a date range of at most {{days}} days.",
+    "capped": "Showing the newest {{formatted}} visits. Narrow the dates to see the others.",
+    "statuses": {
+      "inProgress": "In progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "liveMap": {
+    "title": "Live map",
+    "noReps": "No tracked reps in your scope yet.",
+    "lastSeen": "Last seen {{time}}",
+    "never": "never",
+    "battery": "Battery {{percent}}%",
+    "liveView": "Watch live",
+    "stopLiveView": "Stop watching",
+    "connected": "Real-time connected",
+    "disconnected": "Real-time disconnected",
+    "unhealthy": "Tracking unhealthy",
+    "flags": "{{count}} flags",
+    "mock": "Mock location",
+    "flags_one": "{{count}} flag",
+    "flags_other": "{{count}} flags",
+    "status": {
+      "online": "Online",
+      "stale": "Not reporting",
+      "lost": "Tracking lost",
+      "offShift": "Off shift"
+    },
+    "searchPlaceholder": "Search reps",
+    "filterByStatus": "Filter by status",
+    "noRepsHint": "Reps appear once they register a phone in the app.",
+    "noPosition": "No location yet",
+    "backToList": "Back to the list",
+    "follow": "Follow",
+    "following": "Following",
+    "liveViewHint": "Asks the rep's phone to report every few seconds while you watch. Uses more battery.",
+    "position": "Position",
+    "recordedAt": "Recorded",
+    "accuracyLabel": "Accuracy",
+    "speed": "Speed",
+    "kmh": "{{value}} km/h",
+    "batteryLabel": "Battery",
+    "source": "Source",
+    "anomalyScore": "Anomaly score {{score}}",
+    "deviceHealth": "Phone settings",
+    "route": "Route",
+    "routeDay": "Route day",
+    "noRoute": "No locations recorded on this day.",
+    "routeDistance": "Distance",
+    "routePoints": "Points",
+    "routeStart": "First",
+    "routeEnd": "Last",
+    "routeFlagged_one": "{{count}} suspicious point (red)",
+    "routeFlagged_other": "{{count}} suspicious points (red)",
+    "fitRoute": "Show whole route",
+    "mapLabel": "Map of rep positions"
+  },
+  "rep": {
+    "greeting": "Hello, {{name}}",
+    "startDay": "Start my day",
+    "endDay": "End my day",
+    "starting": "Starting…",
+    "ending": "Ending…",
+    "dayRunning": "Your day is running. Location is shared with your supervisor.",
+    "dayNotStarted": "Your day has not started. Location is not tracked.",
+    "startedAt": "Started at {{time}}",
+    "setupRequired": "Finish the tracking setup first",
+    "setupRequiredHint": "It takes about 3 minutes and is needed once per phone.",
+    "openSetup": "Open tracking setup",
+    "pendingPoints": "{{count}} locations waiting to be sent",
+    "pwaForegroundNote": "On iPhone, keep the app open while working. Location is only sent while the app is on screen.",
+    "errors": {
+      "consent-required": "Please accept the tracking consent in the setup first.",
+      "device-not-ready": "Please finish the tracking setup on this phone first.",
+      "no-active-shift": "Your day is not running."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "trackingSetup": "Tracking setup",
+    "trackingSetupHint": "Run the setup steps again",
+    "trackingHealth": "Tracking health",
+    "trackingHealthHint": "Check that tracking works on this phone",
+    "language": "Language",
+    "appVersion": "App version {{version}}",
+    "device": "Device",
+    "deviceId": "Device ID"
+  },
+  "health": {
+    "title": "Tracking health",
+    "allGood": "Everything is set up correctly.",
+    "problems": "Some settings stop tracking from working:",
+    "banner": "Tracking needs your attention",
+    "bannerAction": "Fix now",
+    "recheck": "Check again",
+    "lastChecked": "Last checked {{time}}",
+    "issues": {
+      "location-permission-missing": "Location permission is off",
+      "background-location-missing": "Location is not set to \"Allow all the time\"",
+      "approximate-location": "Precise location is off",
+      "notifications-denied": "Notifications are off",
+      "battery-optimization-on": "Battery saving is limiting the app",
+      "location-services-off": "Phone location (GPS) is off",
+      "mock-location": "A fake location app is active"
+    }
+  },
+  "tracking": {
+    "notification": {
+      "title": "Original Pharma: your day is running",
+      "text": "Your location is shared with your supervisor until you end your day."
+    },
+    "rationale": {
+      "title": "Allow location all the time",
+      "message": "To track your working day even when the phone is locked, choose \"Allow all the time\" on the next screen.",
+      "positive": "Open settings"
+    }
+  },
+  "onboarding": {
+    "title": "Tracking setup",
+    "intro": "Follow these steps once. Each step tells you why it is needed and what to tap.",
+    "stepOf": "Step {{current}} of {{total}}",
+    "why": "Why we need this",
+    "howTo": "What to do",
+    "markDone": "I did it",
+    "check": "Check again",
+    "finish": "Finish setup",
+    "finishing": "Saving…",
+    "readyTitle": "This phone is ready",
+    "readyText": "You can now start your day.",
+    "goHome": "Go to my day",
+    "notNeededHere": "This step is not needed on this device.",
+    "steps": {
+      "consent": {
+        "title": "Welcome and consent",
+        "why": "We need your clear agreement before tracking your location.",
+        "whatTitle": "What is tracked",
+        "what": "Your location (GPS), battery level and whether the phone settings needed for tracking are on.",
+        "whenTitle": "When",
+        "when": "Only between \"Start my day\" and \"End my day\". Nothing is tracked outside your working day.",
+        "whoTitle": "Who can see it",
+        "who": "Your supervisor and the managers above you see your current location, your route during the day and your visits.",
+        "fakeTitle": "Fake locations",
+        "fake": "Fake GPS apps and changed locations are detected and reported to your supervisor.",
+        "checkbox": "I agree to share my location during my working day.",
+        "accept": "I agree",
+        "accepted": "Consent saved"
+      },
+      "locationWhileInUse": {
+        "title": "Location permission",
+        "why": "The app needs your location to record your working day and verify your visits.",
+        "instructions": "Tap the button below. When the phone asks, choose \"While using the app\".",
+        "action": "Allow location"
+      },
+      "locationAlways": {
+        "title": "Location all the time",
+        "why": "So your day keeps being recorded when the phone is locked or the app is in the background.",
+        "instructions": "Tap the button. In the screen that opens, tap \"Permissions\", then \"Location\", then choose \"Allow all the time\". Also turn on \"Use precise location\".",
+        "action": "Open location settings",
+        "openSettings": "Open app settings",
+        "preciseAction": "Turn on precise location",
+        "guideTitle": "What you will see",
+        "guideAppInfo": "App info",
+        "guidePermissions": "Permissions",
+        "guideLocation": "Location",
+        "guideAllowAll": "Allow all the time",
+        "guideWhileUsing": "Allow only while using the app",
+        "guideDeny": "Don't allow",
+        "guidePrecise": "Use precise location"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "why": "Android shows a small notification while your day is running, and your supervisor can ask the app for a fresh location.",
+        "instructions": "Tap the button and choose \"Allow\".",
+        "action": "Allow notifications",
+        "openSettings": "Open notification settings"
+      },
+      "locationServices": {
+        "title": "Turn on phone location",
+        "why": "Without phone location (GPS) no position can be recorded.",
+        "instructions": "Open the location settings and turn \"Use location\" on. If you see \"Location accuracy\" or \"Improve accuracy\", turn it on too.",
+        "action": "Open location settings"
+      },
+      "battery": {
+        "title": "Battery settings",
+        "why": "Phones close apps to save battery. That stops tracking in the middle of your day.",
+        "instructions": "Tap the button and choose \"Allow\" so the app is not limited. Then follow the steps for your phone below.",
+        "action": "Remove battery limit",
+        "oemAction": "Open phone power settings",
+        "oemTitle": "Extra steps for your phone ({{brand}})"
+      },
+      "mockLocation": {
+        "title": "No fake location",
+        "why": "Fake location apps are detected and reported. Your location must come from the real GPS.",
+        "instructions": "Make sure no fake GPS app is open. If Developer options are on, open them and set \"Select mock location app\" to \"Nothing\".",
+        "action": "Check my location",
+        "devOptions": "Open developer options",
+        "clean": "Your location comes from the real GPS.",
+        "detected": "A fake location app is active. Turn it off and check again.",
+        "unknown": "Could not check. Make sure location is on and try again."
+      },
+      "healthCheck": {
+        "title": "Final check",
+        "why": "We check every step again and send a test location to the server.",
+        "instructions": "Tap the button and wait a few seconds.",
+        "action": "Run the check",
+        "running": "Checking…",
+        "serverOk": "A test location reached the server",
+        "serverFailed": "The test location did not reach the server. Check your internet and try again.",
+        "allGood": "All checks passed."
+      }
+    }
+  },
+  "oem": {
+    "samsung": {
+      "name": "Samsung",
+      "steps": [
+        "Settings > Apps > Original Pharma > Battery: choose \"Unrestricted\".",
+        "Settings > Battery > Background usage limits > Sleeping apps: remove Original Pharma if it is listed.",
+        "In the same screen open \"Never sleeping apps\" and add Original Pharma."
+      ]
+    },
+    "xiaomi": {
+      "name": "Xiaomi / Redmi / POCO",
+      "steps": [
+        "Settings > Apps > Manage apps > Original Pharma: turn \"Autostart\" on.",
+        "In the same screen open \"Battery saver\" and choose \"No restrictions\".",
+        "Open recent apps, press and hold Original Pharma, and tap the lock icon so it is not closed."
+      ]
+    },
+    "oppo": {
+      "name": "OPPO / realme / OnePlus",
+      "steps": [
+        "Settings > Apps > App management > Original Pharma: turn \"Auto launch\" (or \"Allow auto launch\") on.",
+        "Battery usage: turn \"Allow background activity\" on.",
+        "Battery optimization: set Original Pharma to \"Don't optimize\"."
+      ]
+    },
+    "huawei": {
+      "name": "Huawei / Honor",
+      "steps": [
+        "Settings > Battery > App launch > Original Pharma: switch to \"Manage manually\".",
+        "Turn on all three: \"Auto-launch\", \"Secondary launch\" and \"Run in background\".",
+        "Tap OK to save."
+      ]
+    },
+    "vivo": {
+      "name": "vivo / iQOO",
+      "steps": [
+        "Settings > Battery > Background power consumption management: choose \"Allow high background power consumption\" for Original Pharma.",
+        "Settings > Apps > Autostart: turn Original Pharma on."
+      ]
+    },
+    "generic": {
+      "name": "Your phone",
+      "steps": [
+        "Settings > Apps > Original Pharma > Battery: choose \"Unrestricted\" or \"Don't optimize\".",
+        "If your phone has an \"Autostart\" or \"Auto launch\" setting, turn it on for Original Pharma.",
+        "Do not close the app from the recent apps screen during your day."
+      ]
+    }
+  },
+  "forms": {
+    "required": "Required",
+    "maxLength": "At most {{count}} characters"
+  },
+  "states": {
+    "errorTitle": "Could not load the data",
+    "noMatches": "No results match these filters",
+    "noMatchesHint": "Try a different search or clear the filters.",
+    "clearFilters": "Clear filters"
+  },
+  "table": {
+    "search": "Search",
+    "clearSearch": "Clear search",
+    "all": "All",
+    "actions": "Actions",
+    "pageSize": "Rows per page",
+    "previous": "Previous page",
+    "next": "Next page",
+    "range": "{{first}}–{{last}} of {{total}}"
+  },
+  "errors": {
+    "network": "Cannot reach the server. Check your connection.",
+    "forbidden": "You do not have permission to do this.",
+    "not-found": "This item no longer exists.",
+    "server-error": "The server ran into a problem. Try again in a moment.",
+    "validation": "Some fields are not valid.",
+    "unknown-role": "One of the selected roles no longer exists.",
+    "unknown-permission": "One of the permissions is not known to the server.",
+    "user-create-failed": "The user could not be created: {{detail}}",
+    "user-roles-failed": "The roles could not be assigned: {{detail}}",
+    "invalid-range": "The date range is not valid.",
+    "role_level_too_high": "You can only manage roles below your own level.",
+    "user_level_too_high": "This user's role is at or above your own level.",
+    "scope_too_broad": "You cannot grant “{{permission}}” at this scope: it is broader than your own access.",
+    "self_edit_forbidden": "You cannot change your own roles, permissions or manager.",
+    "manager_level_invalid": "A manager must hold a role with a lower level number than the people reporting to them.",
+    "manager_cycle": "This manager reports to the user (directly or indirectly), which would create a loop.",
+    "admin_role_locked": "The Admin role always has every permission and stays at level 0.",
+    "system_role": "System roles cannot be deleted.",
+    "role_in_use": "Users still holding this role: {{userCount}}. Move them to another role first.",
+    "last_admin": "At least one active user must keep the Admin role.",
+    "self_lockout": "This change would remove your own access to role administration.",
+    "role_name_taken": "Another role already uses this name.",
+    "reassign_same_role": "Choose a different role to move the users to.",
+    "users_out_of_scope": "Some of these users ({{userCount}}) are outside your scope."
+  },
+  "resources": {
+    "users": "Users",
+    "roles": "Roles & permissions",
+    "territories": "Territories",
+    "customers": "Doctors & pharmacies",
+    "visits": "Visits",
+    "tracking": "Tracking",
+    "devices": "Devices",
+    "reports": "Reports"
+  },
+  "permissionNames": {
+    "users": {
+      "read": "View users",
+      "manage": "Create users and assign roles"
+    },
+    "roles": {
+      "read": "View roles and permissions",
+      "manage": "Create roles and change permissions"
+    },
+    "territories": {
+      "read": "View territories",
+      "manage": "Edit territories"
+    },
+    "customers": {
+      "read": "View doctors and pharmacies",
+      "manage": "Edit doctors and pharmacies"
+    },
+    "visits": {
+      "read": "View visits",
+      "create": "Check in and out of visits",
+      "manage": "Edit or cancel visits"
+    },
+    "tracking": {
+      "report": "Share own location (rep app)",
+      "view-live": "See live locations",
+      "history": "View location history",
+      "review-flags": "Review tracking flags"
+    },
+    "devices": {
+      "read": "View devices health"
+    },
+    "reports": {
+      "read": "View reports"
+    }
+  },
+  "territories": {
+    "title": "Territories",
+    "hint": "Regions, areas and territories in your scope, with the active users and customers in each.",
+    "name": "Name",
+    "code": "Code",
+    "level": "Level",
+    "parent": "Part of",
+    "users": "Users",
+    "customers": "Customers",
+    "searchPlaceholder": "Search name or code",
+    "empty": "No territories in your scope.",
+    "levels": {
+      "region": "Region",
+      "area": "Area",
+      "territory": "Territory"
+    }
+  },
+  "customers": {
+    "title": "Doctors & pharmacies",
+    "hint": "Customers in your territories. Editing, classification and QR printing come later.",
+    "name": "Name",
+    "type": "Type",
+    "territory": "Territory",
+    "address": "Address",
+    "location": "Location",
+    "geofence": "Map · {{radius}} radius",
+    "noLocation": "No location",
+    "qr": "QR",
+    "status": "Status",
+    "searchPlaceholder": "Search name or address",
+    "empty": "No customers in your scope.",
+    "emptyHint": "Customers come from the CRM module (not built yet) or the demo data.",
+    "capped": "Showing the first {{formatted}} results. Narrow the search to see the others.",
+    "types": {
+      "doctor": "Doctor",
+      "pharmacy": "Pharmacy"
+    }
+  },
+  "flags": {
+    "title": "Tracking flags",
+    "hint": "Suspicious tracking events raised by the server. Confirm real problems and dismiss false alarms.",
+    "raised": "Raised",
+    "rep": "Rep",
+    "type": "Type",
+    "score": "Score",
+    "signalsLabel": "Signals",
+    "details": "Details",
+    "status": "Status",
+    "searchPlaceholder": "Search rep or details",
+    "selectedRep": "Selected rep",
+    "showOnMap": "Show on the live map",
+    "empty": "No flags with these filters.",
+    "emptyOpen": "No open flags.",
+    "emptyOpenHint": "New flags appear here as soon as the server raises them.",
+    "capped": "Showing the newest {{count}} flags.",
+    "statuses": {
+      "open": "Open",
+      "confirmed": "Confirmed",
+      "dismissed": "Dismissed"
+    },
+    "types": {
+      "anomaly": "Unusual movement",
+      "mockLocation": "Fake location",
+      "trackingLost": "Tracking lost",
+      "unhealthyDevice": "Phone settings",
+      "integrityFailed": "App integrity",
+      "visitOutsideGeofence": "Visit outside the location"
+    },
+    "signals": {
+      "mock-location": "Fake GPS",
+      "teleport": "Jump in position",
+      "impossible-speed": "Impossible speed",
+      "future-timestamp": "Time in the future",
+      "clock-drift": "Phone clock is wrong",
+      "perfect-accuracy": "Unrealistic accuracy",
+      "repeated-accuracy": "Same accuracy repeated",
+      "ip-geo-mismatch": "Network location far away",
+      "tracking-lost": "No updates",
+      "integrity": "Integrity check failed",
+      "outside-geofence": "Outside the geofence"
+    },
+    "review": {
+      "title": "Review flag",
+      "description": "Confirm it if it is a real problem, or dismiss it as a false alarm.",
+      "note": "Note (optional)",
+      "notePlaceholder": "What did you find?",
+      "confirm": "Confirm problem",
+      "dismiss": "Dismiss",
+      "reopen": "Reopen",
+      "action": "Review",
+      "view": "Details"
+    }
+  },
+  "devices": {
+    "title": "Devices health",
+    "hint": "Tracking settings each rep's phone reported last. Problems here stop background tracking.",
+    "rep": "Rep",
+    "device": "Device",
+    "unknownModel": "Unknown model",
+    "health": "Health",
+    "healthy": "Healthy",
+    "needsAttention": "Needs attention",
+    "issuesCount_one": "{{count}} problem",
+    "issuesCount_other": "{{count}} problems",
+    "checks": "Settings",
+    "app": "App / OS",
+    "setup": "Setup",
+    "setupMissing": "Not finished",
+    "lastReport": "Last report",
+    "flags": "Flags",
+    "reviewFlags_one": "Review {{count}} flag",
+    "reviewFlags_other": "Review {{count}} flags",
+    "platform": "Platform",
+    "searchPlaceholder": "Search rep or phone model",
+    "empty": "No devices yet.",
+    "emptyHint": "A device appears after a rep signs in to the app and runs the setup.",
+    "unhealthySummary_one": "{{count}} device needs attention",
+    "unhealthySummary_other": "{{count}} devices need attention",
+    "locationPermission": "Location permission",
+    "approximate": "approximate",
+    "notificationsOff": "Notifications off",
+    "batteryLimited": "Battery limited",
+    "powerSave": "Power saving on",
+    "platforms": {
+      "android": "Android",
+      "ios": "iPhone",
+      "web": "Web"
+    },
+    "sources": {
+      "native": "App",
+      "pwa": "Web app"
+    },
+    "location": {
+      "none": "No location",
+      "whileInUse": "While in use",
+      "always": "Always"
+    }
+  }
+}

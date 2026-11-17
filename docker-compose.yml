@@ -1,0 +1,43 @@
+# Local development services. Works with `podman compose` and `docker compose`.
+# Data lives in NAMED volumes (never bind mounts): the repo sits on an NTFS drive
+# that cannot hold PostgreSQL file permissions.
+name: original-pharma
+
+services:
+  postgres:
+    image: docker.io/postgis/postgis:18-3.7
+    container_name: op-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-original_pharma}
+      POSTGRES_USER: ${POSTGRES_USER:-pharma}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example or run scripts/dev-setup.sh)}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/<major>/docker
+      - op-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: docker.io/library/redis:8.6-alpine
+    container_name: op-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - op-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  op-postgres-data:
+  op-redis-data:

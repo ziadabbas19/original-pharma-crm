@@ -1,0 +1,52 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Local environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.keystore
+*.jks
+google-services.json
+
+# .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.DotSettings.user
+TestResults/
+*.trx
+App_Data/
+
+# Node / Vite
+node_modules/
+FRONTEND/dist/
+FRONTEND/dev-dist/
+*.tsbuildinfo
+.eslintcache
+npm-debug.log*
+coverage/
+
+# Android / Gradle (Capacitor adds FRONTEND/android/.gitignore for its build assets)
+.gradle/
+FRONTEND/android/build/
+FRONTEND/android/app/build/
+FRONTEND/android/capacitor-cordova-android-plugins/build/
+FRONTEND/android/local.properties
+FRONTEND/android/app/release/
+.cxx/
+.externalNativeBuild/
+captures/
+*.apk
+*.aab
+
+# TanStack Router route tree (rebuilt by `npm run dev` / `npm run build`)
+FRONTEND/src/routeTree.gen.ts
