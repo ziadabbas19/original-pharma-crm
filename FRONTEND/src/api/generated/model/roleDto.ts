@@ -16,4 +16,6 @@ export interface RoleDto {
   permissionsLocked: boolean
   userCount: number
   permissions: PermissionGrantDto[]
+  /** @nullable */
+  maxDiscountPercent?: number | null
 }

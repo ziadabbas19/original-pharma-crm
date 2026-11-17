@@ -1,15 +1,17 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
+using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Identity;
 
 namespace OriginalPharma.Application.Identity;
 
 /// <summary>
-/// User administration: create, edit profile and reporting line, assign roles and set
-/// permission overrides. Hierarchy rules (<see cref="HierarchyGuard"/>) apply to all of it:
+/// User administration: create (users:create), edit profile, reporting line and product lines,
+/// assign roles and set permission overrides. Hierarchy rules (<see cref="HierarchyGuard"/>) apply to all of it:
 /// nobody edits themselves, users at or above their own level, or hands out roles and
 /// permissions above what they hold.
 /// </summary>
@@ -20,6 +22,7 @@ public sealed class UserAdminService(
     IPermissionService permissionService,
     IOrgHierarchy hierarchy,
     HierarchyGuard guard,
+    AccountService accounts,
     TimeProvider time)
 {
     public async Task<IReadOnlyList<UserListItemDto>> ListAsync(CancellationToken cancellationToken = default)
@@ -41,22 +44,47 @@ public sealed class UserAdminService(
                 TerritoryNameAr = u.Territory != null ? u.Territory.NameAr : null,
                 u.IsActive,
                 u.PreferredLanguage,
+                u.AvatarKey,
+                u.MustChangePassword,
             })
             .ToListAsync(cancellationToken);
 
-        var roles = await db.GetRoleSummariesAsync(users.Select(u => u.Id).ToList(), cancellationToken);
+        var ids = users.Select(u => u.Id).ToList();
+        var roles = await db.GetRoleSummariesAsync(ids, cancellationToken);
+        var lines = (await db.UserProductLines.AsNoTracking()
+                .Where(l => ids.Contains(l.UserId))
+                .Select(l => new { l.UserId, l.ProductLineId })
+                .ToListAsync(cancellationToken))
+            .ToLookup(l => l.UserId, l => l.ProductLineId);
 
         return users
             .Select(u => new UserListItemDto(
                 u.Id, u.Email ?? string.Empty, u.FullName, roles[u.Id].ToList(), u.ManagerId, u.TerritoryId, u.IsActive,
-                u.TerritoryName, u.TerritoryNameAr, u.ManagerName, u.PreferredLanguage))
+                u.TerritoryName, u.TerritoryNameAr, u.ManagerName, u.PreferredLanguage,
+                ImageService.Url(u.AvatarKey, ImageService.Thumbnail), lines[u.Id].ToList(), u.MustChangePassword))
             .ToList();
     }
 
-    public async Task<UserListItemDto> CreateAsync(CreateUserRequest request, CancellationToken cancellationToken = default)
+    /// <summary>Roles the caller may give to a new user: those strictly below their own level.</summary>
+    public async Task<IReadOnlyList<RoleSummaryDto>> ListAssignableRolesAsync(CancellationToken cancellationToken = default)
     {
         var actor = await guard.GetActorAsync(cancellationToken);
-        var scope = await scopeResolver.ResolveAsync(Permissions.Users.Manage, cancellationToken);
+        var roles = await db.Roles.AsNoTracking()
+            .OrderBy(r => r.Level).ThenBy(r => r.NameEn)
+            .Select(r => new RoleSummaryDto(r.Id, r.Name!, r.NameAr, r.NameEn, r.Level))
+            .ToListAsync(cancellationToken);
+        return roles.Where(r => actor.CanManageLevel(r.Level)).ToList();
+    }
+
+    /// <summary>
+    /// Creates an account (users:create). The new user is placed inside the caller's scope, gets
+    /// only roles below the caller's level and a manager that outranks them, and must change the
+    /// temporary password on first sign-in.
+    /// </summary>
+    public async Task<CreatedUserDto> CreateAsync(CreateUserRequest request, CancellationToken cancellationToken = default)
+    {
+        var actor = await guard.GetActorAsync(cancellationToken);
+        var scope = await scopeResolver.ResolveAsync(Permissions.Users.Create, cancellationToken);
         var allowed = scope.Level switch
         {
             PermissionScope.All => true,
@@ -80,6 +108,8 @@ public sealed class UserAdminService(
             await EnsureManagerInScopeAsync(managerId, scope, cancellationToken);
         }
 
+        var lineIds = await ResolveProductLinesAsync(request.ProductLineIds ?? [], cancellationToken);
+
         var user = new User
         {
             Email = request.Email,
@@ -89,18 +119,28 @@ public sealed class UserAdminService(
             ManagerId = request.ManagerId,
             TerritoryId = request.TerritoryId,
             EmailConfirmed = true,
+            MustChangePassword = true,
             CreatedAt = time.GetUtcNow(),
         };
+        foreach (var lineId in lineIds)
+        {
+            user.ProductLines.Add(new UserProductLine { UserId = user.Id, ProductLineId = lineId });
+        }
 
         var change = new OrgChange();
         change.UserRoles[user.Id] = roles.Select(r => r.Id).ToList();
         change.Managers[user.Id] = request.ManagerId;
         await guard.EnsureReportingLinesAsync(change, cancellationToken);
 
-        var created = await userManager.CreateAsync(user, request.Password);
+        var generated = string.IsNullOrWhiteSpace(request.Password);
+        var password = generated ? AccountService.GeneratePassword() : request.Password!;
+        var created = await userManager.CreateAsync(user, password);
         if (!created.Succeeded)
         {
-            throw new BusinessRuleException("user-create-failed", string.Join("; ", created.Errors.Select(e => e.Description)));
+            var code = created.Errors.Any(e => e.Code.StartsWith("Password", StringComparison.Ordinal))
+                ? AccountErrorCodes.PasswordPolicy
+                : "user-create-failed";
+            throw new BusinessRuleException(code, string.Join("; ", created.Errors.Select(e => e.Description)));
         }
 
         var rolesResult = await userManager.AddToRolesAsync(user, roles.Select(r => r.Key));
@@ -109,8 +149,42 @@ public sealed class UserAdminService(
             throw new BusinessRuleException("user-roles-failed", string.Join("; ", rolesResult.Errors.Select(e => e.Description)));
         }
 
+        await accounts.AuditAsync(user.Id, actor.Id, UserAuditAction.Created, new
+        {
+            roles = roles.Select(r => r.Key).ToArray(),
+            territoryId = request.TerritoryId,
+            managerId = request.ManagerId,
+            productLineIds = lineIds,
+            passwordGenerated = generated,
+        }, cancellationToken);
+
         hierarchy.Invalidate();
-        return await GetListItemAsync(user.Id, cancellationToken);
+        return new CreatedUserDto(await GetListItemAsync(user.Id, cancellationToken), generated ? password : null);
+    }
+
+    /// <summary>Replaces the product lines of a user below the caller (users:manage).</summary>
+    public async Task<UserListItemDto> SetProductLinesAsync(Guid userId, SetUserProductLinesRequest request, CancellationToken cancellationToken = default)
+    {
+        var actor = await guard.GetActorAsync(cancellationToken);
+        await guard.GetManageableUserAsync(actor, userId, Permissions.Users.Manage, cancellationToken);
+        var lineIds = await ResolveProductLinesAsync(request.ProductLineIds, cancellationToken);
+
+        var rows = await db.UserProductLines.Where(l => l.UserId == userId).ToListAsync(cancellationToken);
+        var before = rows.Select(r => r.ProductLineId).ToHashSet();
+        if (!before.SetEquals(lineIds))
+        {
+            db.UserProductLines.RemoveRange(rows.Where(r => !lineIds.Contains(r.ProductLineId)));
+            foreach (var lineId in lineIds.Where(id => !before.Contains(id)))
+            {
+                db.UserProductLines.Add(new UserProductLine { UserId = userId, ProductLineId = lineId });
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            await accounts.AuditAsync(userId, actor.Id, UserAuditAction.ProductLinesChanged,
+                new { before = before.ToArray(), after = lineIds }, cancellationToken);
+        }
+
+        return await GetListItemAsync(userId, cancellationToken);
     }
 
     /// <summary>Name, language, territory and manager of another user below the caller.</summary>
@@ -283,13 +357,35 @@ public sealed class UserAdminService(
                 TerritoryNameAr = u.Territory != null ? u.Territory.NameAr : null,
                 u.IsActive,
                 u.PreferredLanguage,
+                u.AvatarKey,
+                u.MustChangePassword,
+                ProductLineIds = u.ProductLines.Select(l => l.ProductLineId).ToList(),
             })
             .SingleAsync(cancellationToken);
         var roles = await db.GetRoleSummariesAsync(userId, cancellationToken);
 
         return new UserListItemDto(
             user.Id, user.Email ?? string.Empty, user.FullName, roles, user.ManagerId, user.TerritoryId, user.IsActive,
-            user.TerritoryName, user.TerritoryNameAr, user.ManagerName, user.PreferredLanguage);
+            user.TerritoryName, user.TerritoryNameAr, user.ManagerName, user.PreferredLanguage,
+            ImageService.Url(user.AvatarKey, ImageService.Thumbnail), user.ProductLineIds, user.MustChangePassword);
+    }
+
+    /// <summary>Distinct ids of existing product lines; unknown ids are refused.</summary>
+    private async Task<Guid[]> ResolveProductLinesAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken)
+    {
+        var wanted = ids.Distinct().ToArray();
+        if (wanted.Length == 0)
+        {
+            return [];
+        }
+
+        var found = await db.ProductLines.Where(l => wanted.Contains(l.Id)).Select(l => l.Id).ToListAsync(cancellationToken);
+        if (found.Count != wanted.Length)
+        {
+            throw new BusinessRuleException("unknown-product-line", "One or more product lines do not exist.");
+        }
+
+        return wanted;
     }
 
     private async Task EnsureManagerInScopeAsync(Guid managerId, DataScope scope, CancellationToken cancellationToken)

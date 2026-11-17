@@ -11,11 +11,14 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Common.Images;
+using OriginalPharma.Application.Orders;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Tracking;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Infrastructure.Files;
 using OriginalPharma.Infrastructure.Identity;
+using OriginalPharma.Infrastructure.Orders;
 using OriginalPharma.Infrastructure.Persistence;
 using OriginalPharma.Infrastructure.Tracking;
 using StackExchange.Redis;
@@ -124,6 +127,10 @@ public static class DependencyInjection
         // Files
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
         services.AddSingleton<IFileStorage, LocalFileStorage>();
+        services.AddSingleton<IImageProcessor, SkiaImageProcessor>();
+
+        // Orders
+        services.AddScoped<IOrderNumberGenerator, OrderNumberGenerator>();
 
         // Background jobs
         if (!IsWritingOpenApiDocument)

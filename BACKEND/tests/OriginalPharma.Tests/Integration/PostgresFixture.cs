@@ -4,9 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using OriginalPharma.Application;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Orders;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Infrastructure.Files;
 using OriginalPharma.Infrastructure.Identity;
+using OriginalPharma.Infrastructure.Orders;
 using OriginalPharma.Infrastructure.Persistence;
 
 namespace OriginalPharma.Tests.Integration;
@@ -33,6 +37,9 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     /// <summary>Password of the seeded admin and demo users in the test databases.</summary>
     internal static readonly string Password = "Test-" + Guid.NewGuid().ToString("N")[..16];
+
+    /// <summary>Uploaded files of all test databases; deleted at the end of the run.</summary>
+    internal static readonly string FilesRoot = Path.Combine(Path.GetTempPath(), "op-test-files-" + Guid.NewGuid().ToString("N")[..12]);
 
     private NpgsqlConnectionStringBuilder? _server;
     private string? _template;
@@ -84,6 +91,11 @@ public sealed class PostgresFixture : IAsyncLifetime
             NpgsqlConnection.ClearAllPools();
             await ExecuteAsync($"DROP DATABASE IF EXISTS \"{_template}\" WITH (FORCE)");
         }
+
+        if (Directory.Exists(FilesRoot))
+        {
+            Directory.Delete(FilesRoot, recursive: true);
+        }
     }
 
     public async Task<TestDatabase> CreateDatabaseAsync()
@@ -129,6 +141,7 @@ public sealed class PostgresFixture : IAsyncLifetime
                 ["Seed:AdminEmail"] = AdminEmail,
                 ["Seed:AdminPassword"] = Password,
                 ["Seed:DemoData"] = "true",
+                ["FileStorage:RootPath"] = FilesRoot,
             })
             .Build();
 
@@ -151,6 +164,11 @@ public sealed class PostgresFixture : IAsyncLifetime
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<TestCurrentUser>());
         services.AddScoped<DatabaseSeeder>();
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
+        services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
+        services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(new TestHostEnvironment());
+        services.AddSingleton<IFileStorage, LocalFileStorage>();
+        services.AddSingleton<IImageProcessor, SkiaImageProcessor>();
+        services.AddScoped<IOrderNumberGenerator, OrderNumberGenerator>();
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
@@ -163,6 +181,7 @@ internal sealed class TestCurrentUser : ICurrentUser
     public bool IsAuthenticated => UserId.HasValue;
     public string? IpAddress => "127.0.0.1";
     public string? UserAgent => "tests";
+    public Guid? SessionId { get; set; }
 
     public Guid RequireUserId() => UserId ?? throw new UnauthorizedException("unauthenticated", "Sign in required.");
 }
@@ -197,6 +216,22 @@ public sealed class TestDatabase : IAsyncDisposable
             await action(sp);
             return true;
         });
+
+    /// <summary>Calls one application service as <paramref name="actorId"/> (one simulated request).</summary>
+    public Task<T> As<TService, T>(Guid actorId, Func<TService, Task<T>> action)
+        where TService : notnull =>
+        AsAsync(actorId, sp => action(sp.GetRequiredService<TService>()));
+
+    public Task As<TService>(Guid actorId, Func<TService, Task> action)
+        where TService : notnull =>
+        AsAsync(actorId, sp => action(sp.GetRequiredService<TService>()));
+
+    /// <summary>Direct database access for test setup and checks.</summary>
+    public async Task<T> DbAsync<T>(Func<AppDbContext, Task<T>> action)
+    {
+        await using var scope = _services.CreateAsyncScope();
+        return await action(scope.ServiceProvider.GetRequiredService<AppDbContext>());
+    }
 
     public Task<T> RolesAsync<T>(Guid actorId, Func<RoleService, Task<T>> action) =>
         AsAsync(actorId, sp => action(sp.GetRequiredService<RoleService>()));
@@ -264,4 +299,13 @@ public sealed class TestDatabase : IAsyncDisposable
         await _services.DisposeAsync();
         await _fixture.DropDatabaseAsync(_name);
     }
+}
+
+internal sealed class TestHostEnvironment : Microsoft.Extensions.Hosting.IHostEnvironment
+{
+    public string EnvironmentName { get; set; } = "Testing";
+    public string ApplicationName { get; set; } = "OriginalPharma.Tests";
+    public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+    public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } =
+        new Microsoft.Extensions.FileProviders.NullFileProvider();
 }

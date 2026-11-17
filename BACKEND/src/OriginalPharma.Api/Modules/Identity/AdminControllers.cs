@@ -76,17 +76,48 @@ public sealed class RolesController(RoleService roles) : ControllerBase
 [ApiController]
 [Route("api/users")]
 [Tags("Users")]
-public sealed class UsersController(UserAdminService users) : ControllerBase
+public sealed class UsersController(UserAdminService users, AccountService accounts) : ControllerBase
 {
     [HttpGet]
     [HasPermission(Permissions.Users.Read)]
     public Task<IReadOnlyList<UserListItemDto>> List(CancellationToken cancellationToken) =>
         users.ListAsync(cancellationToken);
 
+    /// <summary>
+    /// Create an account (users:create). Leave <c>password</c> empty to have a temporary password
+    /// generated; it is returned once in <c>temporaryPassword</c>. The user must change it on first sign-in.
+    /// </summary>
     [HttpPost]
-    [HasPermission(Permissions.Users.Manage)]
-    public Task<UserListItemDto> Create(CreateUserRequest request, CancellationToken cancellationToken) =>
+    [HasPermission(Permissions.Users.Create)]
+    public Task<CreatedUserDto> Create(CreateUserRequest request, CancellationToken cancellationToken) =>
         users.CreateAsync(request, cancellationToken);
+
+    /// <summary>Roles the caller may give to a new user (strictly below their own level).</summary>
+    [HttpGet("assignable-roles")]
+    [HasPermission(Permissions.Users.Create)]
+    public Task<IReadOnlyList<RoleSummaryDto>> AssignableRoles(CancellationToken cancellationToken) =>
+        users.ListAssignableRolesAsync(cancellationToken);
+
+    /// <summary>Product lines the user sells (reps only see and order products from these).</summary>
+    [HttpPut("{userId:guid}/product-lines")]
+    [HasPermission(Permissions.Users.Manage)]
+    public Task<UserListItemDto> SetProductLines(Guid userId, SetUserProductLinesRequest request, CancellationToken cancellationToken) =>
+        users.SetProductLinesAsync(userId, request, cancellationToken);
+
+    /// <summary>
+    /// Set a temporary password for a user below you (returned once). The user is signed out
+    /// everywhere and must choose a new password on next sign-in.
+    /// </summary>
+    [HttpPost("{userId:guid}/reset-password")]
+    [HasPermission(Permissions.Users.ResetPassword)]
+    public Task<TemporaryPasswordDto> ResetPassword(Guid userId, ResetPasswordRequest request, CancellationToken cancellationToken) =>
+        accounts.ResetPasswordAsync(userId, request, cancellationToken);
+
+    /// <summary>Account events (created, password changed or reset, product lines changed), newest first.</summary>
+    [HttpGet("{userId:guid}/audit")]
+    [HasPermission(Permissions.Users.Read)]
+    public Task<IReadOnlyList<UserAuditEntryDto>> GetAudit(Guid userId, CancellationToken cancellationToken, [FromQuery] int limit = 20) =>
+        accounts.GetAuditAsync(userId, limit, cancellationToken);
 
     /// <summary>Name, language, territory and manager.</summary>
     [HttpPut("{userId:guid}")]
@@ -118,7 +149,7 @@ public sealed class UsersController(UserAdminService users) : ControllerBase
     }
 }
 
-/// <summary>Territory tree (region, area, territory). Read-only for now.</summary>
+/// <summary>Territory tree: regions, areas (where reps work) and towns (where doctors are).</summary>
 [ApiController]
 [Route("api/territories")]
 [Tags("Territories")]
@@ -128,4 +159,27 @@ public sealed class TerritoriesController(TerritoryService territories) : Contro
     [HasPermission(Permissions.Territories.Read)]
     public Task<IReadOnlyList<TerritoryDto>> List(CancellationToken cancellationToken) =>
         territories.ListAsync(cancellationToken);
+
+    /// <summary>Add a region, an area (under a region) or a town (under an area).</summary>
+    [HttpPost]
+    [HasPermission(Permissions.Territories.Manage)]
+    public Task<TerritoryDto> Create(CreateTerritoryRequest request, CancellationToken cancellationToken) =>
+        territories.CreateAsync(request, cancellationToken);
+
+    /// <summary>Rename, change the code, or move a town to another area.</summary>
+    [HttpPut("{id:guid}")]
+    [HasPermission(Permissions.Territories.Manage)]
+    public Task<TerritoryDto> Update(Guid id, UpdateTerritoryRequest request, CancellationToken cancellationToken) =>
+        territories.UpdateAsync(id, request, cancellationToken);
+
+    /// <summary>Delete an empty node. 409 <c>territory_in_use</c> while it has towns, users or doctors.</summary>
+    [HttpDelete("{id:guid}")]
+    [HasPermission(Permissions.Territories.Manage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        await territories.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
 }

@@ -14,7 +14,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useNow } from '@/hooks/use-now'
-import { formatDateTime, formatNumber, formatRelative, localizedName } from '@/lib/format'
+import { formatDateTime, formatNumber, formatPercent, formatRelative, localizedName } from '@/lib/format'
 import { permissionLabel } from './permission-labels'
 import { roleName } from './role-rules'
 
@@ -182,6 +182,12 @@ function AuditEntry({
         )
       } else if (change.field === 'level') {
         result.push(pair(t('roles.form.level'), change, (v) => (v == null ? '—' : formatNumber(Number(v)))))
+      } else if (change.field === 'maxDiscountPercent') {
+        result.push(
+          pair(t('roles.form.maxDiscount'), change, (v) =>
+            v == null ? t('roles.form.noCap') : formatPercent(Number(v)),
+          ),
+        )
       } else if (change.field === 'nameAr' || change.field === 'nameEn' || change.field === 'description') {
         result.push(pair(t(`roles.audit.field.${change.field}`), change, plain))
       }

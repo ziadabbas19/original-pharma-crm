@@ -9,4 +9,6 @@ export interface MeResponse {
   user: UserProfileDto
   permissions: PermissionGrantDto[]
   permissionsVersion: number
+  /** @nullable */
+  maxDiscountPercent?: number | null
 }

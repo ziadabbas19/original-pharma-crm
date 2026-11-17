@@ -3,9 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Identity;
-using OriginalPharma.Domain.Common;
-using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
 
 namespace OriginalPharma.Infrastructure.Persistence;
@@ -21,26 +20,42 @@ public sealed class SeedOptions
 
     public string AdminFullName { get; set; } = "System Admin";
 
-    /// <summary>Development only: demo territory tree, managers, a rep and two customers.</summary>
+    /// <summary>
+    /// Development only: territory tree (regions, areas, towns), demo users, lookups, a product
+    /// catalog with generated pictures, doctor lists and a few orders.
+    /// </summary>
     public bool DemoData { get; set; }
 }
 
 /// <summary>
-/// Idempotent seeding run on startup: permission catalog, default roles, the
-/// admin user and (optionally) demo data.
+/// Idempotent seeding run on startup: permission catalog, default roles, the admin user and
+/// (optionally) demo data. Nothing an admin edited is ever overwritten: roles only receive
+/// template grants for permissions that are new to the catalog, and every demo step runs once
+/// per database (<see cref="SeedHistoryEntry"/>), so deleted or renamed demo rows stay that way.
 /// </summary>
-internal sealed class DatabaseSeeder(
+internal sealed partial class DatabaseSeeder(
     AppDbContext db,
     UserManager<User> userManager,
     IPermissionService permissionService,
+    ImageService images,
     IOptions<SeedOptions> options,
     TimeProvider time,
     ILogger<DatabaseSeeder> logger)
 {
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        await SyncPermissionsAsync(cancellationToken);
-        await EnsureRolesAsync(cancellationToken);
+        await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
+        {
+            // One transaction: if the role step fails, the new permissions are not recorded as
+            // added either, and the next start applies their default grants again.
+            var added = await SyncPermissionsAsync(cancellationToken);
+            var changedRoles = await EnsureRolesAsync(added, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            var holders = await db.UserRoles.Where(ur => changedRoles.Contains(ur.RoleId)).Select(ur => ur.UserId).Distinct().ToListAsync(cancellationToken);
+            await permissionService.BumpVersionAsync(holders, cancellationToken);
+        }
+
         await EnsureAdminAsync(cancellationToken);
 
         if (options.Value.DemoData)
@@ -49,9 +64,11 @@ internal sealed class DatabaseSeeder(
         }
     }
 
-    private async Task SyncPermissionsAsync(CancellationToken cancellationToken)
+    /// <summary>Adds missing permissions and refreshes descriptions. Returns the keys that were new.</summary>
+    private async Task<HashSet<string>> SyncPermissionsAsync(CancellationToken cancellationToken)
     {
         var existing = await db.Permissions.ToDictionaryAsync(p => p.Key, cancellationToken);
+        var added = new HashSet<string>(StringComparer.Ordinal);
         foreach (var definition in Permissions.All)
         {
             if (existing.TryGetValue(definition.Key, out var permission))
@@ -67,28 +84,40 @@ internal sealed class DatabaseSeeder(
                 Action = definition.Action,
                 Description = definition.Description,
             });
+            added.Add(definition.Key);
         }
 
         // TODO: decide how to retire permissions removed from the catalog (currently left in place).
         await db.SaveChangesAsync(cancellationToken);
+        return added;
     }
 
     /// <summary>
-    /// Creates seeded roles that are missing, matched by key. Existing roles are never
-    /// touched (admins rename them, change levels and permissions from the dashboard),
-    /// except that Admin is kept locked: system role, top level, every permission with
-    /// scope All.
+    /// Creates seeded roles that are missing, matched by key. Existing roles keep every edit; they
+    /// only receive their template's grants for permissions that were just added to the catalog
+    /// (nobody can have edited those yet). Admin is kept locked: system role, top level, every
+    /// permission with scope All. Returns the ids of roles whose grants changed.
     /// </summary>
-    private async Task EnsureRolesAsync(CancellationToken cancellationToken)
+    private async Task<HashSet<Guid>> EnsureRolesAsync(IReadOnlySet<string> addedPermissions, CancellationToken cancellationToken)
     {
         var permissionIds = await db.Permissions.ToDictionaryAsync(p => p.Key, p => p.Id, cancellationToken);
         var roles = await db.Roles.Include(r => r.Permissions).ToDictionaryAsync(r => r.NormalizedName!, cancellationToken);
+        var changed = new HashSet<Guid>();
 
         foreach (var template in DefaultRoles.Templates)
         {
             var normalizedKey = Role.NormalizeKey(template.Key);
-            if (roles.ContainsKey(normalizedKey))
+            if (roles.TryGetValue(normalizedKey, out var existing))
             {
+                foreach (var (key, scope) in template.Grants.Where(g => addedPermissions.Contains(g.Key)))
+                {
+                    if (existing.Permissions.All(rp => rp.PermissionId != permissionIds[key]))
+                    {
+                        existing.Permissions.Add(new RolePermission { PermissionId = permissionIds[key], Scope = scope });
+                        changed.Add(existing.Id);
+                    }
+                }
+
                 continue;
             }
 
@@ -113,30 +142,25 @@ internal sealed class DatabaseSeeder(
         var admin = roles[Role.NormalizeKey(DefaultRoles.Admin)];
         admin.IsSystem = true;
         admin.Level = Role.TopLevel;
+        admin.MaxDiscountPercent = null;
 
-        var changed = false;
         foreach (var (_, permissionId) in permissionIds)
         {
             var grant = admin.Permissions.FirstOrDefault(rp => rp.PermissionId == permissionId);
             if (grant is null)
             {
                 admin.Permissions.Add(new RolePermission { PermissionId = permissionId, Scope = PermissionScope.All });
-                changed = true;
+                changed.Add(admin.Id);
             }
             else if (grant.Scope != PermissionScope.All)
             {
                 grant.Scope = PermissionScope.All;
-                changed = true;
+                changed.Add(admin.Id);
             }
         }
 
         await db.SaveChangesAsync(cancellationToken);
-
-        if (changed)
-        {
-            var adminUsers = await db.UserRoles.Where(ur => ur.RoleId == admin.Id).Select(ur => ur.UserId).ToListAsync(cancellationToken);
-            await permissionService.BumpVersionAsync(adminUsers, cancellationToken);
-        }
+        return changed;
     }
 
     private async Task EnsureAdminAsync(CancellationToken cancellationToken)
@@ -155,52 +179,6 @@ internal sealed class DatabaseSeeder(
 
         await CreateUserAsync(settings.AdminEmail, settings.AdminFullName, DefaultRoles.Admin, null, null, "en");
         logger.LogInformation("Created admin user {Email}", settings.AdminEmail);
-    }
-
-    private async Task SeedDemoDataAsync(CancellationToken cancellationToken)
-    {
-        if (await db.Territories.AnyAsync(cancellationToken))
-        {
-            return;
-        }
-
-        var region = new Territory { Code = "R-CAI", Name = "Greater Cairo", NameAr = "القاهرة الكبرى", Level = TerritoryLevel.Region };
-        var area = new Territory { Code = "A-CAI-E", Name = "East Cairo", NameAr = "شرق القاهرة", Level = TerritoryLevel.Area, Parent = region };
-        var territory = new Territory { Code = "T-NSR", Name = "Nasr City", NameAr = "مدينة نصر", Level = TerritoryLevel.Territory, Parent = area };
-        db.Territories.AddRange(region, area, territory);
-
-        db.Customers.AddRange(
-            new Customer
-            {
-                Type = CustomerType.Doctor,
-                Name = "Dr. Demo Clinic",
-                NameAr = "عيادة تجريبية",
-                TerritoryId = territory.Id,
-                Location = GeoFactory.Point(30.0561, 31.3301),
-                GeofenceRadiusMeters = 150,
-                QrCode = "DEMO-CLINIC-001",
-                CreatedAt = time.GetUtcNow(),
-            },
-            new Customer
-            {
-                Type = CustomerType.Pharmacy,
-                Name = "Demo Pharmacy",
-                NameAr = "صيدلية تجريبية",
-                TerritoryId = territory.Id,
-                Location = GeoFactory.Point(30.0626, 31.3451),
-                GeofenceRadiusMeters = 100,
-                QrCode = "DEMO-PHARMACY-001",
-                CreatedAt = time.GetUtcNow(),
-            });
-
-        await db.SaveChangesAsync(cancellationToken);
-
-        var salesManager = await CreateUserAsync("sales.manager@demo.local", "Demo Sales Manager", DefaultRoles.SalesManager, null, region.Id, "en");
-        var areaManager = await CreateUserAsync("area.manager@demo.local", "Demo Area Manager", DefaultRoles.AreaManager, salesManager?.Id, area.Id, "ar");
-        var supervisor = await CreateUserAsync("supervisor@demo.local", "Demo Supervisor", DefaultRoles.Supervisor, areaManager?.Id, territory.Id, "ar");
-        await CreateUserAsync("rep@demo.local", "Demo Rep", DefaultRoles.Rep, supervisor?.Id, territory.Id, "ar");
-
-        logger.LogInformation("Seeded demo territories, users (*@demo.local, admin password) and customers");
     }
 
     private async Task<User?> CreateUserAsync(string email, string fullName, string roleKey, Guid? managerId, Guid? territoryId, string language)

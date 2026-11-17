@@ -1,7 +1,11 @@
 import i18n from '@/lib/i18n'
 
-function locale(): string {
-  return i18n.resolvedLanguage === 'en' ? 'en' : 'ar-EG'
+/**
+ * Locale for every Intl formatter. Arabic keeps Arabic month and unit names but uses Latin
+ * digits (0-9): the Arabic-Indic zero renders as a small dot and is easy to misread in prices.
+ */
+export function locale(): string {
+  return i18n.resolvedLanguage === 'en' ? 'en-EG-u-nu-latn' : 'ar-EG-u-nu-latn'
 }
 
 /** "3 minutes ago" in the current language. */
@@ -33,6 +37,29 @@ export function formatDateTime(iso: string | null | undefined): string {
 
 export function formatNumber(value: number, maximumFractionDigits = 0): string {
   return new Intl.NumberFormat(locale(), { maximumFractionDigits }).format(value)
+}
+
+/** The one money format of the app: Egyptian pounds with piasters, e.g. "EGP 1,234.50" / "‏1,234.50 ج.م.‏". */
+export function formatMoney(value: number | null | undefined): string {
+  return new Intl.NumberFormat(locale(), {
+    style: 'currency',
+    currency: 'EGP',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value ?? 0)
+}
+
+/** 12.5 -> "12.5%" (value is already a percentage). */
+export function formatPercent(value: number | null | undefined): string {
+  return new Intl.NumberFormat(locale(), { style: 'percent', maximumFractionDigits: 2 }).format(
+    (value ?? 0) / 100,
+  )
+}
+
+/** Date-only value from the API (yyyy-MM-dd) shown as a local date without time-zone shifts. */
+export function formatDay(value: string | null | undefined): string {
+  if (!value) return ''
+  return new Intl.DateTimeFormat(locale(), { dateStyle: 'medium' }).format(fromDateInputValue(value))
 }
 
 /** 85 -> "85 m", 1250 -> "1.3 km" (localized digits and units). */

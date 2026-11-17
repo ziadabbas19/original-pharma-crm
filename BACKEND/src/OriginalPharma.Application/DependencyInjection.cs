@@ -2,10 +2,14 @@ using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using OriginalPharma.Application.Catalog;
+using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Crm;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Lookups;
+using OriginalPharma.Application.Orders;
 using OriginalPharma.Application.Tracking;
 using OriginalPharma.Application.Tracking.Anomalies;
 using OriginalPharma.Application.Visits;
@@ -23,19 +27,29 @@ public static class DependencyInjection
         services.Configure<TrackingOptions>(configuration.GetSection(TrackingOptions.SectionName));
         services.Configure<AnomalyDetectionOptions>(configuration.GetSection(AnomalyDetectionOptions.SectionName));
         services.Configure<VisitOptions>(configuration.GetSection(VisitOptions.SectionName));
+        services.Configure<ImageOptions>(configuration.GetSection(ImageOptions.SectionName));
 
         // Shared
         services.AddScoped<IOrgHierarchy, OrgHierarchy>();
         services.AddScoped<IDataScopeResolver, DataScopeResolver>();
+        services.AddScoped<ImageService>();
 
         // Identity
         services.AddScoped<HierarchyGuard>();
         services.AddScoped<RoleService>();
         services.AddScoped<UserAdminService>();
         services.AddScoped<TerritoryService>();
+        services.AddScoped<AccountService>();
 
-        // CRM
+        // CRM and lookups
         services.AddScoped<CustomerService>();
+        services.AddScoped<DoctorService>();
+        services.AddScoped<LookupService>();
+
+        // Catalog and orders
+        services.AddScoped<ProductAccess>();
+        services.AddScoped<CatalogService>();
+        services.AddScoped<OrderService>();
 
         // Tracking
         services.AddSingleton<TrackingAnomalyDetector>();

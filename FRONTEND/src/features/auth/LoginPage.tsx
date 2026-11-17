@@ -2,7 +2,9 @@ import { useForm } from '@tanstack/react-form'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { BrandLogo } from '@/components/BrandLogo'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -36,13 +38,11 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 p-4 pt-safe pb-safe">
-      <div className="flex w-full max-w-sm items-center justify-between">
-        <div className="flex items-center gap-2 font-semibold">
-          <img src="/favicon.svg" alt="" className="size-8" />
-          {t('common.appName')}
-        </div>
+      <div className="flex w-full max-w-sm items-center justify-end gap-1">
+        <ThemeSwitcher compact />
         <LanguageSwitcher />
       </div>
+      <BrandLogo className="h-24" />
 
       <Card className="w-full max-w-sm">
         <CardHeader>

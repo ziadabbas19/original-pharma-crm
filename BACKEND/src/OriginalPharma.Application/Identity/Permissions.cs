@@ -19,6 +19,12 @@ public static class Permissions
     {
         public const string Read = "users:read";
         public const string Manage = "users:manage";
+
+        /// <summary>Create accounts. The scope decides where the new user may be placed.</summary>
+        public const string Create = "users:create";
+
+        /// <summary>Set a temporary password for someone below you in the hierarchy.</summary>
+        public const string ResetPassword = "users:reset-password";
     }
 
     public static class Roles
@@ -35,8 +41,40 @@ public static class Permissions
 
     public static class Customers
     {
+        /// <summary>See doctor lists (own list, team, territory or all) and customers.</summary>
         public const string Read = "customers:read";
+
+        /// <summary>Edit doctor and pharmacy details.</summary>
         public const string Manage = "customers:manage";
+
+        /// <summary>Add doctors to your own list (pick an existing doctor or create one) and remove them.</summary>
+        public const string Create = "customers:create";
+
+        /// <summary>Move or copy doctors between reps' lists.</summary>
+        public const string Assign = "customers:assign";
+    }
+
+    public static class Lookups
+    {
+        /// <summary>Specialties and collection methods.</summary>
+        public const string Manage = "lookups:manage";
+    }
+
+    public static class Products
+    {
+        public const string Read = "products:read";
+        public const string Manage = "products:manage";
+    }
+
+    public static class Orders
+    {
+        /// <summary>Take orders for yourself; edit or cancel your own while they are submitted.</summary>
+        public const string Create = "orders:create";
+
+        public const string Read = "orders:read";
+
+        /// <summary>Approve, reject, cancel and edit other people's orders (within scope).</summary>
+        public const string Manage = "orders:manage";
     }
 
     public static class Visits
@@ -71,13 +109,23 @@ public static class Permissions
     public static IReadOnlyList<PermissionDefinition> All { get; } =
     [
         new(Users.Read, "View users"),
-        new(Users.Manage, "Create and edit users, assign roles"),
+        new(Users.Manage, "Edit users, assign roles and product lines"),
+        new(Users.Create, "Create user accounts"),
+        new(Users.ResetPassword, "Reset other users' passwords"),
         new(Roles.Read, "View roles and permissions"),
         new(Roles.Manage, "Create, rename and delete roles and change their permissions"),
         new(Territories.Read, "View territories"),
-        new(Territories.Manage, "Edit territories"),
+        new(Territories.Manage, "Manage areas and towns"),
         new(Customers.Read, "View doctors and pharmacies"),
         new(Customers.Manage, "Edit doctors and pharmacies"),
+        new(Customers.Create, "Add doctors to own list"),
+        new(Customers.Assign, "Move or copy doctors between reps"),
+        new(Lookups.Manage, "Manage specialties and collection methods"),
+        new(Products.Read, "View product lines and products"),
+        new(Products.Manage, "Manage product lines, products, prices and stock"),
+        new(Orders.Create, "Take orders"),
+        new(Orders.Read, "View orders"),
+        new(Orders.Manage, "Approve, reject, cancel and edit orders"),
         new(Visits.Read, "View visits"),
         new(Visits.Create, "Check in / check out of visits"),
         new(Visits.Manage, "Edit or cancel visits"),
@@ -112,34 +160,47 @@ public static class DefaultRoles
         int Level,
         IReadOnlyList<(string Key, PermissionScope Scope)> Grants);
 
+    /// <summary>
+    /// Default grants per role. They apply when a role is created, and when a permission first
+    /// appears in the catalog (existing roles then receive the template's grant for it once).
+    /// Grants admins already edited are never touched.
+    /// </summary>
     public static IReadOnlyList<RoleTemplate> Templates { get; } =
     [
         // Admin always receives every permission with scope All (enforced on startup).
         new(Admin, "مدير النظام", "System admin", "Full access", Role.TopLevel, []),
         new(SalesManager, "مدير المبيعات", "Sales manager", "Sales manager", 10, Grants(PermissionScope.All,
-            Permissions.Users.Read, Permissions.Roles.Read, Permissions.Territories.Read,
-            Permissions.Customers.Read, Permissions.Customers.Manage, Permissions.Visits.Read,
+            Permissions.Users.Read, Permissions.Users.ResetPassword, Permissions.Roles.Read, Permissions.Territories.Read,
+            Permissions.Customers.Read, Permissions.Customers.Manage, Permissions.Customers.Assign, Permissions.Visits.Read,
             Permissions.Tracking.ViewLive, Permissions.Tracking.History, Permissions.Tracking.ReviewFlags,
-            Permissions.Devices.Read, Permissions.Reports.Read)),
-        new(AreaManager, "مدير المنطقة", "Area manager", "Area manager", 20, Grants(PermissionScope.Territory,
-            Permissions.Users.Read, Permissions.Territories.Read, Permissions.Customers.Read,
-            Permissions.Customers.Manage, Permissions.Visits.Read, Permissions.Tracking.ViewLive,
-            Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Devices.Read,
-            Permissions.Reports.Read)),
+            Permissions.Devices.Read, Permissions.Reports.Read, Permissions.Lookups.Manage,
+            Permissions.Products.Read, Permissions.Products.Manage, Permissions.Orders.Read, Permissions.Orders.Manage)),
+        new(AreaManager, "مدير المنطقة", "Area manager", "Area manager", 20,
+        [
+            .. Grants(PermissionScope.Territory,
+                Permissions.Users.Read, Permissions.Users.ResetPassword, Permissions.Territories.Read, Permissions.Customers.Read,
+                Permissions.Customers.Manage, Permissions.Customers.Assign, Permissions.Visits.Read, Permissions.Tracking.ViewLive,
+                Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Devices.Read,
+                Permissions.Reports.Read, Permissions.Orders.Read, Permissions.Orders.Manage),
+            .. Grants(PermissionScope.All, Permissions.Products.Read),
+        ]),
         new(Supervisor, "مشرف", "Supervisor", "Supervisor", 30,
         [
             .. Grants(PermissionScope.Team,
-                Permissions.Users.Read, Permissions.Visits.Read, Permissions.Tracking.ViewLive,
+                Permissions.Users.Read, Permissions.Users.ResetPassword, Permissions.Visits.Read, Permissions.Tracking.ViewLive,
                 Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Devices.Read,
-                Permissions.Reports.Read),
-            .. Grants(PermissionScope.Territory, Permissions.Territories.Read, Permissions.Customers.Read),
+                Permissions.Reports.Read, Permissions.Customers.Read, Permissions.Customers.Assign,
+                Permissions.Orders.Read, Permissions.Orders.Manage),
+            .. Grants(PermissionScope.Territory, Permissions.Territories.Read),
+            .. Grants(PermissionScope.All, Permissions.Products.Read),
         ]),
         new(Rep, "مندوب طبي", "Medical rep", "Medical rep", 40,
         [
             .. Grants(PermissionScope.Own,
                 Permissions.Visits.Read, Permissions.Visits.Create, Permissions.Tracking.Report,
-                Permissions.Tracking.History, Permissions.Reports.Read),
-            .. Grants(PermissionScope.Territory, Permissions.Customers.Read),
+                Permissions.Tracking.History, Permissions.Reports.Read, Permissions.Customers.Read,
+                Permissions.Customers.Create, Permissions.Orders.Create, Permissions.Orders.Read),
+            .. Grants(PermissionScope.All, Permissions.Products.Read),
         ]),
     ];
 

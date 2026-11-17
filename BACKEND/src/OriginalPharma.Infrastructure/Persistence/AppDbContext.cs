@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Domain.Orders;
 using OriginalPharma.Domain.Tracking;
 using OriginalPharma.Domain.Visits;
 
@@ -16,10 +18,25 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<UserPermissionOverride> UserPermissionOverrides => Set<UserPermissionOverride>();
     public DbSet<RoleAuditEntry> RoleAuditEntries => Set<RoleAuditEntry>();
+    public DbSet<UserAuditEntry> UserAuditEntries => Set<UserAuditEntry>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Territory> Territories => Set<Territory>();
 
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Specialty> Specialties => Set<Specialty>();
+    public DbSet<RepDoctor> RepDoctors => Set<RepDoctor>();
+
+    public DbSet<ProductLine> ProductLines => Set<ProductLine>();
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<UserProductLine> UserProductLines => Set<UserProductLine>();
+
+    public DbSet<CollectionMethod> CollectionMethods => Set<CollectionMethod>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderLine> OrderLines => Set<OrderLine>();
+    public DbSet<OrderHistoryEntry> OrderHistory => Set<OrderHistoryEntry>();
+
+    /// <summary>One-time seeding steps already applied to this database.</summary>
+    public DbSet<SeedHistoryEntry> SeedHistory => Set<SeedHistoryEntry>();
 
     public DbSet<Visit> Visits => Set<Visit>();
     public DbSet<VisitPhoto> VisitPhotos => Set<VisitPhoto>();
@@ -35,8 +52,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     {
         base.OnModelCreating(builder);
         builder.HasPostgresExtension("postgis");
+        builder.HasSequence<long>(Infrastructure.Orders.OrderNumberGenerator.SequenceName);
         builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
+}
+
+/// <summary>A seeding step that ran once (demo data). Keeps the seeder from re-adding rows people deleted or renamed.</summary>
+public sealed class SeedHistoryEntry
+{
+    public string Key { get; set; } = string.Empty;
+    public DateTimeOffset AppliedAt { get; set; }
 }
 
 internal static class AppDbContextOptions

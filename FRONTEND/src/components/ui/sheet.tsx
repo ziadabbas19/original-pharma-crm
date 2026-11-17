@@ -17,6 +17,9 @@ const SIDE_CLASSES = {
   start:
     'inset-y-0 inset-s-0 h-full w-3/4 border-e sm:max-w-sm ltr:data-[state=closed]:slide-out-to-left ltr:data-[state=open]:slide-in-from-left rtl:data-[state=closed]:slide-out-to-right rtl:data-[state=open]:slide-in-from-right',
   end: 'inset-y-0 inset-e-0 h-full w-full border-s sm:max-w-xl ltr:data-[state=closed]:slide-out-to-right ltr:data-[state=open]:slide-in-from-right rtl:data-[state=closed]:slide-out-to-left rtl:data-[state=open]:slide-in-from-left',
+  /** Phone-style sheet from the bottom edge (rep app pickers). */
+  bottom:
+    'inset-x-0 bottom-0 mx-auto max-h-[90dvh] w-full max-w-lg rounded-t-xl border-t pb-safe data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
 } as const
 
 function SheetContent({

@@ -9,6 +9,8 @@ export interface AuthState {
   accessToken: string | null
   expiresAt: string | null
   user: UserProfileDto | null
+  /** Highest order-line discount the user may give (from their roles); null = no cap. */
+  maxDiscountPercent: number | null
 }
 
 const initialState: AuthState = {
@@ -16,6 +18,7 @@ const initialState: AuthState = {
   accessToken: null,
   expiresAt: null,
   user: null,
+  maxDiscountPercent: null,
 }
 
 const authSlice = createSlice({
@@ -34,11 +37,22 @@ const authSlice = createSlice({
     userLoaded(state, action: PayloadAction<UserProfileDto>) {
       state.user = action.payload
     },
+    discountCapLoaded(state, action: PayloadAction<number | null>) {
+      state.maxDiscountPercent = action.payload
+    },
+    /** Started without network from the cached profile; the access token comes with the first refresh. */
+    offlineSessionRestored(state, action: PayloadAction<UserProfileDto>) {
+      state.status = 'authenticated'
+      state.accessToken = null
+      state.expiresAt = null
+      state.user = action.payload
+    },
     sessionEnded() {
       return { ...initialState, status: 'anonymous' as const }
     },
   },
 })
 
-export const { sessionStarted, userLoaded, sessionEnded } = authSlice.actions
+export const { sessionStarted, userLoaded, discountCapLoaded, offlineSessionRestored, sessionEnded } =
+  authSlice.actions
 export default authSlice.reducer

@@ -38,7 +38,7 @@ public sealed class TrackingQueryService(
 
         var users = await db.Users.AsNoTracking()
             .Where(u => userIds.Contains(u.Id))
-            .Select(u => new { u.Id, u.FullName, u.TerritoryId })
+            .Select(u => new { u.Id, u.FullName, u.TerritoryId, u.AvatarKey })
             .ToListAsync(cancellationToken);
 
         var shifts = await db.Shifts.AsNoTracking()
@@ -70,7 +70,8 @@ public sealed class TrackingQueryService(
 
                 return new RepPresenceDto(
                     u.Id, u.FullName, u.TerritoryId, status, shift?.Id, lastSeen, position,
-                    latestDevice.IsHealthy, latestDevice.Issues, openFlags.GetValueOrDefault(u.Id));
+                    latestDevice.IsHealthy, latestDevice.Issues, openFlags.GetValueOrDefault(u.Id),
+                    Common.Images.ImageService.Url(u.AvatarKey, Common.Images.ImageService.Thumbnail));
             })
             .OrderBy(p => p.FullName)
             .ToList();

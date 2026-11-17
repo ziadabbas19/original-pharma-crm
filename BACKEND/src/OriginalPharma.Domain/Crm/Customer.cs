@@ -10,17 +10,31 @@ public enum CustomerType
 }
 
 /// <summary>
-/// Doctor or pharmacy a rep visits. Only the fields visit verification needs
-/// exist for now.
-/// TODO: specialties, classification, contact details, CRUD endpoints.
+/// Doctor or pharmacy a rep visits. Doctors are kept once and linked to the reps that
+/// cover them (<see cref="RepDoctor"/>).
+/// TODO: classification (A/B/C), opening hours, QR sticker printing.
 /// </summary>
 public class Customer : Entity
 {
+    public const int NameMaxLength = 200;
+    public const int PhoneMaxLength = 32;
+    public const int NotesMaxLength = 1000;
+
     public CustomerType Type { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? NameAr { get; set; }
     public string? Address { get; set; }
+
+    /// <summary>Territory node of the customer. For doctors this is their town.</summary>
     public Guid? TerritoryId { get; set; }
+
+    public Guid? SpecialtyId { get; set; }
+    public Specialty? Specialty { get; set; }
+
+    public string? Phone { get; set; }
+
+    /// <summary>Clinic details, visiting hours and similar free text.</summary>
+    public string? Notes { get; set; }
 
     /// <summary>Clinic / pharmacy location used for geofence checks.</summary>
     public Point? Location { get; set; }
@@ -32,4 +46,8 @@ public class Customer : Entity
 
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; }
+    public Guid? CreatedById { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+
+    public ICollection<RepDoctor> Reps { get; set; } = new List<RepDoctor>();
 }

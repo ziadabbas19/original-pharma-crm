@@ -10,7 +10,16 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LivePositionDto } from '@/api/generated/model'
 import { LIVE_STATUS_COLOR, type LiveStatus } from '../live-status'
-import { DEFAULT_CENTER, DEFAULT_ZOOM, FLAGGED_COLOR, OSM_STYLE, ROUTE_COLOR, START_COLOR } from './map-setup'
+import { useTheme } from '@/lib/theme'
+import {
+  applyMapTheme,
+  DEFAULT_CENTER,
+  DEFAULT_ZOOM,
+  FLAGGED_COLOR,
+  OSM_STYLE,
+  ROUTE_COLOR,
+  START_COLOR,
+} from './map-setup'
 
 export interface MapRep {
   userId: string
@@ -81,6 +90,8 @@ export function RepMap({
   const fittedRef = useRef(false)
   const callbacks = useRef({ onSelect, onUserPan })
   const [ready, setReady] = useState(false)
+  const { theme } = useTheme()
+  const themeRef = useRef(theme)
 
   useEffect(() => {
     callbacks.current = { onSelect, onUserPan }
@@ -139,6 +150,7 @@ export function RepMap({
           'circle-stroke-width': ['match', ['get', 'kind'], 'point', 0.5, 2],
         },
       })
+      applyMapTheme(map, themeRef.current)
       setReady(true)
     })
     map.on('dragstart', () => callbacks.current.onUserPan())
@@ -156,6 +168,13 @@ export function RepMap({
       mapRef.current = null
     }
   }, [])
+
+  // Follow light / dark.
+  useEffect(() => {
+    themeRef.current = theme
+    const map = mapRef.current
+    if (map && ready) applyMapTheme(map, theme)
+  }, [theme, ready])
 
   // Keep markers in sync with the reps.
   useEffect(() => {

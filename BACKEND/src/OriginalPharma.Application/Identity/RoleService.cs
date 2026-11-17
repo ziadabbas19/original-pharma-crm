@@ -58,6 +58,7 @@ public sealed class RoleService(
             NameEn = nameEn,
             Description = Clean(request.Description),
             Level = level,
+            MaxDiscountPercent = request.MaxDiscountPercent,
         };
 
         var permissionIds = await ResolvePermissionIdsAsync(grants.Keys, cancellationToken);
@@ -75,6 +76,7 @@ public sealed class RoleService(
             new("level", null, role.Level.ToString()),
         ];
         RoleAudit.AddIfChanged(changes, "description", null, role.Description);
+        RoleAudit.AddIfChanged(changes, "maxDiscountPercent", null, RoleAudit.Percent(role.MaxDiscountPercent));
         if (source is not null)
         {
             changes.Add(new RoleAuditChangeDto("copiedFrom", null, source.Key));
@@ -122,6 +124,7 @@ public sealed class RoleService(
         RoleAudit.AddIfChanged(changes, "nameEn", role.NameEn, nameEn);
         RoleAudit.AddIfChanged(changes, "description", role.Description, description);
         RoleAudit.AddIfChanged(changes, "level", role.Level.ToString(), request.Level.ToString());
+        RoleAudit.AddIfChanged(changes, "maxDiscountPercent", RoleAudit.Percent(role.MaxDiscountPercent), RoleAudit.Percent(request.MaxDiscountPercent));
         if (changes.Count == 0)
         {
             return await GetRoleAsync(role.Id, cancellationToken);
@@ -131,6 +134,7 @@ public sealed class RoleService(
         role.NameEn = nameEn;
         role.Description = description;
         role.Level = request.Level;
+        role.MaxDiscountPercent = request.MaxDiscountPercent;
         db.RoleAuditEntries.Add(RoleAudit.Entry(role, actor, RoleAuditAction.Updated, changes, time.GetUtcNow()));
         await db.SaveChangesAsync(cancellationToken);
 
@@ -337,6 +341,7 @@ public sealed class RoleService(
                 r.Description,
                 r.IsSystem,
                 r.Level,
+                r.MaxDiscountPercent,
                 UserCount = db.UserRoles.Count(ur => ur.RoleId == r.Id),
                 Permissions = r.Permissions
                     .OrderBy(rp => rp.Permission!.Key)
@@ -348,7 +353,7 @@ public sealed class RoleService(
         return roles
             .Select(r => new RoleDto(
                 r.Id, r.Key, r.NameAr, r.NameEn, r.Description, r.IsSystem, r.Level,
-                DefaultRoles.HasLockedPermissions(r.Key), r.UserCount, r.Permissions))
+                DefaultRoles.HasLockedPermissions(r.Key), r.UserCount, r.Permissions, r.MaxDiscountPercent))
             .ToList();
     }
 

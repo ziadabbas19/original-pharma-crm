@@ -3,52 +3,71 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Brand: teal primary. Tokens follow the shadcn/ui naming so shadcn/ui components fit in unchanged. */
+/*
+ * Original Pharma brand: blue #0063AD (primary), green #9BC84E (success / accent), gray #97999B,
+ * dark gray #373737 (text). Tokens follow the shadcn/ui naming so shadcn/ui components fit in unchanged.
+ * Text pairs below are checked for WCAG AA (4.5:1) in both themes; the brand green and gray are too
+ * light for text on white, so text uses darker shades of them and the bright values stay decorative.
+ */
 :root {
+  color-scheme: light;
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.18 0.01 200);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.01 200);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.01 200);
-  --primary: oklch(0.51 0.09 186);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.01 190);
-  --secondary-foreground: oklch(0.25 0.03 200);
-  --muted: oklch(0.96 0.005 200);
-  --muted-foreground: oklch(0.5 0.02 200);
-  --accent: oklch(0.95 0.02 186);
-  --accent-foreground: oklch(0.25 0.03 200);
-  --destructive: oklch(0.58 0.22 27);
-  --success: oklch(0.6 0.15 150);
-  --warning: oklch(0.75 0.15 75);
-  --border: oklch(0.91 0.01 200);
-  --input: oklch(0.91 0.01 200);
-  --ring: oklch(0.51 0.09 186);
+  --background: #ffffff;
+  --foreground: #373737; /* 12.6:1 on white */
+  --card: #ffffff;
+  --card-foreground: #373737;
+  --popover: #ffffff;
+  --popover-foreground: #373737;
+  --primary: #0063ad; /* 6.2:1 with white text */
+  --primary-foreground: #ffffff;
+  --secondary: #edf2f7;
+  --secondary-foreground: #1f2a37;
+  --muted: #f3f4f6;
+  --muted-foreground: #5c5f63; /* 6.3:1 on white, 5.7:1 on muted */
+  --accent: #eef5e2; /* light brand green, hover and active backgrounds */
+  --accent-foreground: #2b2d2f;
+  --destructive: #c62828; /* 5.6:1 on white */
+  --destructive-foreground: #ffffff;
+  --success: #4a7a18; /* darker brand green for text: 5.1:1 on white */
+  --success-foreground: #ffffff;
+  --warning: #b45309; /* 5.0:1 on white */
+  --border: #e3e5e8;
+  --input: #d5d8dd;
+  --ring: #0063ad;
+  --brand-blue: #0063ad;
+  --brand-green: #9bc84e;
+  --brand-gray: #97999b;
+  --brand-dark: #373737;
 }
 
 .dark {
-  --background: oklch(0.17 0.01 200);
-  --foreground: oklch(0.97 0 0);
-  --card: oklch(0.21 0.01 200);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.21 0.01 200);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.7 0.11 186);
-  --primary-foreground: oklch(0.17 0.01 200);
-  --secondary: oklch(0.27 0.01 200);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.27 0.01 200);
-  --muted-foreground: oklch(0.72 0.02 200);
-  --accent: oklch(0.3 0.03 186);
-  --accent-foreground: oklch(0.97 0 0);
-  --destructive: oklch(0.7 0.19 22);
-  --success: oklch(0.7 0.15 150);
-  --warning: oklch(0.8 0.15 75);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.7 0.11 186);
+  color-scheme: dark;
+  --background: #141518;
+  --foreground: #ecedee; /* 15.6:1 */
+  --card: #1c1d21;
+  --card-foreground: #ecedee;
+  --popover: #212227;
+  --popover-foreground: #ecedee;
+  --primary: #3b9ae1; /* the dark logo blue; 5.7:1 on the background */
+  --primary-foreground: #08192a; /* 6.6:1 on primary (white would only reach 3:1) */
+  --secondary: #2a2c31;
+  --secondary-foreground: #ecedee;
+  --muted: #25272b;
+  --muted-foreground: #a6a9ae; /* 7.6:1 on the background, 6.5:1 on muted */
+  --accent: #27311d;
+  --accent-foreground: #ecedee;
+  --destructive: #f2726f; /* 6.3:1 on the background */
+  --destructive-foreground: #1d0606;
+  --success: #9bc84e; /* brand green: 9.1:1 on the background */
+  --success-foreground: #142104;
+  --warning: #f5b544;
+  --border: rgb(255 255 255 / 10%);
+  --input: rgb(255 255 255 / 16%);
+  --ring: #3b9ae1;
+  --brand-blue: #3b9ae1;
+  --brand-green: #9bc84e;
+  --brand-gray: #b4b6b8;
+  --brand-dark: #ecedee;
 }
 
 @theme inline {
@@ -72,11 +91,16 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-green: var(--brand-green);
+  --color-brand-gray: var(--brand-gray);
 }
 
 @layer base {
@@ -97,4 +121,31 @@
 }
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* MapLibre controls follow the theme. */
+.dark .maplibregl-ctrl-group {
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.dark .maplibregl-ctrl-group button + button {
+  border-top-color: var(--border);
+}
+.dark .maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: invert(1) hue-rotate(180deg);
+}
+.dark .maplibregl-ctrl-attrib,
+.dark .maplibregl-ctrl-attrib.maplibregl-compact {
+  background: rgb(28 29 33 / 85%);
+  color: var(--muted-foreground);
+}
+.dark .maplibregl-ctrl-attrib a {
+  color: var(--foreground);
+}
+.dark .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
+.dark .maplibregl-popup-content {
+  background: var(--popover);
+  color: var(--popover-foreground);
 }

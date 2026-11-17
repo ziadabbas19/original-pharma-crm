@@ -13,6 +13,7 @@ export interface LiveRep {
   deviceHealthy: boolean
   healthIssues: string[]
   openFlags: number
+  avatarUrl?: string | null
 }
 
 /** ISO timestamps from the API vary in fractional digits, so compare instants rather than strings. */
@@ -48,6 +49,7 @@ const liveLocationsSlice = createSlice({
             deviceHealthy: p.deviceHealthy,
             healthIssues: p.healthIssues,
             openFlags: p.openFlags,
+            avatarUrl: p.avatarUrl,
           }
         }),
       )

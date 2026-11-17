@@ -21,4 +21,9 @@ export interface UserListItemDto {
   /** @nullable */
   managerName?: string | null
   preferredLanguage?: string
+  /** @nullable */
+  avatarUrl?: string | null
+  /** @nullable */
+  productLineIds?: string[] | null
+  mustChangePassword?: boolean
 }

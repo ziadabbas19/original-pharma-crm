@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using OriginalPharma.Domain.Crm;
+using OriginalPharma.Domain.Identity;
 using OriginalPharma.Domain.Visits;
 
 namespace OriginalPharma.Infrastructure.Persistence.Configurations;
@@ -10,12 +11,19 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
     public void Configure(EntityTypeBuilder<Customer> builder)
     {
         builder.ToTable("customers");
-        builder.Property(c => c.Name).HasMaxLength(200).IsRequired();
-        builder.Property(c => c.NameAr).HasMaxLength(200);
+        builder.Property(c => c.Name).HasMaxLength(Customer.NameMaxLength).IsRequired();
+        builder.Property(c => c.NameAr).HasMaxLength(Customer.NameMaxLength);
         builder.Property(c => c.Address).HasMaxLength(500);
         builder.Property(c => c.QrCode).HasMaxLength(128);
+        builder.Property(c => c.Phone).HasMaxLength(Customer.PhoneMaxLength);
+        builder.Property(c => c.Notes).HasMaxLength(Customer.NotesMaxLength);
         builder.Property(c => c.Location).HasColumnType(GeoColumn.Point);
+        builder.HasOne(c => c.Specialty).WithMany().HasForeignKey(c => c.SpecialtyId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Territory>().WithMany().HasForeignKey(c => c.TerritoryId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasMany(c => c.Reps).WithOne(r => r.Customer).HasForeignKey(r => r.CustomerId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(c => c.TerritoryId);
+        builder.HasIndex(c => c.SpecialtyId);
+        builder.HasIndex(c => new { c.Type, c.Name });
         builder.HasIndex(c => c.Location).HasMethod("gist");
     }
 }

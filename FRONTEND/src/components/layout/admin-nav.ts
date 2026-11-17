@@ -1,6 +1,10 @@
 import {
   BuildingIcon,
   ClipboardListIcon,
+  ListChecksIcon,
+  PackageIcon,
+  ReceiptTextIcon,
+  StethoscopeIcon,
   FlagIcon,
   LayoutDashboardIcon,
   MapIcon,
@@ -19,6 +23,10 @@ export type AdminPath =
   | '/admin/roles'
   | '/admin/territories'
   | '/admin/customers'
+  | '/admin/doctors'
+  | '/admin/orders'
+  | '/admin/products'
+  | '/admin/lookups'
   | '/admin/visits'
   | '/admin/flags'
   | '/admin/devices'
@@ -51,6 +59,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
   {
     title: 'nav.sections.field',
     items: [
+      { to: '/admin/doctors', label: 'nav.doctors', icon: StethoscopeIcon, permission: P.customers.read },
       { to: '/admin/customers', label: 'nav.customers', icon: BuildingIcon, permission: P.customers.read },
       { to: '/admin/visits', label: 'nav.visits', icon: ClipboardListIcon, permission: P.visits.read },
       {
@@ -59,6 +68,13 @@ export const ADMIN_NAV: AdminNavSection[] = [
         icon: MapPinnedIcon,
         permission: P.territories.read,
       },
+    ],
+  },
+  {
+    title: 'nav.sections.sales',
+    items: [
+      { to: '/admin/orders', label: 'nav.orders', icon: ReceiptTextIcon, permission: P.orders.read },
+      { to: '/admin/products', label: 'nav.products', icon: PackageIcon, permission: P.products.read },
     ],
   },
   {
@@ -85,6 +101,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
     items: [
       { to: '/admin/users', label: 'nav.users', icon: UsersIcon, permission: P.users.read },
       { to: '/admin/roles', label: 'nav.roles', icon: ShieldCheckIcon, permission: P.roles.read },
+      { to: '/admin/lookups', label: 'nav.lookups', icon: ListChecksIcon, permission: P.lookups.manage },
     ],
   },
 ]

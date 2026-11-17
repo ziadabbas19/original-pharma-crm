@@ -20,10 +20,22 @@ public sealed class CreateUserRequestValidator : AbstractValidator<CreateUserReq
     {
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.Password).NotEmpty().MinimumLength(8).MaximumLength(128);
-        RuleFor(x => x.Roles).NotEmpty();
+        RuleFor(x => x.Password).MinimumLength(8).MaximumLength(128).When(x => !string.IsNullOrEmpty(x.Password));
+        RuleFor(x => x.Roles).NotEmpty().WithMessage("Choose a role.");
         RuleForEach(x => x.Roles).NotEmpty().MaximumLength(Role.KeyMaxLength);
         RuleFor(x => x.PreferredLanguage).Must(l => l is "ar" or "en").WithMessage("Language must be 'ar' or 'en'.");
+        RuleFor(x => x.ManagerId).NotEqual(Guid.Empty);
+        RuleFor(x => x.TerritoryId).NotEqual(Guid.Empty);
+        RuleFor(x => x.ProductLineIds).Must(ids => ids is null || ids.Count <= 50).WithMessage("At most 50 product lines.");
+    }
+}
+
+public sealed class SetUserProductLinesRequestValidator : AbstractValidator<SetUserProductLinesRequest>
+{
+    public SetUserProductLinesRequestValidator()
+    {
+        RuleFor(x => x.ProductLineIds).NotNull().Must(ids => ids is null || ids.Count <= 50).WithMessage("At most 50 product lines.");
+        RuleForEach(x => x.ProductLineIds).NotEmpty();
     }
 }
 
@@ -36,6 +48,7 @@ public sealed class CreateRoleRequestValidator : AbstractValidator<CreateRoleReq
         RuleFor(x => x.Description).MaximumLength(Role.DescriptionMaxLength);
         RuleFor(x => x.Level).InclusiveBetween(Role.TopLevel, Role.MaxLevel);
         RuleFor(x => x.CopyFromRoleId).NotEqual(Guid.Empty);
+        RuleFor(x => x.MaxDiscountPercent).ValidDiscountCap();
     }
 }
 
@@ -47,6 +60,7 @@ public sealed class UpdateRoleRequestValidator : AbstractValidator<UpdateRoleReq
         RuleFor(x => x.NameEn).ValidRoleName();
         RuleFor(x => x.Description).MaximumLength(Role.DescriptionMaxLength);
         RuleFor(x => x.Level).InclusiveBetween(Role.TopLevel, Role.MaxLevel);
+        RuleFor(x => x.MaxDiscountPercent).ValidDiscountCap();
     }
 }
 
@@ -120,4 +134,8 @@ internal static class RoleValidationRules
         rule.Must(name => !string.IsNullOrWhiteSpace(name)).WithMessage("Name is required.")
             .Must(name => name is null || name.Trim().Length <= Role.NameMaxLength)
             .WithMessage($"Name must be at most {Role.NameMaxLength} characters.");
+
+    public static IRuleBuilderOptions<T, decimal?> ValidDiscountCap<T>(this IRuleBuilder<T, decimal?> rule) =>
+        rule.InclusiveBetween(0, 100)
+            .Must(cap => cap is null || decimal.Round(cap.Value, 2) == cap).WithMessage("Use at most 2 decimals.");
 }

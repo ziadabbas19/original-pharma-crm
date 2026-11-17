@@ -33,13 +33,16 @@ public static class AppClaims
 
     /// <summary>Permissions version at the time the token was issued.</summary>
     public const string PermissionsVersion = "pv";
+
+    /// <summary>Refresh-token family (session) the token was issued for.</summary>
+    public const string SessionId = "sid";
 }
 
 internal sealed class TokenService(IOptions<JwtOptions> options, TimeProvider time)
 {
     private static readonly JsonWebTokenHandler Handler = new();
 
-    public (string Token, DateTimeOffset ExpiresAt) CreateAccessToken(User user, IEnumerable<string> roles, int permissionsVersion)
+    public (string Token, DateTimeOffset ExpiresAt) CreateAccessToken(User user, IEnumerable<string> roles, int permissionsVersion, Guid sessionId)
     {
         var settings = options.Value;
         var now = time.GetUtcNow();
@@ -52,6 +55,7 @@ internal sealed class TokenService(IOptions<JwtOptions> options, TimeProvider ti
             new(AppClaims.Email, user.Email ?? string.Empty),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
             new(AppClaims.PermissionsVersion, permissionsVersion.ToString(), ClaimValueTypes.Integer32),
+            new(AppClaims.SessionId, sessionId.ToString()),
         };
         claims.AddRange(roles.Select(r => new Claim(AppClaims.Role, r)));
 

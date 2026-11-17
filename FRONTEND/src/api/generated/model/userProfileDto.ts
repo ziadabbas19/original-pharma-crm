@@ -14,4 +14,9 @@ export interface UserProfileDto {
   managerId: string | null
   /** @nullable */
   territoryId: string | null
+  mustChangePassword?: boolean
+  /** @nullable */
+  avatarUrl?: string | null
+  /** @nullable */
+  avatarThumbnailUrl?: string | null
 }

@@ -3,6 +3,7 @@ import {
   ActivityIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  KeyRoundIcon,
   LogOutIcon,
   WrenchIcon,
   type LucideIcon,
@@ -10,6 +11,10 @@ import {
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { ThemeSwitcher } from '@/components/ThemeSwitcher'
+import { AvatarEditor } from '@/features/profile/AvatarEditor'
+import { ChangePasswordForm } from '@/features/profile/ChangePasswordForm'
+import { roleName } from '@/features/roles/role-rules'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
@@ -22,6 +27,8 @@ export function RepSettingsPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const shift = useAppSelector((s) => s.tracking.shift)
+  const user = useAppSelector((s) => s.auth.user)
+  const [changingPassword, setChangingPassword] = useState(false)
   const [info, setInfo] = useState<AppInfo | null>(null)
   const Chevron = i18n.dir() === 'rtl' ? ChevronLeftIcon : ChevronRightIcon
 
@@ -37,6 +44,23 @@ export function RepSettingsPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">{t('settings.title')}</h1>
+
+      {user && (
+        <Card className="gap-3 py-4">
+          <CardContent className="grid gap-3 px-5">
+            <div>
+              <p className="font-semibold">{user.fullName}</p>
+              <p className="text-sm text-muted-foreground" dir="ltr">
+                {user.email}
+              </p>
+              {user.roles.length > 0 && (
+                <p className="text-xs text-muted-foreground">{user.roles.map(roleName).join(' · ')}</p>
+              )}
+            </div>
+            <AvatarEditor />
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="gap-0 py-0">
         <MenuLink
@@ -56,10 +80,32 @@ export function RepSettingsPage() {
         />
       </Card>
 
-      <Card>
-        <CardContent className="flex items-center justify-between">
+      <Card className="gap-0 py-0">
+        <CardContent className="flex items-center justify-between gap-3 px-5 py-3">
+          <span>{t('theme.label')}</span>
+          <ThemeSwitcher compact />
+        </CardContent>
+        <Separator />
+        <CardContent className="flex items-center justify-between gap-3 px-5 py-3">
           <span>{t('settings.language')}</span>
           <LanguageSwitcher />
+        </CardContent>
+      </Card>
+
+      <Card className="gap-3 py-4">
+        <CardContent className="grid gap-3 px-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 font-medium">
+              <KeyRoundIcon className="size-5 text-primary" />
+              {t('password.title')}
+            </span>
+            {!changingPassword && (
+              <Button size="sm" variant="outline" onClick={() => setChangingPassword(true)}>
+                {t('password.change')}
+              </Button>
+            )}
+          </div>
+          {changingPassword && <ChangePasswordForm />}
         </CardContent>
       </Card>
 

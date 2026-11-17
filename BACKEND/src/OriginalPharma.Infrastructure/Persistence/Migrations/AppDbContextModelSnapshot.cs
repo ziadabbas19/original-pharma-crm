@@ -25,6 +25,8 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.HasSequence("order_numbers");
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.Property<int>("Id")
@@ -155,6 +157,126 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.ToTable("user_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Catalog.Product", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("ImageKey")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("image_key");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name_ar");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name_en");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("price");
+
+                    b.Property<Guid>("ProductLineId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_line_id");
+
+                    b.Property<int>("StockQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("stock_quantity");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_products");
+
+                    b.HasIndex("ProductLineId", "NameEn")
+                        .HasDatabaseName("ix_products_product_line_id_name_en");
+
+                    b.ToTable("products", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Catalog.ProductLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("name_ar");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("name_en");
+
+                    b.HasKey("Id")
+                        .HasName("pk_product_lines");
+
+                    b.ToTable("product_lines", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Catalog.UserProductLine", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("ProductLineId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_line_id");
+
+                    b.HasKey("UserId", "ProductLineId")
+                        .HasName("pk_user_product_lines");
+
+                    b.HasIndex("ProductLineId")
+                        .HasDatabaseName("ix_user_product_lines_product_line_id");
+
+                    b.ToTable("user_product_lines", (string)null);
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Crm.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -170,6 +292,10 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
 
                     b.Property<int>("GeofenceRadiusMeters")
                         .HasColumnType("integer")
@@ -194,10 +320,24 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name_ar");
 
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("phone");
+
                     b.Property<string>("QrCode")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("qr_code");
+
+                    b.Property<Guid?>("SpecialtyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("specialty_id");
 
                     b.Property<Guid?>("TerritoryId")
                         .HasColumnType("uuid")
@@ -207,6 +347,10 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("type");
 
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
                     b.HasKey("Id")
                         .HasName("pk_customers");
 
@@ -215,10 +359,85 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Location"), "gist");
 
+                    b.HasIndex("SpecialtyId")
+                        .HasDatabaseName("ix_customers_specialty_id");
+
                     b.HasIndex("TerritoryId")
                         .HasDatabaseName("ix_customers_territory_id");
 
+                    b.HasIndex("Type", "Name")
+                        .HasDatabaseName("ix_customers_type_name");
+
                     b.ToTable("customers", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Crm.RepDoctor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AssignedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at");
+
+                    b.Property<Guid?>("AssignedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_by_id");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_rep_doctors");
+
+                    b.HasIndex("CustomerId")
+                        .HasDatabaseName("ix_rep_doctors_customer_id");
+
+                    b.HasIndex("UserId", "CustomerId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_rep_doctors_user_id_customer_id");
+
+                    b.ToTable("rep_doctors", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Crm.Specialty", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name_ar");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name_en");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_specialties");
+
+                    b.ToTable("specialties", (string)null);
                 });
 
             modelBuilder.Entity("OriginalPharma.Domain.Identity.Permission", b =>
@@ -360,6 +579,11 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.Property<int>("Level")
                         .HasColumnType("integer")
                         .HasColumnName("level");
+
+                    b.Property<decimal?>("MaxDiscountPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("max_discount_percent");
 
                     b.Property<string>("Name")
                         .HasMaxLength(64)
@@ -524,6 +748,11 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("access_failed_count");
 
+                    b.Property<string>("AvatarKey")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("avatar_key");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text")
@@ -563,6 +792,10 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ManagerId")
                         .HasColumnType("uuid")
                         .HasColumnName("manager_id");
+
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("boolean")
+                        .HasColumnName("must_change_password");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
@@ -634,6 +867,54 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Identity.UserAuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("integer")
+                        .HasColumnName("action");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor_name");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("details");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_user_audit_entries");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("ix_user_audit_entries_user_id_created_at");
+
+                    b.ToTable("user_audit_entries", (string)null);
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Identity.UserPermissionOverride", b =>
                 {
                     b.Property<Guid>("Id")
@@ -684,6 +965,290 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_user_permission_overrides_user_id_permission_id");
 
                     b.ToTable("user_permission_overrides", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Orders.CollectionMethod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name_ar");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name_en");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_collection_methods");
+
+                    b.ToTable("collection_methods", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Orders.Order", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_request_id");
+
+                    b.Property<Guid?>("CollectionMethodId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("collection_method_id");
+
+                    b.Property<string>("CollectionMethodOther")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("collection_method_other");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<decimal>("DiscountTotal")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("discount_total");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("number");
+
+                    b.Property<DateOnly>("OrderDate")
+                        .HasColumnType("date")
+                        .HasColumnName("order_date");
+
+                    b.Property<string>("PlaceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("place_name");
+
+                    b.Property<int>("PlaceType")
+                        .HasColumnType("integer")
+                        .HasColumnName("place_type");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("StatusReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("status_reason");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("subtotal");
+
+                    b.Property<Guid?>("TerritoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("territory_id");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("total");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UpdatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_orders");
+
+                    b.HasIndex("CollectionMethodId")
+                        .HasDatabaseName("ix_orders_collection_method_id");
+
+                    b.HasIndex("CustomerId")
+                        .HasDatabaseName("ix_orders_customer_id");
+
+                    b.HasIndex("Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_orders_number");
+
+                    b.HasIndex("Status", "OrderDate")
+                        .HasDatabaseName("ix_orders_status_order_date");
+
+                    b.HasIndex("TerritoryId", "OrderDate")
+                        .HasDatabaseName("ix_orders_territory_id_order_date");
+
+                    b.HasIndex("UserId", "ClientRequestId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_orders_user_id_client_request_id");
+
+                    b.HasIndex("UserId", "OrderDate")
+                        .HasDatabaseName("ix_orders_user_id_order_date");
+
+                    b.ToTable("orders", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_orders_collection_method", "(collection_method_id IS NOT NULL) <> (collection_method_other IS NOT NULL AND collection_method_other <> '')");
+                        });
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Orders.OrderHistoryEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("integer")
+                        .HasColumnName("action");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor_name");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("FromStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("from_status");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<int>("ToStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("to_status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_order_history");
+
+                    b.HasIndex("OrderId", "CreatedAt")
+                        .HasDatabaseName("ix_order_history_order_id_created_at");
+
+                    b.ToTable("order_history", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Orders.OrderLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("discount_amount");
+
+                    b.Property<decimal>("DiscountPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("discount_percent");
+
+                    b.Property<bool>("ExceededStock")
+                        .HasColumnType("boolean")
+                        .HasColumnName("exceeded_stock");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("line_total");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_id");
+
+                    b.Property<string>("ProductNameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("product_name_ar");
+
+                    b.Property<string>("ProductNameEn")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("product_name_en");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("unit_price");
+
+                    b.HasKey("Id")
+                        .HasName("pk_order_lines");
+
+                    b.HasIndex("OrderId")
+                        .HasDatabaseName("ix_order_lines_order_id");
+
+                    b.HasIndex("ProductId")
+                        .HasDatabaseName("ix_order_lines_product_id");
+
+                    b.ToTable("order_lines", (string)null);
                 });
 
             modelBuilder.Entity("OriginalPharma.Domain.Tracking.Device", b =>
@@ -1377,6 +1942,23 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.ToTable("visit_photos", (string)null);
                 });
 
+            modelBuilder.Entity("OriginalPharma.Infrastructure.Persistence.SeedHistoryEntry", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("key");
+
+                    b.Property<DateTimeOffset>("AppliedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("applied_at");
+
+                    b.HasKey("Key")
+                        .HasName("pk_seed_history");
+
+                    b.ToTable("seed_history", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("OriginalPharma.Domain.Identity.Role", null)
@@ -1432,6 +2014,75 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_tokens_asp_net_users_user_id");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Catalog.Product", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Catalog.ProductLine", "ProductLine")
+                        .WithMany("Products")
+                        .HasForeignKey("ProductLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_products_product_lines_product_line_id");
+
+                    b.Navigation("ProductLine");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Catalog.UserProductLine", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Catalog.ProductLine", "ProductLine")
+                        .WithMany()
+                        .HasForeignKey("ProductLineId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_product_lines_product_lines_product_line_id");
+
+                    b.HasOne("OriginalPharma.Domain.Identity.User", "User")
+                        .WithMany("ProductLines")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_product_lines_users_user_id");
+
+                    b.Navigation("ProductLine");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Crm.Customer", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Crm.Specialty", "Specialty")
+                        .WithMany()
+                        .HasForeignKey("SpecialtyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_customers_specialties_specialty_id");
+
+                    b.HasOne("OriginalPharma.Domain.Identity.Territory", null)
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_customers_territories_territory_id");
+
+                    b.Navigation("Specialty");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Crm.RepDoctor", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Crm.Customer", "Customer")
+                        .WithMany("Reps")
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_rep_doctors_customers_customer_id");
+
+                    b.HasOne("OriginalPharma.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_rep_doctors_asp_net_users_user_id");
+
+                    b.Navigation("Customer");
                 });
 
             modelBuilder.Entity("OriginalPharma.Domain.Identity.RefreshToken", b =>
@@ -1518,6 +2169,59 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Orders.Order", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Orders.CollectionMethod", "CollectionMethod")
+                        .WithMany()
+                        .HasForeignKey("CollectionMethodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_orders_collection_methods_collection_method_id");
+
+                    b.HasOne("OriginalPharma.Domain.Crm.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_orders_customers_customer_id");
+
+                    b.HasOne("OriginalPharma.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_orders_asp_net_users_user_id");
+
+                    b.Navigation("CollectionMethod");
+
+                    b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Orders.OrderHistoryEntry", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Orders.Order", null)
+                        .WithMany("History")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_order_history_orders_order_id");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Orders.OrderLine", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Orders.Order", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_order_lines_orders_order_id");
+
+                    b.HasOne("OriginalPharma.Domain.Catalog.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_order_lines_products_product_id");
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Tracking.DeviceHealthReport", b =>
                 {
                     b.HasOne("OriginalPharma.Domain.Tracking.Device", null)
@@ -1550,6 +2254,16 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_visit_photos_visits_visit_id");
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Catalog.ProductLine", b =>
+                {
+                    b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Crm.Customer", b =>
+                {
+                    b.Navigation("Reps");
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Identity.Role", b =>
                 {
                     b.Navigation("Permissions");
@@ -1558,6 +2272,18 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("OriginalPharma.Domain.Identity.Territory", b =>
                 {
                     b.Navigation("Children");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Identity.User", b =>
+                {
+                    b.Navigation("ProductLines");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Orders.Order", b =>
+                {
+                    b.Navigation("History");
+
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("OriginalPharma.Domain.Visits.Visit", b =>

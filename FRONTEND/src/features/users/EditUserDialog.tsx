@@ -2,7 +2,7 @@ import { useForm } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useUsersUpdate } from '@/api/generated/endpoints'
+import { useProductLinesList, useUsersSetProductLines, useUsersUpdate } from '@/api/generated/endpoints'
 import type { TerritoryDto, UserListItemDto } from '@/api/generated/model'
 import { FormError } from '@/components/states'
 import { Button } from '@/components/ui/button'
@@ -14,9 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
-import { usePermissionScope } from '@/features/auth/usePermission'
+import { usePermission, usePermissionScope } from '@/features/auth/usePermission'
 import { bestLevel, invalidateRoleData, reportsOf } from '@/features/roles/role-rules'
 import { flattenTerritories } from '@/features/territories/territory-tree'
 import { fieldErrors } from '@/lib/errors'
@@ -45,7 +47,14 @@ export function EditUserDialog({
   const update = useUsersUpdate()
   const [error, setError] = useState<unknown>(null)
   const manageScope = usePermissionScope(P.users.manage)
-  const territoryOptions = useMemo(() => flattenTerritories(territories), [territories])
+  const territoryOptions = useMemo(
+    () => flattenTerritories(territories).filter((x) => x.level !== 'town'),
+    [territories],
+  )
+  const canReadProducts = usePermission(P.products.read)
+  const productLines = useProductLinesList(undefined, { query: { enabled: canReadProducts } })
+  const setLines = useUsersSetProductLines()
+  const [lineIds, setLineIds] = useState<string[]>(user.productLineIds ?? [])
   const userLevel = bestLevel(user.roles)
   const reports = useMemo(() => reportsOf(users, user.id), [users, user.id])
 
@@ -68,6 +77,10 @@ export function EditUserDialog({
             managerId: value.managerId || null,
           },
         })
+        const before = new Set(user.productLineIds ?? [])
+        if (lineIds.length !== before.size || lineIds.some((id) => !before.has(id))) {
+          await setLines.mutateAsync({ userId: user.id, data: { productLineIds: lineIds } })
+        }
         await invalidateRoleData(queryClient)
         onClose()
       } catch (e) {
@@ -148,7 +161,7 @@ export function EditUserDialog({
             >
               {(field) => (
                 <Field
-                  label={t('users.territory')}
+                  label={t('users.area')}
                   id="edit-user-territory"
                   errors={[...field.state.meta.errors, ...(server.territoryId ?? [])]}
                 >
@@ -202,6 +215,31 @@ export function EditUserDialog({
               )}
             </form.Field>
           </div>
+
+          {canReadProducts && (productLines.data ?? []).length > 0 && (
+            <fieldset className="grid gap-2">
+              <legend className="mb-1 text-sm font-medium">{t('users.productLines')}</legend>
+              <p className="text-xs text-muted-foreground">{t('users.productLinesHint')}</p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {(productLines.data ?? []).map((line) => (
+                  <Label
+                    key={line.id}
+                    className="flex items-center gap-2 rounded-md border p-2.5 font-normal"
+                  >
+                    <Checkbox
+                      checked={lineIds.includes(line.id)}
+                      onCheckedChange={(v) =>
+                        setLineIds((current) =>
+                          v === true ? [...current, line.id] : current.filter((x) => x !== line.id),
+                        )
+                      }
+                    />
+                    {localizedName(line.nameEn, line.nameAr)}
+                  </Label>
+                ))}
+              </div>
+            </fieldset>
+          )}
 
           <FormError error={error} />
 

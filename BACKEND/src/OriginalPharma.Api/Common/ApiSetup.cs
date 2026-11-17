@@ -16,6 +16,10 @@ internal static class ApiSetup
 {
     public const string CorsPolicy = "frontend";
     public const string AuthRateLimit = "auth";
+    public const string PasswordRateLimit = "password";
+
+    /// <summary>Image uploads are limited to 5 MB by the image service; this leaves room for the multipart envelope.</summary>
+    public const long MaxImageRequestBytes = 6 * 1024 * 1024;
 
     public static IServiceCollection AddApi(this IServiceCollection services, IConfiguration configuration)
     {
@@ -49,6 +53,12 @@ internal static class ApiSetup
                 http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 // Generous: many reps can share one carrier NAT address.
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1) }));
+
+            // Password changes per signed-in user (falls back to the address): slows down guessing
+            // the current password from a stolen session.
+            o.AddPolicy(PasswordRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+                http.User.FindFirst("sub")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(15) }));
         });
 
         // Only proxies on loopback are trusted by default.

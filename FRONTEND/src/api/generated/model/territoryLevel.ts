@@ -8,5 +8,5 @@ export type TerritoryLevel = (typeof TerritoryLevel)[keyof typeof TerritoryLevel
 export const TerritoryLevel = {
   region: 'region',
   area: 'area',
-  territory: 'territory',
+  town: 'town',
 } as const

@@ -108,6 +108,13 @@ public static class ScopeQueryExtensions
         };
     }
 
+    /// <summary>
+    /// Ids of the users visible in the scope, as a subquery. For data owned by a user that has no
+    /// territory column of its own (doctor lists), so "territory" means the owner's territory.
+    /// </summary>
+    public static IQueryable<Guid> VisibleUserIds(this IQueryable<User> users, DataScope scope) =>
+        users.WhereUsersInScope(scope).Select(u => u.Id);
+
     private static MethodCallExpression ContainsCall(Expression collection, Expression item, Type itemType) =>
         Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), [itemType], collection, item);
 

@@ -19,4 +19,6 @@ export interface RepPresenceDto {
   deviceHealthy: boolean
   healthIssues: string[]
   openFlags: number
+  /** @nullable */
+  avatarUrl?: string | null
 }

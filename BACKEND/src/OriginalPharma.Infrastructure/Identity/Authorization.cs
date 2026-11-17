@@ -70,6 +70,8 @@ internal sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
 
     public string? IpAddress => accessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
 
+    public Guid? SessionId => Guid.TryParse(Principal?.FindFirstValue(AppClaims.SessionId), out var id) ? id : null;
+
     public string? UserAgent
     {
         get

@@ -25,6 +25,10 @@
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="NetTopologySuite" Version="2.6.0" />
 
+    <!-- Images (MIT): decode, resize, WebP encode. NoDependencies = no fontconfig needed on Linux. -->
+    <PackageVersion Include="SkiaSharp" Version="4.156.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.156.1" />
+
     <!-- Infrastructure -->
     <PackageVersion Include="StackExchange.Redis" Version="2.13.23" />
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.25" />

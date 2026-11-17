@@ -1,11 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
-import { LogOutIcon, MenuIcon, SmartphoneIcon } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { LogOutIcon, MenuIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, SmartphoneIcon } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { BrandLogo } from '@/components/BrandLogo'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
+import { UserAvatar } from '@/components/UserAvatar'
+import { ProfileDialog } from '@/features/profile/ProfileDialog'
 import { roleName } from '@/features/roles/role-rules'
 import { useLiveTracking } from '@/features/tracking/useLiveTracking'
 import { canUseDashboard, hasPermission, P } from '@/lib/permissions'
@@ -13,7 +17,7 @@ import { logout } from '@/lib/session'
 import { cn } from '@/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/store'
 import { liveLocationsSelectors } from '@/store/slices/liveLocationsSlice'
-import { sidebarToggled } from '@/store/slices/uiSlice'
+import { sidebarCollapsedToggled, sidebarToggled } from '@/store/slices/uiSlice'
 import { ADMIN_NAV, type AdminNavItem } from './admin-nav'
 
 /**
@@ -26,6 +30,7 @@ export function AdminLayout() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const open = useAppSelector((s) => s.ui.sidebarOpen)
+  const collapsed = useAppSelector((s) => s.ui.sidebarCollapsed)
   const granted = useAppSelector((s) => s.permissions.byKey)
   const permissionsVersion = useAppSelector((s) => s.permissions.version)
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -69,8 +74,13 @@ export function AdminLayout() {
 
   return (
     <div className="flex min-h-dvh bg-muted/30">
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-e bg-card md:flex">
-        <SidebarContent />
+      <aside
+        className={cn(
+          'sticky top-0 hidden h-dvh shrink-0 flex-col border-e bg-card transition-[width] duration-200 md:flex',
+          collapsed ? 'w-16' : 'w-64',
+        )}
+      >
+        <SidebarContent collapsed={collapsed} />
       </aside>
 
       <Sheet open={open} onOpenChange={(value) => dispatch(sidebarToggled(value))}>
@@ -92,11 +102,27 @@ export function AdminLayout() {
           >
             <MenuIcon />
           </Button>
+          <BrandLogo variant="emblem" className="size-7 md:hidden" decorative />
           <div className="min-w-0 flex-1 truncate font-medium md:hidden">
             {current ? t(current.label) : t('common.appName')}
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden md:inline-flex"
+            aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
+            title={collapsed ? t('nav.expand') : t('nav.collapse')}
+            onClick={() => dispatch(sidebarCollapsedToggled())}
+          >
+            {collapsed ? (
+              <PanelLeftOpenIcon className="rtl:-scale-x-100" />
+            ) : (
+              <PanelLeftCloseIcon className="rtl:-scale-x-100" />
+            )}
+          </Button>
           <div className="hidden flex-1 md:block" />
           <LiveConnectionIndicator />
+          <ThemeSwitcher compact className="hidden sm:inline-flex" />
           <LanguageSwitcher />
           <UserChip />
           <Button variant="ghost" size="sm" onClick={() => void signOut()} aria-label={t('common.signOut')}>
@@ -112,7 +138,7 @@ export function AdminLayout() {
   )
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const { t } = useTranslation()
   const granted = useAppSelector((s) => s.permissions.byKey)
 
@@ -123,16 +149,24 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b px-4 font-semibold">
-        <img src="/favicon.svg" alt="" className="size-7" />
-        {t('common.appName')}
+      <div
+        className={cn('flex h-14 shrink-0 items-center border-b', collapsed ? 'justify-center px-2' : 'px-4')}
+      >
+        {collapsed ? <BrandLogo variant="emblem" className="size-8" /> : <BrandLogo className="h-11" />}
       </div>
-      <nav className="flex-1 space-y-5 overflow-y-auto p-3" aria-label={t('nav.menu')}>
+      <nav
+        className={cn('flex-1 space-y-5 overflow-y-auto', collapsed ? 'p-2' : 'p-3')}
+        aria-label={t('nav.menu')}
+      >
         {sections.map((section) => (
           <div key={section.title} className="space-y-1">
-            <p className="px-3 text-xs font-medium text-muted-foreground/80">{t(section.title)}</p>
+            {collapsed ? (
+              <div className="mx-2 border-t first:hidden" aria-hidden />
+            ) : (
+              <p className="px-3 text-xs font-medium text-muted-foreground">{t(section.title)}</p>
+            )}
             {section.items.map((item) => (
-              <NavLink key={item.to} item={item} onNavigate={onNavigate} />
+              <NavLink key={item.to} item={item} onNavigate={onNavigate} collapsed={collapsed} />
             ))}
           </div>
         ))}
@@ -142,10 +176,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <Link
             to="/rep"
             onClick={onNavigate}
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            title={collapsed ? t('nav.repApp') : undefined}
+            className={cn(
+              'flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              collapsed && 'justify-center px-0',
+            )}
           >
             <SmartphoneIcon className="size-4" />
-            {t('nav.repApp')}
+            <span className={cn(collapsed && 'sr-only')}>{t('nav.repApp')}</span>
           </Link>
         </div>
       )}
@@ -153,7 +191,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function NavLink({ item, onNavigate }: { item: AdminNavItem; onNavigate?: () => void }) {
+function NavLink({
+  item,
+  onNavigate,
+  collapsed,
+}: {
+  item: AdminNavItem
+  onNavigate?: () => void
+  collapsed?: boolean
+}) {
   const { t } = useTranslation()
   const count = useNavBadge(item.badge)
   return (
@@ -161,16 +207,26 @@ function NavLink({ item, onNavigate }: { item: AdminNavItem; onNavigate?: () => 
       to={item.to}
       activeOptions={{ exact: item.to === '/admin' }}
       onClick={onNavigate}
-      className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+      title={collapsed ? t(item.label) : undefined}
+      className={cn(
+        'relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+        collapsed && 'justify-center px-0',
+      )}
       activeProps={{ className: 'bg-accent font-medium text-accent-foreground' }}
     >
       <item.icon className="size-4 shrink-0" />
-      <span className="flex-1 truncate">{t(item.label)}</span>
-      {count > 0 && (
-        <span className="min-w-5 rounded-full bg-destructive/15 px-1.5 text-center text-xs font-medium text-destructive tabular-nums">
-          {count}
-        </span>
-      )}
+      <span className={cn('flex-1 truncate', collapsed && 'sr-only')}>{t(item.label)}</span>
+      {count > 0 &&
+        (collapsed ? (
+          <span
+            className="absolute top-1 size-2 rounded-full bg-destructive ltr:right-2 rtl:left-2"
+            aria-hidden
+          />
+        ) : (
+          <span className="min-w-5 rounded-full bg-destructive/15 px-1.5 text-center text-xs font-medium text-destructive tabular-nums">
+            {count}
+          </span>
+        ))}
     </Link>
   )
 }
@@ -205,30 +261,30 @@ function LiveConnectionIndicator() {
 }
 
 function UserChip() {
+  const { t } = useTranslation()
   const user = useAppSelector((s) => s.auth.user)
+  const [open, setOpen] = useState(false)
   if (!user) return null
-  const initials = user.fullName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
   return (
-    <div className="flex min-w-0 items-center gap-2 ps-1">
-      <span
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary uppercase"
-        aria-hidden
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex min-w-0 items-center gap-2 rounded-md py-1 ps-1 pe-2 text-start hover:bg-accent"
+        aria-label={t('profile.open')}
+        title={t('profile.open')}
       >
-        {initials}
-      </span>
-      <div className="hidden min-w-0 leading-tight sm:block">
-        <div className="max-w-40 truncate text-sm font-medium">{user.fullName}</div>
-        {user.roles.length > 0 && (
-          <div className="max-w-40 truncate text-xs text-muted-foreground">
-            {user.roles.map(roleName).join(' · ')}
-          </div>
-        )}
-      </div>
-    </div>
+        <UserAvatar name={user.fullName} src={user.avatarThumbnailUrl} />
+        <div className="hidden min-w-0 leading-tight sm:block">
+          <div className="max-w-40 truncate text-sm font-medium">{user.fullName}</div>
+          {user.roles.length > 0 && (
+            <div className="max-w-40 truncate text-xs text-muted-foreground">
+              {user.roles.map(roleName).join(' · ')}
+            </div>
+          )}
+        </div>
+      </button>
+      <ProfileDialog open={open} onOpenChange={setOpen} />
+    </>
   )
 }

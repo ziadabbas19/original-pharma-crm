@@ -1,6 +1,7 @@
 import { AlertTriangleIcon, BatteryLowIcon, FlagIcon, MapPinOffIcon, UsersIcon } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { UserAvatar } from '@/components/UserAvatar'
 import { SearchInput } from '@/components/data-table/toolbar'
 import { EmptyState } from '@/components/states'
 import { formatRelative } from '@/lib/format'
@@ -101,7 +102,13 @@ export function RepList({
                     rep.userId === selectedId && 'bg-accent',
                   )}
                 >
-                  <LiveStatusDot status={rep.liveStatus} className="mt-1.5" />
+                  <span className="relative shrink-0">
+                    <UserAvatar name={rep.fullName} src={rep.avatarUrl} />
+                    <LiveStatusDot
+                      status={rep.liveStatus}
+                      className="absolute -end-0.5 -bottom-0.5 ring-2 ring-card"
+                    />
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate font-medium">{rep.fullName}</span>

@@ -18,10 +18,10 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: false,
-        includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
         manifest: {
           id: '/rep',
-          name: 'Original Pharma',
+          name: 'Original Pharma CRM',
           short_name: 'Original Pharma',
           description: 'Original Pharma field app for medical reps',
           lang: 'ar',
@@ -30,16 +30,17 @@ export default defineConfig(({ mode }) => {
           scope: '/',
           display: 'standalone',
           orientation: 'portrait',
+          // Splash: the emblem on white. The page then sets the bar colour to match the theme.
           background_color: '#ffffff',
-          theme_color: '#0f766e',
+          theme_color: '#0063ad',
           icons: [
-            { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
-            { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
+            { src: 'pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
             { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
           navigateFallback: '/index.html',
           // API calls, the realtime hub and backend tools are never served from cache.
           navigateFallbackDenylist: [/^\/api\//, /^\/hubs\//, /^\/swagger/, /^\/hangfire/, /^\/health/],

@@ -16,8 +16,24 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasOne(u => u.Manager).WithMany().HasForeignKey(u => u.ManagerId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(u => u.Territory).WithMany().HasForeignKey(u => u.TerritoryId).OnDelete(DeleteBehavior.SetNull);
+        builder.Property(u => u.AvatarKey).HasMaxLength(32);
+        builder.HasMany(u => u.ProductLines).WithOne(l => l.User).HasForeignKey(l => l.UserId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(u => u.ManagerId);
         builder.HasIndex(u => u.TerritoryId);
+    }
+}
+
+internal sealed class UserAuditEntryConfiguration : IEntityTypeConfiguration<UserAuditEntry>
+{
+    public void Configure(EntityTypeBuilder<UserAuditEntry> builder)
+    {
+        builder.ToTable("user_audit_entries");
+        builder.Property(e => e.ActorName).HasMaxLength(200).IsRequired();
+        builder.Property(e => e.Details).HasColumnType("jsonb").IsRequired();
+        builder.Property(e => e.IpAddress).HasMaxLength(64);
+
+        // No foreign key: the history outlives the account.
+        builder.HasIndex(e => new { e.UserId, e.CreatedAt });
     }
 }
 
@@ -35,6 +51,7 @@ internal sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
         builder.Property(r => r.NameAr).HasMaxLength(Role.NameMaxLength).IsRequired();
         builder.Property(r => r.NameEn).HasMaxLength(Role.NameMaxLength).IsRequired();
         builder.Property(r => r.Description).HasMaxLength(Role.DescriptionMaxLength);
+        builder.Property(r => r.MaxDiscountPercent).HasPrecision(5, 2);
         builder.HasIndex(r => r.Level);
         builder.HasMany(r => r.Permissions).WithOne(rp => rp.Role).HasForeignKey(rp => rp.RoleId).OnDelete(DeleteBehavior.Cascade);
     }
@@ -124,9 +141,9 @@ internal sealed class TerritoryConfiguration : IEntityTypeConfiguration<Territor
     public void Configure(EntityTypeBuilder<Territory> builder)
     {
         builder.ToTable("territories");
-        builder.Property(t => t.Code).HasMaxLength(32).IsRequired();
-        builder.Property(t => t.Name).HasMaxLength(200).IsRequired();
-        builder.Property(t => t.NameAr).HasMaxLength(200);
+        builder.Property(t => t.Code).HasMaxLength(Territory.CodeMaxLength).IsRequired();
+        builder.Property(t => t.Name).HasMaxLength(Territory.NameMaxLength).IsRequired();
+        builder.Property(t => t.NameAr).HasMaxLength(Territory.NameMaxLength);
         builder.HasIndex(t => t.Code).IsUnique();
         builder.HasOne(t => t.Parent).WithMany(t => t.Children).HasForeignKey(t => t.ParentId).OnDelete(DeleteBehavior.Restrict);
     }

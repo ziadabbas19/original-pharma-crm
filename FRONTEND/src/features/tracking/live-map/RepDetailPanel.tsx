@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { UserAvatar } from '@/components/UserAvatar'
 import { EmptyState, ErrorState, Spinner } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -74,6 +75,7 @@ export function RepDetailPanel({
         >
           <ArrowLeftIcon className="rtl:rotate-180" />
         </Button>
+        <UserAvatar name={rep.fullName} src={rep.avatarUrl} className="size-10" />
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{rep.fullName}</div>
           <div className="text-xs text-muted-foreground">

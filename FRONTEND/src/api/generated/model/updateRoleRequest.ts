@@ -9,4 +9,6 @@ export interface UpdateRoleRequest {
   /** @nullable */
   description: string | null
   level: number
+  /** @nullable */
+  maxDiscountPercent?: number | null
 }

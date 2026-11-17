@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Orders;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Infrastructure.Persistence;
 
@@ -119,10 +121,16 @@ internal sealed class AuthService(
         var roles = await db.GetRoleSummariesAsync(userId, cancellationToken);
         var effective = await permissions.GetEffectivePermissionsAsync(userId, cancellationToken);
 
+        var caps = await db.UserRoles.AsNoTracking()
+            .Where(ur => ur.UserId == userId)
+            .Join(db.Roles, ur => ur.RoleId, r => r.Id, (_, r) => r.MaxDiscountPercent)
+            .ToListAsync(cancellationToken);
+
         return new MeResponse(
             ToProfile(user, roles),
             effective.Scopes.Select(kv => new PermissionGrantDto(kv.Key, kv.Value)).OrderBy(p => p.Key).ToList(),
-            effective.Version);
+            effective.Version,
+            OrderPricing.EffectiveDiscountCap(caps));
     }
 
     private async Task<AuthTokens> IssueAsync(
@@ -137,7 +145,7 @@ internal sealed class AuthService(
         var roles = await db.GetRoleSummariesAsync(user.Id, cancellationToken);
         var version = await permissions.GetVersionAsync(user.Id, cancellationToken);
         // Role claims carry the stable keys, never display names.
-        var (accessToken, accessExpiresAt) = tokens.CreateAccessToken(user, roles.Select(r => r.Key), version);
+        var (accessToken, accessExpiresAt) = tokens.CreateAccessToken(user, roles.Select(r => r.Key), version, familyId);
 
         var rawRefresh = TokenService.NewRefreshToken();
         var refresh = new RefreshToken
@@ -175,7 +183,8 @@ internal sealed class AuthService(
     }
 
     private static UserProfileDto ToProfile(User user, IReadOnlyList<RoleSummaryDto> roles) =>
-        new(user.Id, user.Email ?? string.Empty, user.FullName, user.PreferredLanguage, roles, user.ManagerId, user.TerritoryId);
+        new(user.Id, user.Email ?? string.Empty, user.FullName, user.PreferredLanguage, roles, user.ManagerId, user.TerritoryId,
+            user.MustChangePassword, ImageService.Url(user.AvatarKey), ImageService.Url(user.AvatarKey, ImageService.Thumbnail));
 
     private static UnauthorizedException InvalidCredentials() =>
         new("invalid-credentials", "Email or password is incorrect.");

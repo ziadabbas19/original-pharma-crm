@@ -55,6 +55,12 @@ public class Role : IdentityRole<Guid>
     /// </summary>
     public int Level { get; set; }
 
+    /// <summary>
+    /// Highest discount (percent, per order line) the role's users may give. Null means no cap.
+    /// A user with several roles gets the most generous one.
+    /// </summary>
+    public decimal? MaxDiscountPercent { get; set; }
+
     public ICollection<RolePermission> Permissions { get; set; } = new List<RolePermission>();
 
     public static string NormalizeKey(string key) => key.ToUpperInvariant();

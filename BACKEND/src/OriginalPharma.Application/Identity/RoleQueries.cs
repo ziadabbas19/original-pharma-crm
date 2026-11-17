@@ -92,6 +92,9 @@ internal static class RoleAudit
         }
     }
 
+    /// <summary>"12.5" (invariant), or null for no cap.</summary>
+    public static string? Percent(decimal? value) => value?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
     /// <summary>Same spelling as the API's enum values ("own", "team", …).</summary>
     public static string ScopeName(PermissionScope scope) => JsonNamingPolicy.CamelCase.ConvertName(scope.ToString());
 }

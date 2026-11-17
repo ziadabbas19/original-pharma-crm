@@ -24,8 +24,9 @@ app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseCors(ApiSetup.CorsPolicy);
-app.UseRateLimiter();
 app.UseAuthentication();
+// After authentication so per-user limits (password changes) can see who is calling.
+app.UseRateLimiter();
 // Before authorization so refused (403) requests also report the permissions version.
 app.UseMiddleware<PermissionsVersionHeaderMiddleware>();
 app.UseAuthorization();

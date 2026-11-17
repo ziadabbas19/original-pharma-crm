@@ -23,8 +23,21 @@ public class User : IdentityUser<Guid>
     public Guid? ManagerId { get; set; }
     public User? Manager { get; set; }
 
+    /// <summary>The territory node the user works in (reps and supervisors: their area).</summary>
     public Guid? TerritoryId { get; set; }
     public Territory? Territory { get; set; }
+
+    /// <summary>
+    /// Set for accounts created or reset by someone else: the temporary password must be
+    /// replaced before the apps let the user continue. Cleared by a password change.
+    /// </summary>
+    public bool MustChangePassword { get; set; }
+
+    /// <summary>Stored profile picture (see <c>ImageService</c>); null when none is set.</summary>
+    public string? AvatarKey { get; set; }
+
+    /// <summary>Product lines the user sells. Reps only see and order products from these lines.</summary>
+    public ICollection<Catalog.UserProductLine> ProductLines { get; set; } = new List<Catalog.UserProductLine>();
 
     public bool IsActive { get; set; } = true;
 

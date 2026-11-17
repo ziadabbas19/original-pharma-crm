@@ -37,6 +37,8 @@ export interface DataTableProps<TData extends RowData> {
   /** Shown under the table, e.g. "showing the first 1000 rows". */
   footer?: ReactNode
   rowClassName?: (row: TData) => string | undefined
+  /** Makes rows clickable (and reachable with the keyboard: Enter or Space). */
+  onRowClick?: (row: TData) => void
   empty: { title: string; description?: string; icon?: LucideIcon; action?: ReactNode }
   /** When filters are active an empty result reads "no matches" and offers to clear them. */
   filtered?: boolean
@@ -55,6 +57,7 @@ export function DataTable<TData extends RowData>({
   toolbar,
   footer,
   rowClassName,
+  onRowClick,
   empty,
   filtered,
   onClearFilters,
@@ -166,7 +169,23 @@ export function DataTable<TData extends RowData>({
           </TableHeader>
           <TableBody>
             {pageRows.map((row) => (
-              <TableRow key={row.id} className={rowClassName?.(row.original)}>
+              <TableRow
+                key={row.id}
+                className={cn(onRowClick && 'cursor-pointer', rowClassName?.(row.original))}
+                tabIndex={onRowClick ? 0 : undefined}
+                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                onKeyDown={
+                  onRowClick
+                    ? (e) => {
+                        if (e.target !== e.currentTarget) return
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          onRowClick(row.original)
+                        }
+                      }
+                    : undefined
+                }
+              >
                 {row.getAllCells().map((cell) => (
                   <TableCell key={cell.id} className={cn('px-3', cell.column.columnDef.meta?.className)}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

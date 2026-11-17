@@ -12,4 +12,6 @@ export interface CreateRoleRequest {
   level?: number | null
   /** @nullable */
   copyFromRoleId?: string | null
+  /** @nullable */
+  maxDiscountPercent?: number | null
 }

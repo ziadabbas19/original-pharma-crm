@@ -1,7 +1,19 @@
-import { KeyRoundIcon, PencilIcon, PlusIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react'
+import {
+  KeyRoundIcon,
+  LockKeyholeOpenIcon,
+  PencilIcon,
+  PlusIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useRolesList, useTerritoriesList, useUsersList } from '@/api/generated/endpoints'
+import {
+  useRolesList,
+  useTerritoriesList,
+  useUsersAssignableRoles,
+  useUsersList,
+} from '@/api/generated/endpoints'
 import type { RoleSummaryDto, TerritoryDto, UserListItemDto } from '@/api/generated/model'
 import { DataTable } from '@/components/data-table/DataTable'
 import { dataTableColumns } from '@/components/data-table/features'
@@ -9,12 +21,14 @@ import { FilterField, SearchInput, ToolbarSpacer } from '@/components/data-table
 import { PageHeader } from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { UserAvatar } from '@/components/UserAvatar'
 import { NativeSelect } from '@/components/ui/native-select'
 import { useMyRoleLevel, useMyUserId, usePermission } from '@/features/auth/usePermission'
 import { roleName, userLock } from '@/features/roles/role-rules'
 import { formatNumber, localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { CreateUserDialog } from './CreateUserDialog'
+import { ResetPasswordDialog } from './ResetPasswordDialog'
 import { EditUserDialog } from './EditUserDialog'
 import { UserOverridesSheet } from './UserOverridesSheet'
 import { UserRolesDialog } from './UserRolesDialog'
@@ -26,6 +40,8 @@ type StatusFilter = 'all' | 'active' | 'inactive'
 export function UsersPage() {
   const { t } = useTranslation()
   const canManage = usePermission(P.users.manage)
+  const canCreate = usePermission(P.users.create)
+  const canReset = usePermission(P.users.resetPassword)
   const canReadRoles = usePermission(P.roles.read)
   const canReadTerritories = usePermission(P.territories.read)
   const myId = useMyUserId()
@@ -33,7 +49,12 @@ export function UsersPage() {
 
   const users = useUsersList()
   const roles = useRolesList({ query: { enabled: canReadRoles } })
-  const territories = useTerritoriesList({ query: { enabled: canManage && canReadTerritories } })
+  const territories = useTerritoriesList({
+    query: { enabled: (canManage || canCreate) && canReadTerritories },
+  })
+  // Without roles:read the create dialog offers the roles below the creator.
+  const assignable = useUsersAssignableRoles({ query: { enabled: canCreate && !canReadRoles } })
+  const createRoles = canReadRoles ? roles.data : assignable.data
 
   const [search, setSearch] = useState('')
   const [role, setRole] = useState('')
@@ -42,6 +63,7 @@ export function UsersPage() {
   const [editing, setEditing] = useState<UserListItemDto | null>(null)
   const [rolesFor, setRolesFor] = useState<UserListItemDto | null>(null)
   const [overridesFor, setOverridesFor] = useState<UserListItemDto | null>(null)
+  const [resetFor, setResetFor] = useState<UserListItemDto | null>(null)
 
   // Filter options: every role when roles are readable, otherwise the roles seen on the users.
   const roleOptions = useMemo<RoleSummaryDto[]>(() => {
@@ -73,7 +95,17 @@ export function UsersPage() {
       column.columns([
         column.accessor('fullName', {
           header: () => t('users.name'),
-          cell: (info) => <span className="font-medium">{info.getValue()}</span>,
+          cell: ({ row }) => (
+            <div className="flex items-center gap-2">
+              <UserAvatar name={row.original.fullName} src={row.original.avatarUrl} />
+              <div className="min-w-0">
+                <span className="font-medium">{row.original.fullName}</span>
+                {row.original.mustChangePassword && (
+                  <div className="text-xs text-muted-foreground">{t('users.temporaryPassword')}</div>
+                )}
+              </div>
+            </div>
+          ),
         }),
         column.accessor('email', {
           header: () => t('users.email'),
@@ -108,7 +140,7 @@ export function UsersPage() {
         }),
         column.accessor((u) => localizedName(u.territoryName, u.territoryNameAr), {
           id: 'territory',
-          header: () => t('users.territory'),
+          header: () => t('users.area'),
           cell: (info) => info.getValue() || <span className="text-muted-foreground">—</span>,
           meta: { className: 'hidden lg:table-cell' },
         }),
@@ -155,6 +187,19 @@ export function UsersPage() {
                     <span className="hidden 2xl:inline">{t('users.actions.roles')}</span>
                   </Button>
                 )}
+                {canReset && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={lock !== null}
+                    title={reason ?? t('users.actions.resetPassword')}
+                    aria-label={t('users.actions.resetPassword')}
+                    onClick={() => setResetFor(row.original)}
+                  >
+                    <LockKeyholeOpenIcon />
+                    <span className="hidden 2xl:inline">{t('users.actions.resetPassword')}</span>
+                  </Button>
+                )}
                 {canReadRoles && (
                   <Button
                     size="sm"
@@ -172,7 +217,7 @@ export function UsersPage() {
           },
         }),
       ]),
-    [t, canManage, canReadRoles, myId, myLevel],
+    [t, canManage, canReadRoles, canReset, myId, myLevel],
   )
 
   return (
@@ -181,9 +226,8 @@ export function UsersPage() {
         title={t('users.title')}
         description={t('users.hint')}
         actions={
-          canManage &&
-          canReadRoles && (
-            <Button onClick={() => setCreating(true)} disabled={!roles.data || !users.data}>
+          canCreate && (
+            <Button onClick={() => setCreating(true)} disabled={!createRoles || !users.data}>
               <PlusIcon />
               {t('users.create.title')}
             </Button>
@@ -236,11 +280,11 @@ export function UsersPage() {
         }
       />
 
-      {canManage && roles.data && users.data && (
+      {canCreate && createRoles && users.data && (
         <CreateUserDialog
           open={creating}
           onOpenChange={setCreating}
-          roles={roles.data}
+          roles={createRoles}
           territories={territories.data ?? NO_TERRITORIES}
           users={users.data}
         />
@@ -262,6 +306,9 @@ export function UsersPage() {
           users={users.data}
           onClose={() => setRolesFor(null)}
         />
+      )}
+      {resetFor && (
+        <ResetPasswordDialog key={resetFor.id} user={resetFor} onClose={() => setResetFor(null)} />
       )}
       {overridesFor && (
         <UserOverridesSheet

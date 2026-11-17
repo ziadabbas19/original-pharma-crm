@@ -128,7 +128,8 @@ public sealed record RepPresenceDto(
     LivePositionDto? Position,
     bool DeviceHealthy,
     IReadOnlyList<string> HealthIssues,
-    int OpenFlags);
+    int OpenFlags,
+    string? AvatarUrl = null);
 
 public sealed record PresenceChangeDto(Guid UserId, PresenceStatus Status, DateTimeOffset At);
 

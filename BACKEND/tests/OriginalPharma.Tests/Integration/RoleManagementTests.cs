@@ -154,7 +154,7 @@ public sealed class RoleManagementTests(PostgresFixture postgres)
         var newcomer = await db.UsersAsync(admin, s => s.CreateAsync(new CreateUserRequest(
             "newcomer@demo.local", "New Trainer", PostgresFixture.Password, [trainer.Key], supervisor), Ct));
         var repVersion = await db.PermissionsVersionAsync(rep);
-        var newcomerVersion = await db.PermissionsVersionAsync(newcomer.Id);
+        var newcomerVersion = await db.PermissionsVersionAsync(newcomer.User.Id);
 
         var result = await db.RolesAsync(admin, s => s.ReassignUsersAsync(trainer.Id, new ReassignRoleUsersRequest(repRole.Id), Ct));
 
@@ -162,7 +162,7 @@ public sealed class RoleManagementTests(PostgresFixture postgres)
         Assert.Equal(0, (await db.RoleAsync(trainer.Key)).UserCount);
         Assert.Equal(repRole.UserCount + 1, (await db.RoleAsync(DefaultRoles.Rep)).UserCount);
         Assert.True(await db.PermissionsVersionAsync(rep) > repVersion);
-        Assert.True(await db.PermissionsVersionAsync(newcomer.Id) > newcomerVersion);
+        Assert.True(await db.PermissionsVersionAsync(newcomer.User.Id) > newcomerVersion);
 
         var audit = await db.RolesAsync(admin, s => s.GetAuditAsync(repRole.Id, new RoleAuditQuery(), Ct));
         var moved = Assert.Single(audit, e => e.Action == RoleAuditAction.UsersReassigned);
@@ -215,18 +215,18 @@ public sealed class RoleManagementTests(PostgresFixture postgres)
         var rootUser = await db.UsersAsync(admin, s => s.CreateAsync(new CreateUserRequest(
             "root@test.local", "Root User", PostgresFixture.Password, [root.Key]), Ct));
 
-        var setRoles = await Assert.ThrowsAsync<BusinessRuleException>(() => db.UsersAsync(rootUser.Id, s =>
+        var setRoles = await Assert.ThrowsAsync<BusinessRuleException>(() => db.UsersAsync(rootUser.User.Id, s =>
             s.SetRolesAsync(admin, new SetUserRolesRequest([DefaultRoles.SalesManager]), Ct)));
         Assert.Equal(IdentityErrorCodes.LastAdmin, setRoles.Code);
 
-        var reassign = await Assert.ThrowsAsync<BusinessRuleException>(() => db.RolesAsync(rootUser.Id, s =>
+        var reassign = await Assert.ThrowsAsync<BusinessRuleException>(() => db.RolesAsync(rootUser.User.Id, s =>
             s.ReassignUsersAsync(adminRole.Id, new ReassignRoleUsersRequest(salesRole.Id), Ct)));
         Assert.Equal(IdentityErrorCodes.LastAdmin, reassign.Code);
 
         // Once a second admin exists, the first one can lose the role.
         await db.UsersAsync(admin, s => s.CreateAsync(new CreateUserRequest(
             "second.admin@test.local", "Second Admin", PostgresFixture.Password, [DefaultRoles.Admin]), Ct));
-        await db.UsersAsync(rootUser.Id, s => s.SetRolesAsync(admin, new SetUserRolesRequest([DefaultRoles.SalesManager]), Ct));
+        await db.UsersAsync(rootUser.User.Id, s => s.SetRolesAsync(admin, new SetUserRolesRequest([DefaultRoles.SalesManager]), Ct));
         Assert.Equal(1, (await db.RoleAsync(DefaultRoles.Admin)).UserCount);
     }
 
@@ -251,11 +251,11 @@ public sealed class RoleManagementTests(PostgresFixture postgres)
             "root@test.local", "Root User", PostgresFixture.Password, [root.Key]), Ct));
         var withoutRolesManage = root.Permissions.Where(p => p.Key != Permissions.Roles.Manage).ToList();
 
-        var lockout = await Assert.ThrowsAsync<BusinessRuleException>(() => db.RolesAsync(rootUser.Id, s =>
+        var lockout = await Assert.ThrowsAsync<BusinessRuleException>(() => db.RolesAsync(rootUser.User.Id, s =>
             s.SetPermissionsAsync(root.Id, new SetRolePermissionsRequest(withoutRolesManage), Ct)));
         Assert.Equal(IdentityErrorCodes.SelfLockout, lockout.Code);
 
-        var demote = await Assert.ThrowsAsync<BusinessRuleException>(() => db.RolesAsync(rootUser.Id, s =>
+        var demote = await Assert.ThrowsAsync<BusinessRuleException>(() => db.RolesAsync(rootUser.User.Id, s =>
             s.UpdateRoleAsync(root.Id, new UpdateRoleRequest(root.NameAr, root.NameEn, null, 5), Ct)));
         Assert.Equal(IdentityErrorCodes.SelfLockout, demote.Code);
 

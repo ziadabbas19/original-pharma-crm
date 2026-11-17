@@ -28,11 +28,13 @@ public sealed class RoleHierarchyTests(PostgresFixture postgres)
         await db.GrantAsync(people.Admin, DefaultRoles.AreaManager,
             (Permissions.Roles.Read, PermissionScope.Territory),
             (Permissions.Roles.Manage, PermissionScope.Territory),
-            (Permissions.Users.Manage, PermissionScope.Territory));
+            (Permissions.Users.Manage, PermissionScope.Territory),
+            (Permissions.Users.Create, PermissionScope.Territory));
         await db.GrantAsync(people.Admin, DefaultRoles.Supervisor,
             (Permissions.Roles.Read, PermissionScope.Team),
             (Permissions.Roles.Manage, PermissionScope.Team),
-            (Permissions.Users.Manage, PermissionScope.Team));
+            (Permissions.Users.Manage, PermissionScope.Team),
+            (Permissions.Users.Create, PermissionScope.Team));
         return people;
     }
 
@@ -136,7 +138,7 @@ public sealed class RoleHierarchyTests(PostgresFixture postgres)
             "peer.area@demo.local", "Peer Area", PostgresFixture.Password, [DefaultRoles.AreaManager], p.Sales, territory), Ct));
 
         Assert.Equal(IdentityErrorCodes.UserLevelTooHigh, await RefusedAsync(() => db.UsersAsync(p.Area, s =>
-            s.SetOverridesAsync(peer.Id, new SetPermissionOverridesRequest(
+            s.SetOverridesAsync(peer.User.Id, new SetPermissionOverridesRequest(
                 [new PermissionOverrideDto(Permissions.Visits.Read, false, null, null, "sabotage")]), Ct))));
     }
 
@@ -158,10 +160,10 @@ public sealed class RoleHierarchyTests(PostgresFixture postgres)
 
         // A rep cannot manage another rep, …
         Assert.Equal(IdentityErrorCodes.ManagerLevelInvalid, await RefusedAsync(() => db.UsersAsync(p.Admin, s =>
-            s.UpdateAsync(p.Rep, new UpdateUserRequest("Demo Rep", otherRep.Id, territory), Ct))));
+            s.UpdateAsync(p.Rep, new UpdateUserRequest("Demo Rep", otherRep.User.Id, territory), Ct))));
         // … a new user cannot report to someone on their own level, …
         Assert.Equal(IdentityErrorCodes.ManagerLevelInvalid, await RefusedAsync(() => db.UsersAsync(p.Admin, s =>
-            s.CreateAsync(new CreateUserRequest("rep3@demo.local", "Third Rep", PostgresFixture.Password, [DefaultRoles.Rep], otherRep.Id, territory), Ct))));
+            s.CreateAsync(new CreateUserRequest("rep3@demo.local", "Third Rep", PostgresFixture.Password, [DefaultRoles.Rep], otherRep.User.Id, territory), Ct))));
         // … a promotion may not leave the manager on the same level, …
         Assert.Equal(IdentityErrorCodes.ManagerLevelInvalid, await RefusedAsync(() => db.UsersAsync(p.Admin, s =>
             s.SetRolesAsync(p.Rep, new SetUserRolesRequest([DefaultRoles.Supervisor]), Ct))));
@@ -170,7 +172,7 @@ public sealed class RoleHierarchyTests(PostgresFixture postgres)
             s.UpdateRoleAsync(supervisorRole.Id, new UpdateRoleRequest(supervisorRole.NameAr, supervisorRole.NameEn, null, 45), Ct))));
 
         // A valid move works: the second rep reports to the area manager instead.
-        var moved = await db.UsersAsync(p.Admin, s => s.UpdateAsync(otherRep.Id, new UpdateUserRequest("Second Rep", p.Area, territory), Ct));
+        var moved = await db.UsersAsync(p.Admin, s => s.UpdateAsync(otherRep.User.Id, new UpdateUserRequest("Second Rep", p.Area, territory), Ct));
         Assert.Equal(p.Area, moved.ManagerId);
     }
 

@@ -77,7 +77,10 @@ dotnet watch run --project src/OriginalPharma.Api
 
 In Development the API applies migrations and seeds on startup: permission catalog,
 default roles (Admin, SalesManager, AreaManager, Supervisor, Rep), the admin user and
-demo data (territory tree, demo users and two demo customers).
+demo data: regions, areas and towns, specialties, collection methods, three product lines
+with products and drawn placeholder pictures, doctors on the demo reps' lists and a couple of
+orders. Each demo step runs once per database (`seed_history`), so deleting or renaming demo
+rows sticks.
 
 | Login | Role |
 | --- | --- |
@@ -85,9 +88,15 @@ demo data (territory tree, demo users and two demo customers).
 | `sales.manager@demo.local` | SalesManager |
 | `area.manager@demo.local` | AreaManager |
 | `supervisor@demo.local` | Supervisor |
-| `rep@demo.local` | Rep |
+| `rep@demo.local` | Rep (cardio and pediatric lines) |
+| `rep.east@demo.local` | Rep (pediatric and derma lines) |
 
 All demo users use the admin password from user secrets (Development only).
+
+Uploaded pictures (products, profile pictures, visit photos) are stored outside the
+repository, in `~/.local/share/original-pharma/uploads` by default (`FileStorage:RootPath`).
+`podman compose --profile api up -d` builds and runs the API in a container
+(`BACKEND/Dockerfile`, needs `JWT_SIGNING_KEY` in `.env`) with the `op-uploads` named volume.
 
 ### 3. Frontend
 
@@ -99,6 +108,10 @@ npm run dev
 
 Open http://localhost:5173. The dev server proxies `/api` and `/hubs` to the API, so
 the refresh cookie works same-origin. Admin-capable users land on `/admin`, reps on `/rep`.
+
+Light / dark / system theme: switch in the dashboard top bar or the rep settings screen; the
+choice is kept on the device and applied before the first paint. Numbers, prices and dates use
+Latin digits in both languages; money is always formatted as EGP by `formatMoney`.
 
 Other scripts: `npm run build`, `npm run preview`, `npm run lint`, `npm run format`, `npm run typecheck`.
 
@@ -178,6 +191,8 @@ Before a release build:
 | Secrets (DB connection, JWT key, admin password) | `dotnet user-secrets` (dev), environment variables (prod) |
 | Tracking profiles, tracking-lost window, consent version, anomaly thresholds | `BACKEND/src/OriginalPharma.Api/appsettings.json` → `Tracking` |
 | Visit geofence / accuracy rules | `appsettings.json` → `Visits` |
+| Upload size and pixel limits | `appsettings.json` → `Images` |
+| Upload folder | `FileStorage:RootPath` (empty = per-user data folder) |
 | CORS origins | `appsettings*.json` → `Cors:AllowedOrigins` |
 | SignalR Redis backplane (multi-instance) | `SignalR:UseRedisBackplane` |
 | Frontend API origin / FCM switch | `FRONTEND/.env.local` (see `FRONTEND/.env.example`) |
@@ -187,13 +202,19 @@ Before a release build:
 - Play Integrity: server verifier and device token are stubs (interfaces in place).
 - FCM sending: the server logs push messages instead of sending them.
 - IP geolocation for the GPS-vs-IP check (needs a GeoIP database).
-- CRM editing: create/edit doctors and pharmacies, classification, QR printing (the
-  dashboard list is read-only).
-- Dashboard editing beyond roles, permissions and user profiles: territory editing, user
-  deactivation, visit detail and review screens.
+- Pharmacy editing, doctor classification and QR printing (doctors are edited from the
+  doctor lists; the "Doctors & pharmacies" page stays read-only).
+- Orders do not deduct stock yet (quantities above stock are only a warning).
+- User deactivation, visit detail and review screens, an account-history screen
+  (`GET /api/users/{id}/audit` exists, no UI yet).
+- `must_change_password` is enforced by the apps (redirect to `/change-password`), not by the
+  API on every request.
+- Image URLs are capability URLs (random keys, cached publicly), not signed per user.
+- The Android status bar follows the theme through `@capacitor/status-bar`; on Android 15
+  edge-to-edge the colour may be ignored by the system (icons still switch).
 - Server-side paging: dashboard lists load at most 1000 rows (customers, visits) or the newest
   200 (flags) and page in the browser.
 - Visit screens in the rep app, reports.
 - Live map tiles come straight from tile.openstreetmap.org; production traffic needs a tile
   provider or an own tile server (OpenStreetMap tile usage policy).
-- Production file storage for visit photos (local disk today).
+- Production file storage for uploads (local disk or a mounted volume today).

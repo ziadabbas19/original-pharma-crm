@@ -57,7 +57,7 @@
     "openMenu": "Open menu",
     "repApp": "Rep app",
     "customers": "Doctors & pharmacies",
-    "territories": "Territories",
+    "territories": "Areas & towns",
     "flags": "Tracking flags",
     "devices": "Devices health",
     "menu": "Menu",
@@ -66,8 +66,18 @@
       "overview": "Overview",
       "field": "Field work",
       "tracking": "Tracking",
-      "admin": "Administration"
-    }
+      "admin": "Administration",
+      "sales": "Sales"
+    },
+    "collapse": "Collapse menu",
+    "expand": "Expand menu",
+    "doctors": "Doctor lists",
+    "orders": "Orders",
+    "products": "Products",
+    "lookups": "Lists & lookups",
+    "myDoctors": "Doctors",
+    "myOrders": "Orders",
+    "health": "Health"
   },
   "admin": {
     "welcome": "Welcome, {{name}}",
@@ -108,7 +118,8 @@
     "actions": {
       "roles": "Roles",
       "overrides": "Permissions",
-      "edit": "Edit"
+      "edit": "Edit",
+      "resetPassword": "Reset password"
     },
     "create": {
       "title": "New user",
@@ -123,7 +134,18 @@
       "territoryRequired": "Choose a territory inside your area.",
       "managerRequired": "Choose a manager from your team.",
       "scopeTerritoryHint": "You can add users only inside your territory, so a territory is required.",
-      "scopeTeamHint": "You can add users only to your team, so a manager is required."
+      "scopeTeamHint": "You can add users only to your team, so a manager is required.",
+      "passwordTitle": "Temporary password",
+      "passwordModes": {
+        "generate": "Generate",
+        "set": "Type one"
+      },
+      "generateHint": "A strong password is generated and shown once after saving.",
+      "created": "{{name}} was added",
+      "temporaryShownOnce": "Give this temporary password to the user now. It will not be shown again.",
+      "mustChangeHint": "The user must choose a new password at first sign-in.",
+      "copy": "Copy",
+      "copied": "Copied"
     },
     "rolesDialog": {
       "title": "Roles of {{name}}",
@@ -157,6 +179,17 @@
       "hint": "The manager must hold a role with a lower level number than this user.",
       "reportsToUser": "reports to this user",
       "doesNotOutrank": "does not outrank this user"
+    },
+    "area": "Area",
+    "productLines": "Product lines",
+    "productLinesHint": "Reps only see and order products from their lines.",
+    "temporaryPassword": "Temporary password",
+    "reset": {
+      "title": "Reset password",
+      "description": "Set a new temporary password for {{name}}.",
+      "warning": "The user is signed out on every device and must choose a new password at next sign-in.",
+      "submit": "Reset password",
+      "after": "The old password no longer works."
     }
   },
   "roles": {
@@ -231,7 +264,10 @@
       "levelHelp": "Lower number = more authority. You can use {{min}} or higher.",
       "levelInvalid": "Enter a whole number.",
       "levelRange": "Use a level between {{min}} and {{max}}.",
-      "levelLocked": "Admin always stays at level 0."
+      "levelLocked": "Admin always stays at level 0.",
+      "maxDiscount": "Max discount %",
+      "maxDiscountHelp": "Highest discount per order line for users with this role. Leave empty for no limit.",
+      "noCap": "No limit"
     },
     "details": {
       "key": "System key",
@@ -621,7 +657,33 @@
     "self_lockout": "This change would remove your own access to role administration.",
     "role_name_taken": "Another role already uses this name.",
     "reassign_same_role": "Choose a different role to move the users to.",
-    "users_out_of_scope": "Some of these users ({{userCount}}) are outside your scope."
+    "users_out_of_scope": "Some of these users ({{userCount}}) are outside your scope.",
+    "image_empty": "The file is empty.",
+    "image_too_large": "The picture is larger than 5 MB.",
+    "image_type_unsupported": "Only JPEG, PNG or WebP pictures are accepted.",
+    "image_invalid": "The file could not be read as a picture.",
+    "discount_above_cap": "The discount is above your limit of {{max}}.",
+    "product_unavailable": "One of the products is not available to you any more.",
+    "collection_method_invalid": "Choose an available collection method, or Other and type it.",
+    "order_status_invalid": "This order can no longer be changed.",
+    "order_self_review": "Someone else has to approve or reject your own orders.",
+    "order_customer_invalid": "The linked customer does not exist.",
+    "reason_required": "Give a reason.",
+    "doctor_exists": "A doctor with this name already exists in this town.",
+    "doctor_town_invalid": "Choose a town.",
+    "doctor_specialty_invalid": "Choose an active specialty.",
+    "doctor_not_on_list": "Some of these doctors are not on the source rep's list.",
+    "assign_same_rep": "Choose a different rep.",
+    "assign_source_required": "Choose the rep to move the doctors from.",
+    "territory_parent_invalid": "A town needs an area and an area needs a region.",
+    "territory_code_taken": "Another entry already uses this code.",
+    "territory_in_use": "Move its towns, users and doctors first.",
+    "lookup_name_taken": "Another entry already uses this name.",
+    "catalog_name_taken": "Another product line already uses this name.",
+    "current_password_incorrect": "The current password is incorrect.",
+    "password_unchanged": "Choose a password different from the current one.",
+    "password_policy": "The password needs at least 8 characters with upper-case, lower-case and a digit.",
+    "unknown-product-line": "One or more product lines do not exist."
   },
   "resources": {
     "users": "Users",
@@ -631,12 +693,17 @@
     "visits": "Visits",
     "tracking": "Tracking",
     "devices": "Devices",
-    "reports": "Reports"
+    "reports": "Reports",
+    "lookups": "Lists & lookups",
+    "products": "Products",
+    "orders": "Orders"
   },
   "permissionNames": {
     "users": {
       "read": "View users",
-      "manage": "Create users and assign roles"
+      "manage": "Edit users, roles and product lines",
+      "create": "Create user accounts",
+      "reset-password": "Reset other users' passwords"
     },
     "roles": {
       "read": "View roles and permissions",
@@ -644,11 +711,13 @@
     },
     "territories": {
       "read": "View territories",
-      "manage": "Edit territories"
+      "manage": "Manage areas and towns"
     },
     "customers": {
       "read": "View doctors and pharmacies",
-      "manage": "Edit doctors and pharmacies"
+      "manage": "Edit doctors and pharmacies",
+      "create": "Add doctors to own list",
+      "assign": "Copy or move doctors between reps"
     },
     "visits": {
       "read": "View visits",
@@ -666,11 +735,23 @@
     },
     "reports": {
       "read": "View reports"
+    },
+    "lookups": {
+      "manage": "Manage specialties and collection methods"
+    },
+    "products": {
+      "read": "View products",
+      "manage": "Manage products, prices and stock"
+    },
+    "orders": {
+      "create": "Take orders",
+      "read": "View orders",
+      "manage": "Approve, reject, cancel and edit orders"
     }
   },
   "territories": {
-    "title": "Territories",
-    "hint": "Regions, areas and territories in your scope, with the active users and customers in each.",
+    "title": "Areas & towns",
+    "hint": "Regions, areas (where reps work) and towns (where doctors are) in your scope, with the active users and customers in each.",
     "name": "Name",
     "code": "Code",
     "level": "Level",
@@ -682,8 +763,23 @@
     "levels": {
       "region": "Region",
       "area": "Area",
-      "territory": "Territory"
-    }
+      "town": "Town"
+    },
+    "levelHints": {
+      "region": "A region groups several areas.",
+      "area": "An area is made of towns. Reps and supervisors are assigned to an area.",
+      "town": "A town belongs to exactly one area. Doctors are placed in a town."
+    },
+    "add": {
+      "region": "Add region",
+      "area": "Add area",
+      "town": "Add town"
+    },
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete {{name}}?",
+    "notEmpty": "Only empty entries can be deleted (no towns, users or doctors).",
+    "codeAuto": "Leave empty to generate"
   },
   "customers": {
     "title": "Doctors & pharmacies",
@@ -804,6 +900,270 @@
       "none": "No location",
       "whileInUse": "While in use",
       "always": "Always"
+    }
+  },
+  "theme": {
+    "label": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "images": {
+    "tooLarge": "The picture is larger than 5 MB. Choose a smaller one."
+  },
+  "profile": {
+    "title": "My profile",
+    "hint": "Your picture, appearance and password.",
+    "open": "Open my profile",
+    "picture": "Profile picture",
+    "addPicture": "Add picture",
+    "changePicture": "Change picture",
+    "removePicture": "Remove",
+    "cropTitle": "Crop your picture",
+    "pictureHint": "JPEG, PNG or WebP up to 5 MB. Only the square inside the circle is kept.",
+    "cropHint": "Drag to move, use the slider to zoom.",
+    "zoom": "Zoom",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out"
+  },
+  "password": {
+    "title": "Password",
+    "change": "Change",
+    "hint": "Choose a new password for your account.",
+    "mustChangeHint": "You signed in with a temporary password. Choose your own password to continue.",
+    "temporary": "This password was set by someone else and works only until you change it.",
+    "current": "Current password",
+    "new": "New password",
+    "confirm": "Repeat the new password",
+    "show": "Show",
+    "hide": "Hide",
+    "mismatch": "The two passwords are not the same.",
+    "submit": "Change password",
+    "changed": "Password changed. Your other devices have been signed out.",
+    "otherSessionsHint": "Changing the password signs you out on your other devices.",
+    "rules": {
+      "length": "At least 8 characters",
+      "upper": "An upper-case letter (A-Z)",
+      "lower": "A lower-case letter (a-z)",
+      "digit": "A digit (0-9)"
+    }
+  },
+  "lookups": {
+    "title": "Lists & lookups",
+    "hint": "Values offered in the doctor and order forms. Deactivate an entry instead of deleting it.",
+    "add": "Add",
+    "edit": "Edit",
+    "empty": "Nothing here yet.",
+    "sortOrder": "Order",
+    "specialties": {
+      "title": "Specialties",
+      "hint": "A doctor's medical specialty.",
+      "add": "Add specialty"
+    },
+    "collectionMethods": {
+      "title": "Collection methods",
+      "hint": "How the customer pays for an order. Reps can also choose Other and type it.",
+      "add": "Add collection method"
+    }
+  },
+  "catalog": {
+    "title": "Products",
+    "hint": "Product lines and products with price (EGP), stock and picture. Reps see only the lines assigned to them.",
+    "lines": "Product lines",
+    "allLines": "All lines",
+    "line": "Product line",
+    "addLine": "Add line",
+    "editLine": "Edit line",
+    "lineHint": "Reps are assigned to lines from the user screen.",
+    "product": "Product",
+    "addProduct": "Add product",
+    "editProduct": "Edit product",
+    "productHint": "Prices are in Egyptian pounds. Stock is shown to reps as a guide; orders do not change it yet.",
+    "createdAddPicture": "Saved. You can add a picture now.",
+    "nameAr": "Name in Arabic",
+    "nameEn": "Name in English",
+    "namesRequired": "Enter the name in both languages.",
+    "description": "Description",
+    "price": "Price (EGP)",
+    "priceInvalid": "Enter a price of 0 or more with at most 2 decimals.",
+    "stock": "Stock",
+    "active": "Active",
+    "inactive": "Inactive",
+    "pictureHint": "JPEG, PNG or WebP up to 5 MB. Stored as WebP in two sizes.",
+    "uploadPicture": "Upload picture",
+    "replacePicture": "Replace picture",
+    "removePicture": "Remove picture",
+    "searchPlaceholder": "Search products",
+    "empty": "No products yet."
+  },
+  "doctors": {
+    "title": "Doctor lists",
+    "hint": "Which rep covers which doctor. Select doctors to copy or move them to another rep's list.",
+    "mine": "My doctors",
+    "add": "Add doctor",
+    "addHint": "Look for the doctor first so the same doctor is not entered twice.",
+    "tabs": {
+      "find": "Find existing",
+      "new": "New doctor"
+    },
+    "directorySearch": "Doctor name",
+    "typeToSearch": "Type at least 2 letters.",
+    "noDirectoryMatch": "No doctor found with this name.",
+    "createInstead": "Create a new doctor",
+    "addToList": "Add",
+    "onMyList": "On my list",
+    "alreadyExists": "A doctor with this name already exists in this town.",
+    "addExisting": "Add the existing doctor",
+    "createAndAdd": "Create and add to my list",
+    "name": "Name",
+    "nameOther": "Name in the other language (optional)",
+    "namePlaceholder": "e.g. Dr. Ahmed Fathy",
+    "town": "Town",
+    "area": "Area",
+    "specialty": "Specialty",
+    "townSpecialtyRequired": "Choose the town and the specialty.",
+    "phone": "Phone (optional)",
+    "notes": "Clinic notes (optional)",
+    "notesPlaceholder": "Address, visiting hours…",
+    "active": "Active",
+    "edit": "Edit",
+    "editHint": "Changes are seen by every rep who has this doctor.",
+    "removeFromList": "Remove",
+    "removeConfirm": "Remove {{name}} from your list?",
+    "outsideArea": "Outside area",
+    "outsideAreaHint": "This doctor's town is outside the rep's area.",
+    "allTowns": "All towns",
+    "allSpecialties": "All specialties",
+    "searchPlaceholder": "Search by name or phone",
+    "emptyMine": "Your list is empty",
+    "emptyMineHint": "Add the doctors you visit.",
+    "empty": "No doctors match.",
+    "capped": "Showing the first 1000 doctors; narrow the filters.",
+    "rep": "Rep",
+    "reps": "Reps",
+    "unassigned": "Nobody",
+    "onlyUnassigned": "Unassigned only",
+    "select": "Select {{name}}",
+    "selectAll": "Select all",
+    "assign": {
+      "action": "Copy / move ({{value}})",
+      "title": "Copy or move doctors",
+      "hint": "{{value}} doctors selected.",
+      "mode": "Copy or move",
+      "modes": {
+        "copy": "Copy",
+        "move": "Move"
+      },
+      "modeHints": {
+        "copy": "The doctors are added to the target list and stay on the source list.",
+        "move": "The doctors are added to the target list and removed from the source list."
+      },
+      "from": "From rep",
+      "to": "To rep",
+      "noSource": "No source (assign)",
+      "sourceRequired": "Choose the rep to move the doctors from.",
+      "sameRep": "Choose a different rep.",
+      "submit": {
+        "copy": "Copy",
+        "move": "Move"
+      },
+      "result": "Added: {{added}} · already on the list: {{already}} · removed from source: {{removed}}",
+      "outsideArea": "{{value}} of these doctors are outside the rep's area."
+    }
+  },
+  "orders": {
+    "title": "Orders",
+    "hint": "Orders taken by the reps in your scope. Open one to approve, reject or cancel it.",
+    "mine": "My orders",
+    "new": "New order",
+    "detail": "Order",
+    "number": "Number",
+    "date": "Date",
+    "rep": "Rep",
+    "place": "Place",
+    "placeType": "Place type",
+    "placeTypes": {
+      "pharmacy": "Pharmacy",
+      "warehouse": "Warehouse",
+      "shop": "Shop",
+      "other": "Other"
+    },
+    "collectionMethod": "Collection",
+    "status": "Status",
+    "statuses": {
+      "submitted": "Submitted",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "actions": {
+      "created": "Submitted",
+      "edited": "Edited",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "do": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "cancel": "Cancel order"
+    },
+    "lines": "Products",
+    "quantity": "Quantity",
+    "discountPercent": "Discount %",
+    "lineTotal": "Line total",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "total": "Total",
+    "notes": "Notes",
+    "history": "History",
+    "reason": "Reason",
+    "reasonOptional": "Reason (optional)",
+    "reasonRequired": "Reason (required)",
+    "reasonMissing": "Write why the order is rejected.",
+    "stockWarning": "Some quantities are above the available stock:",
+    "stockWarningLine": "{{product}}: {{requested}} ordered, {{available}} in stock",
+    "edit": "Edit",
+    "cancel": "Cancel order",
+    "cancelConfirm": "Cancel this order?",
+    "export": "Export CSV",
+    "searchPlaceholder": "Number or place",
+    "empty": "No orders match.",
+    "emptyHint": "Change the dates or clear the filters.",
+    "emptyMine": "No orders yet",
+    "emptyMineHint": "Orders you take appear here, also while offline.",
+    "summary": "{{value}} orders · {{total}} (without rejected and cancelled)",
+    "capped": "showing the first 1000",
+    "pendingTitle": "Waiting to send ({{value}})",
+    "waitingToSync": "Not sent yet",
+    "syncNow": "Send now",
+    "failedTitle": "Not accepted by the server",
+    "fixAndResend": "Fix and send again",
+    "discard": "Discard",
+    "form": {
+      "addProducts": "Add products",
+      "pickerHint": "Tap a product to add it; tap again to add one more.",
+      "searchProducts": "Search products",
+      "noProducts": "No products available.",
+      "add": "Add",
+      "stock": "Stock: {{value}}",
+      "noLines": "No products yet. Tap to add.",
+      "removeLine": "Remove product",
+      "less": "One less",
+      "more": "One more",
+      "overStock": "Only {{stock}} in stock. The order can still be sent.",
+      "discountRange": "Discount must be between 0 and 100.",
+      "discountDecimals": "Use at most 2 decimals.",
+      "discountCap": "The highest discount you can give is {{max}}.",
+      "capHint": "Estimate; the server calculates the final total. Your highest discount is {{max}}.",
+      "estimateHint": "Estimate; the server calculates the final total.",
+      "choose": "Choose…",
+      "otherMethod": "Other…",
+      "otherMethodText": "Collection method",
+      "collectionRequired": "Choose a collection method, or Other and type it.",
+      "collectionOtherRequired": "Type the collection method.",
+      "placePlaceholder": "Pharmacy, warehouse or shop name",
+      "submit": "Send order"
     }
   }
 }

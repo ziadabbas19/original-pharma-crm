@@ -21,7 +21,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useGrantedPermissions, useMyRoleLevel } from '@/features/auth/usePermission'
 import { fieldErrors } from '@/lib/errors'
 import { formatNumber } from '@/lib/format'
-import { DESCRIPTION_MAX, levelError, nameError } from './role-form'
+import { DESCRIPTION_MAX, discountCapError, levelError, nameError, parseDiscountCap } from './role-form'
 import { Errors, TextField } from './RoleFormFields'
 import {
   defaultLevelBelow,
@@ -57,6 +57,7 @@ export function CreateRoleDialog({
       nameEn: '',
       description: '',
       level: String(defaultLevelBelow(myLevel)),
+      maxDiscount: '',
       copyFrom: '',
     },
     onSubmit: async ({ value }) => {
@@ -69,6 +70,7 @@ export function CreateRoleDialog({
             description: value.description.trim() || null,
             level: Number(value.level),
             copyFromRoleId: value.copyFrom || null,
+            maxDiscountPercent: parseDiscountCap(value.maxDiscount),
           },
         })
         await invalidateRoleData(queryClient)
@@ -186,6 +188,28 @@ export function CreateRoleDialog({
               {t('roles.form.levelHelp', { min: formatNumber(minLevel) })}
             </p>
           </div>
+
+          <form.Field name="maxDiscount" validators={{ onBlur: ({ value }) => discountCapError(value, t) }}>
+            {(field) => (
+              <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
+                <div className="grid content-start gap-2">
+                  <Label htmlFor="new-role-max-discount">{t('roles.form.maxDiscount')}</Label>
+                  <Input
+                    id="new-role-max-discount"
+                    inputMode="decimal"
+                    dir="ltr"
+                    placeholder={t('roles.form.noCap')}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={field.state.meta.errors.length > 0}
+                  />
+                  <Errors messages={[...field.state.meta.errors, ...(server.maxDiscountPercent ?? [])]} />
+                </div>
+                <p className="self-center text-xs text-muted-foreground">{t('roles.form.maxDiscountHelp')}</p>
+              </div>
+            )}
+          </form.Field>
 
           <form.Field name="copyFrom">
             {(field) => (

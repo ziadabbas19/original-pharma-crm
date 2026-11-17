@@ -69,6 +69,13 @@ Short-lived JWT access tokens (15 min) plus rotating refresh tokens (30 days, st
   `POST /api/auth/background-session`, so the app and the uploader never rotate each
   other's tokens. The plugin refreshes natively through `POST /api/auth/refresh-native`.
 - Login and refresh are rate limited per IP.
+- The access token carries the session's family id (`sid`). Changing your own password
+  (`POST /api/account/password`, current password required, rate limited per user) revokes
+  every other family; a reset by someone else (`users:reset-password`) revokes all of them
+  and sets `must_change_password`, which sends the user to `/change-password`. Account
+  events are written to `user_audit_entries` (`GET /api/users/{id}/audit`).
+- No network at start-up: the rep app restores the last profile and grants from the device
+  and keeps the stored refresh token; only a refused refresh (4xx) signs the user out.
 
 ## Permissions
 
@@ -126,7 +133,19 @@ Refusals carry a code in the ProblemDetails body (`role_level_too_high`, `user_l
   query filter because the same table is read under different permissions
   (e.g. `visits:read` = team, `tracking:history` = own).
   - team = the user plus everyone below them in the manager chain
-  - territory = the user's territory and all child territories (region → area → territory)
+  - territory = the user's territory and all child territories (region → area → town)
+  - doctor lists (`rep_doctors`) have no territory of their own: they are visible when the
+    rep is visible in the scope, and territory scope also covers doctors in its towns
+
+**New permissions and defaults**
+
+When a permission first appears in the catalog the seeder gives each seeded role the grant
+from its template, once (nobody can have edited it yet); existing grants are never touched.
+Defaults for the sales features: Rep `customers:create`, `orders:create`, `orders:read` (own),
+`products:read` (all, filtered by product lines); Supervisor `customers:assign`, `orders:read`,
+`orders:manage`, `users:reset-password` (team); AreaManager the same with territory scope;
+SalesManager also `products:manage`, `lookups:manage` (all). `users:create` is Admin only
+until granted from the matrix.
 
 **Caching and fast propagation**
 
@@ -262,11 +281,47 @@ The rep app re-checks on every open/resume and shows a banner when something bre
    - Photo upload per visit.
    - Mock flag or out-of-geofence check-out marks the visit for review.
 
+## Sales: doctors, catalog and orders
+
+- **Territories**: region → area → town. Reps and supervisors are assigned to an area;
+  doctors are placed in a town. "Outside area" warnings compare a doctor's town with the
+  rep's area (never a refusal).
+- **Doctor lists**: a doctor is one `customers` row; `rep_doctors` (unique per rep and doctor)
+  puts it on reps' lists. Reps search the directory before creating a doctor
+  (`doctor_exists` with the existing id when the same name exists in the town).
+- **Catalog**: product lines and products (price in EGP, stock, picture). Users see only
+  the lines assigned to them (`user_product_lines`) unless they hold `orders:manage` or
+  `products:manage`.
+- **Orders**: numbers come from the `order_numbers` sequence (`ORD-2026-000123`). Lines keep
+  a price and name snapshot; totals are computed on the server (`OrderPricing`, rounded to
+  piasters half away from zero). Quantity above stock is a warning (`stockWarnings`), stock
+  is not deducted yet. Each role may carry `max_discount_percent` (null = no cap; the most
+  generous role wins); a higher line discount is refused with `discount_above_cap`.
+  Exactly one of `collection_method_id` / `collection_method_other` (validator and check
+  constraint). Status changes and edits go to `order_history`.
+- **Offline**: the rep app always saves orders through the device outbox (IndexedDB in the
+  browser, SQLite in the Android app) with a client-generated `clientRequestId`; a unique
+  index on (rep, clientRequestId) makes retries return the existing order. Orders refused by
+  the server (4xx) move to a "needs attention" list to fix or discard.
+
+## Images
+
+`ImageService` (product and profile pictures): at most 5 MB, recognised by file signature
+(JPEG, PNG, WebP), decoded with SkiaSharp (pixel limit against decompression bombs), EXIF
+orientation applied, re-encoded to WebP (which drops all metadata) as a display size and a
+thumbnail, stored under a random 128-bit key. Files are written once and served by
+`GET /api/images/{key}/{size}.webp` with `Cache-Control: immutable` and an ETag; a new upload
+gets a new key. The URLs are unguessable but not signed, so anyone holding one can load the
+picture. Storage root: `FileStorage:RootPath` (default `~/.local/share/original-pharma/uploads`,
+the `op-uploads` volume in the container image), never inside the repository.
+
 ## Data
 
 PostgreSQL with snake_case naming and PostGIS `geography(point, 4326)` columns (distances
 in metres). Notable tables: `users`, `roles`, `permissions`, `role_permissions`, `role_audit_entries`,
-`user_permission_overrides`, `refresh_tokens`, `territories`, `customers`, `visits`,
+`user_permission_overrides`, `user_audit_entries`, `refresh_tokens`, `territories`, `customers`,
+`rep_doctors`, `specialties`, `product_lines`, `products`, `user_product_lines`,
+`collection_methods`, `orders`, `order_lines`, `order_history`, `seed_history`, `visits`,
 `visit_photos`, `shifts`, `location_points`, `tracking_flags`, `devices`,
 `device_health_reports`, `tracking_consents`. Hangfire uses its own `hangfire` schema.
 

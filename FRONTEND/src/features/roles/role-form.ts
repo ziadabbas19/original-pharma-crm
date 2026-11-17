@@ -11,6 +11,18 @@ export function nameError(value: string, t: TFunction): string | undefined {
   return value.trim().length > NAME_MAX ? t('forms.maxLength', { count: NAME_MAX }) : undefined
 }
 
+/** Discount cap typed as text: empty = no cap, otherwise 0-100 with at most 2 decimals. */
+export function discountCapError(value: string, t: TFunction): string | undefined {
+  if (value.trim() === '') return undefined
+  const n = Number(value.replace(',', '.'))
+  if (!Number.isFinite(n) || n < 0 || n > 100) return t('orders.form.discountRange')
+  return Math.round(n * 100) !== n * 100 ? t('orders.form.discountDecimals') : undefined
+}
+
+export function parseDiscountCap(value: string): number | null {
+  return value.trim() === '' ? null : Number(value.replace(',', '.'))
+}
+
 /** Checks a level typed into a number input; returns a translated error or undefined. */
 export function levelError(value: string, min: number, t: TFunction): string | undefined {
   const level = Number(value)

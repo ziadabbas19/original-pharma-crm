@@ -5,10 +5,23 @@ import type { PermissionScope } from '@/api/generated/model'
  * The server is the authority; these only decide what the UI shows.
  */
 export const P = {
-  users: { read: 'users:read', manage: 'users:manage' },
+  users: {
+    read: 'users:read',
+    manage: 'users:manage',
+    create: 'users:create',
+    resetPassword: 'users:reset-password',
+  },
   roles: { read: 'roles:read', manage: 'roles:manage' },
   territories: { read: 'territories:read', manage: 'territories:manage' },
-  customers: { read: 'customers:read', manage: 'customers:manage' },
+  customers: {
+    read: 'customers:read',
+    manage: 'customers:manage',
+    create: 'customers:create',
+    assign: 'customers:assign',
+  },
+  lookups: { manage: 'lookups:manage' },
+  products: { read: 'products:read', manage: 'products:manage' },
+  orders: { create: 'orders:create', read: 'orders:read', manage: 'orders:manage' },
   visits: { read: 'visits:read', create: 'visits:create', manage: 'visits:manage' },
   tracking: {
     report: 'tracking:report',
@@ -36,12 +49,16 @@ export function hasPermission(
   return minScope ? scopeRank[scope] >= scopeRank[minScope] : true
 }
 
-/** Dashboard = anything beyond reporting your own location. */
+/** Dashboard = anything beyond a rep's own work (own location, own doctors, own orders). */
 export function canUseDashboard(granted: Record<string, PermissionScope>): boolean {
   return (
     hasPermission(granted, P.tracking.viewLive) ||
     hasPermission(granted, P.users.read) ||
     hasPermission(granted, P.roles.read) ||
-    hasPermission(granted, P.visits.read, 'team')
+    hasPermission(granted, P.visits.read, 'team') ||
+    hasPermission(granted, P.orders.read, 'team') ||
+    hasPermission(granted, P.customers.read, 'team') ||
+    hasPermission(granted, P.products.manage) ||
+    hasPermission(granted, P.lookups.manage)
   )
 }

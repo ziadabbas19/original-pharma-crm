@@ -6,9 +6,11 @@ import { App } from '@/app/App'
 import { router } from '@/app/router'
 import { isNativePlatform, loadPlatform } from '@/lib/platform'
 import { connectApiClient } from '@/lib/session'
+import { initTheme } from '@/lib/theme'
 
 async function start() {
   await loadPlatform()
+  initTheme()
   connectApiClient(() => void router.navigate({ to: '/login' }))
 
   // Service worker only for the browser/PWA build; the native app ships its files locally.

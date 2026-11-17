@@ -15,4 +15,5 @@ export interface TerritoryDto {
   parentId: string | null
   userCount: number
   customerCount: number
+  childCount: number
 }
