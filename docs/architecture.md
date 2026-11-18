@@ -395,7 +395,7 @@ thumbnail, stored under a random 128-bit key. Files are written once and served 
 `GET /api/images/{key}/{size}.webp` with `Cache-Control: immutable` and an ETag; a new upload
 gets a new key. The URLs are unguessable but not signed, so anyone holding one can load the
 picture. Storage root: `FileStorage:RootPath` (default `~/.local/share/original-pharma/uploads`,
-the `op-uploads` volume in the container image), never inside the repository.
+the `uploads` folder of the data volume in the container image), never inside the repository.
 
 ## Data
 

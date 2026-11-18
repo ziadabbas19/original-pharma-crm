@@ -35,25 +35,58 @@ internal static class ProductionConfiguration
         CheckCookie(configuration, publicHost, problems);
         CheckForwardedHeaders(configuration, problems);
         CheckUploads(configuration, problems);
+        CheckDataProtectionKeys(configuration, problems);
         CheckSeed(configuration, problems);
         CheckPort(configuration, problems);
         return problems;
     }
 
+    /// <summary>Checks the folders on disk. Settings <see cref="FindProblems"/> already refuses are skipped.</summary>
+    public static IEnumerable<string> FindFolderProblems(IConfiguration configuration)
+    {
+        if (configuration["FileStorage:RootPath"] is { Length: > 0 } uploads && Path.IsPathRooted(uploads) &&
+            FindUploadFolderProblem(uploads) is { } uploadProblem)
+        {
+            yield return uploadProblem;
+        }
+
+        if (FindKeysSettingProblem(configuration) is null &&
+            DataProtectionSetup.ResolveKeysPath(configuration) is { } keysPath &&
+            FindKeysFolderProblem(keysPath) is { } keysProblem)
+        {
+            yield return keysProblem;
+        }
+    }
+
     /// <summary>The configured upload folder must exist (or be creatable) and accept files.</summary>
     public static string? FindUploadFolderProblem(string rootPath)
     {
-        var probe = Path.Combine(rootPath, $".write-check-{Guid.NewGuid():N}");
         try
         {
             Directory.CreateDirectory(rootPath);
-            File.WriteAllText(probe, string.Empty);
-            File.Delete(probe);
+            CheckWritable(rootPath);
             return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return "FileStorage__RootPath: the folder is not writable by the API. Mount the volume there and give the " +
+            return "FileStorage__RootPath: the folder is not writable by the API. Mount the data volume above it and give " +
+                   "the container user access (on Railway set RAILWAY_RUN_UID=0).";
+        }
+    }
+
+    /// <summary>The keys folder must be creatable, private to the API's user and accept files.</summary>
+    public static string? FindKeysFolderProblem(string keysPath)
+    {
+        try
+        {
+            DataProtectionSetup.PrepareKeysFolder(keysPath);
+            CheckWritable(keysPath);
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return "DataProtection__KeysPath: the keys folder cannot be created or written by the API. It defaults to a " +
+                   "\"keys\" folder next to FileStorage__RootPath. Mount the data volume above both folders and give the " +
                    "container user access (on Railway set RAILWAY_RUN_UID=0).";
         }
     }
@@ -247,12 +280,46 @@ internal static class ProductionConfiguration
         var root = configuration["FileStorage:RootPath"];
         if (string.IsNullOrWhiteSpace(root))
         {
-            problems.Add("FileStorage__RootPath is required (the folder of the mounted uploads volume).");
+            problems.Add("FileStorage__RootPath is required (the uploads folder on the mounted data volume).");
         }
-        else if (!Path.IsPathRooted(root) || Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)) == Path.GetPathRoot(root))
+        else if (!IsFolderBelowRoot(root))
         {
             problems.Add("FileStorage__RootPath must be an absolute path to a folder below the file system root.");
         }
+    }
+
+    private static void CheckDataProtectionKeys(IConfiguration configuration, List<string> problems)
+    {
+        if (FindKeysSettingProblem(configuration) is { } problem)
+        {
+            problems.Add(problem);
+        }
+    }
+
+    private static string? FindKeysSettingProblem(IConfiguration configuration)
+    {
+        var configured = configuration[DataProtectionSetup.KeysPathSetting];
+        if (!string.IsNullOrWhiteSpace(configured) && !IsFolderBelowRoot(configured))
+        {
+            return "DataProtection__KeysPath must be an absolute path to a folder below the file system root.";
+        }
+
+        var uploads = configuration["FileStorage:RootPath"];
+        return !string.IsNullOrWhiteSpace(uploads) && IsFolderBelowRoot(uploads) &&
+               DataProtectionSetup.ResolveKeysPath(configuration) is { } keysPath &&
+               DataProtectionSetup.Overlaps(keysPath, uploads)
+            ? "DataProtection__KeysPath must be a separate folder outside FileStorage__RootPath, so the file endpoints can never reach the keys."
+            : null;
+    }
+
+    private static bool IsFolderBelowRoot(string path) =>
+        Path.IsPathRooted(path) && Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)) != Path.GetPathRoot(path);
+
+    private static void CheckWritable(string folder)
+    {
+        var probe = Path.Combine(folder, $".write-check-{Guid.NewGuid():N}");
+        File.WriteAllText(probe, string.Empty);
+        File.Delete(probe);
     }
 
     private static void CheckSeed(IConfiguration configuration, List<string> problems)

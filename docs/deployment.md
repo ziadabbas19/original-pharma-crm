@@ -7,7 +7,7 @@ Production layout:
 | API | Railway service built from `BACKEND/Dockerfile` | `https://api.your-domain` |
 | Database | PostgreSQL with PostGIS on Railway | private network |
 | Cache | Redis on Railway | private network |
-| Uploads | Railway volume mounted into the API service | `FileStorage__RootPath` |
+| Uploads and keys | One Railway volume mounted into the API service | `/var/lib/original-pharma` |
 | Web app | Static host | `https://app.your-domain` |
 | Android app | Signed release build | talks to the API over HTTPS |
 
@@ -33,7 +33,7 @@ is missing, unsafe or still a placeholder, and names each variable to fix.
 | `Jwt__Audience` | Token audience, for example `original-pharma-clients` |
 | `App__PublicBaseUrl` | Public HTTPS origin of the API, no path. Requests for any other host are refused |
 | `Cors__AllowedOrigins` | Comma-separated exact origins: the web app, plus `https://localhost` for the Android app |
-| `FileStorage__RootPath` | Absolute path of the mounted uploads volume |
+| `FileStorage__RootPath` | Uploads folder on the data volume: `/var/lib/original-pharma/uploads` |
 | `ForwardedHeaders__TrustAllProxies` | `true` on Railway. Elsewhere use `ForwardedHeaders__KnownNetworks` instead |
 | `Seed__AdminEmail` | First administrator. Needed only until an admin exists |
 | `Seed__AdminPassword` | Initial password, 12+ characters with upper case, lower case and a digit. Must be changed at first sign-in |
@@ -43,6 +43,7 @@ is missing, unsafe or still a placeholder, and names each variable to fix.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `8080` | Listening port. Railway sets it |
+| `DataProtection__KeysPath` | `keys` next to `FileStorage__RootPath` | Data Protection keys folder. See [Data Protection keys](#data-protection-keys) |
 | `Serilog__MinimumLevel__Default` | `Information` | Log level: `Debug`, `Information`, `Warning`, `Error` |
 | `ForwardedHeaders__ClientIpHeader` | `X-Forwarded-For` | Header holding the client address. Railway: `X-Real-IP` |
 | `ForwardedHeaders__ForwardLimit` | `1` | Proxies to read through |
@@ -65,7 +66,8 @@ is missing, unsafe or still a placeholder, and names each variable to fix.
 2. **Redis.** Add Railway's Redis service.
 3. **API.** Add a service from this repository, set the root directory to `BACKEND`, and let it build the
    Dockerfile.
-4. **Volume.** Attach a volume to the API service at `/var/lib/original-pharma/uploads`.
+4. **Volume.** Attach a volume to the API service at `/var/lib/original-pharma`. The API creates the `uploads`
+   and `keys` folders inside it.
 5. **Health check.** Set the health check path to `/health`.
 6. **Domain.** Add the custom domain `api.your-domain` to the API service.
 7. **Variables.** Add these, then the rest of the required list:
@@ -135,9 +137,32 @@ stops the API from starting.
 Product pictures, profile pictures and visit photos are stored under `FileStorage__RootPath`. The API checks
 at startup that the folder is writable, and refuses any path that resolves outside it.
 
+### Data Protection keys
+
+ASP.NET Core keeps its Data Protection keys in `/var/lib/original-pharma/keys`, on the same volume as the uploads
+but in a separate folder that the file endpoints cannot reach. `DataProtection__KeysPath` moves the folder.
+
+```
+/var/lib/original-pharma     <- volume mount
+├── uploads                  <- FileStorage__RootPath
+└── keys                     <- DataProtection__KeysPath, mode 700
+```
+
+The API refuses to start if the folder cannot be created or written, or if it overlaps the uploads folder.
+
+The volume must be mounted at `/var/lib/original-pharma`. With a volume mounted only at the `uploads` folder the API
+still starts, but the keys stay in the container and are lost on the next redeploy.
+
+**The keys are not encrypted at rest.** They are plain XML files, readable only by the API's user, on a private
+volume. Anyone who can read the volume or one of its backups can read them, so treat volume backups as secrets. The
+log line `No XML encryptor configured` at the creation of each key is expected.
+
+The API does not currently protect any stored data or cookies with these keys, so losing them signs nobody out. Any
+feature that starts using Data Protection, such as password reset links, depends on this folder surviving.
+
 ### Backup
 
-Take the database and the uploads volume together, so that rows and files match.
+Take the database and the data volume together, so that rows and files match.
 
 **Database.** Use the `DATABASE_PUBLIC_URL` of the PostgreSQL service. The image keeps `pg_dump` on the same
 major version as the server:
@@ -151,7 +176,7 @@ podman run --rm -e PGURL="$DATABASE_PUBLIC_URL" -v "$PWD/backups:/backups:Z" doc
 
 Keep backups outside the repository and encrypted: they hold personal data and password hashes.
 
-**Uploads.** Enable scheduled backups on the API service's volume in Railway (service **Backups** tab).
+**Uploads and keys.** Enable scheduled backups on the API service's volume in Railway (service **Backups** tab).
 
 Railway's own database volume backups can run alongside this, but the dump is what lets you restore into
 any PostgreSQL server.
@@ -167,7 +192,7 @@ podman run --rm -e PGURL="$RESTORE_URL" -v "$PWD/backups:/backups:Z" docker.io/p
 ```
 
 1. Check row counts, for example `SELECT count(*) FROM users;`.
-2. Restore the uploads volume from the backup taken at the same time.
+2. Restore the data volume from the backup taken at the same time.
 3. Point `ConnectionStrings__Postgres` at the restored database and redeploy.
 
 ## Web app

@@ -11,11 +11,7 @@ var isLive = !builder.Environment.IsLocal() && !OriginalPharma.Infrastructure.De
 if (isLive)
 {
     var problems = ProductionConfiguration.FindProblems(builder.Configuration).ToList();
-    if (builder.Configuration["FileStorage:RootPath"] is { Length: > 0 } uploads && Path.IsPathRooted(uploads) &&
-        ProductionConfiguration.FindUploadFolderProblem(uploads) is { } uploadProblem)
-    {
-        problems.Add(uploadProblem);
-    }
+    problems.AddRange(ProductionConfiguration.FindFolderProblems(builder.Configuration));
 
     if (problems.Count > 0)
     {

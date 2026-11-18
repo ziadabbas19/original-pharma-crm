@@ -102,7 +102,7 @@ at `30.0511, 31.3656`, and Dr. Karim Adel has no saved location on purpose.
 Uploaded pictures (products, profile pictures, visit photos) are stored outside the
 repository, in `~/.local/share/original-pharma/uploads` by default (`FileStorage:RootPath`).
 `podman compose --profile api up -d --build` runs the production image (`BACKEND/Dockerfile`) with the
-`op-uploads` named volume. It reads `.env.production.local`; see [docs/deployment.md](docs/deployment.md).
+`op-api-data` named volume. It reads `.env.production.local`; see [docs/deployment.md](docs/deployment.md).
 
 ### 3. Frontend
 
@@ -224,6 +224,7 @@ Before a release build:
 | Statistics time zone, low stock threshold, cache time | `appsettings.json` → `Stats` |
 | Hours after check-out a rep may still edit visit feedback and products | `appsettings.json` → `Visits:ContentEditHours` |
 | Upload folder | `FileStorage:RootPath` (empty = per-user data folder) |
+| Data Protection keys folder (live deployments) | `DataProtection__KeysPath` (empty = `keys` next to the upload folder) |
 | CORS origins | `appsettings.Development.json` (dev), `Cors__AllowedOrigins` (prod) |
 | SignalR Redis backplane (multi-instance) | `SignalR:UseRedisBackplane` |
 | Frontend API origin, map tiles, FCM switch | `FRONTEND/.env.local` (see `FRONTEND/.env.example`) |

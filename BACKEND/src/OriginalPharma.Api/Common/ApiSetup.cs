@@ -45,6 +45,7 @@ internal static class ApiSetup
         });
 
         services.Configure<RefreshCookieSettings>(configuration.GetSection(RefreshCookieSettings.SectionName));
+        services.AddDataProtectionKeys(configuration, environment);
 
         var origins = SettingList.Read(configuration.GetSection("Cors:AllowedOrigins"));
         services.AddCors(o => o.AddPolicy(CorsPolicy, policy => policy

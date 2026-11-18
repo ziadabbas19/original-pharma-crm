@@ -12,9 +12,11 @@ COPY --from=build /app .
 ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_HTTP_PORTS= \
     ASPNETCORE_URLS=http://+:8080
-# Mount point for the uploads volume. The volume is attached by the platform or `podman run -v`:
-# Railway rejects the VOLUME instruction.
-RUN mkdir -p /var/lib/original-pharma/uploads && chown app:app /var/lib/original-pharma/uploads
+# Mount point for the data volume, which holds the uploads and keys folders. The volume is attached
+# by the platform or `podman run -v`: Railway rejects the VOLUME instruction.
+RUN mkdir -p /var/lib/original-pharma/uploads /var/lib/original-pharma/keys \
+    && chown -R app:app /var/lib/original-pharma \
+    && chmod 700 /var/lib/original-pharma/keys
 USER app
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "OriginalPharma.Api.dll"]
