@@ -407,6 +407,123 @@
       "remove": "Remove product",
       "notePlaceholder": "Short note (optional)",
       "filter": "Product discussed"
+    },
+    "start": "Start visit",
+    "continue": "Continue visit",
+    "linkedOrders": "Orders from this visit",
+    "sync": {
+      "sent": "Sent",
+      "sending": "Sending…",
+      "waiting": "Waiting to send",
+      "refused": "Not sent",
+      "retry": "Send again",
+      "waitingHint": "This visit is saved on this phone. It will be sent automatically when you are online."
+    },
+    "filters": {
+      "period": "Period",
+      "presets": {
+        "today": "Today",
+        "week": "7 days",
+        "month": "30 days"
+      },
+      "allCustomers": "All customers",
+      "allProducts": "All products",
+      "hasFeedback": "With feedback"
+    },
+    "pharmacies": {
+      "tabs": "Customer type",
+      "doctors": "Doctors",
+      "pharmacies": "Pharmacies",
+      "search": "Search pharmacies",
+      "empty": "No pharmacies in your area."
+    },
+    "customerPage": {
+      "hasLocation": "Location saved for visit check-in"
+    },
+    "checkInFlow": {
+      "title": "Start visit",
+      "locating": "Getting your exact location…",
+      "insideTitle": "You are at the customer's location",
+      "insideBody": "{{distance}} away, location accuracy {{accuracy}}.",
+      "outsideTitle": "You are {{distance}} from the customer",
+      "outsideBody": "Allowed range is {{allowed}} (accuracy {{accuracy}}). You can still start, and your supervisor will review this visit.",
+      "outsideRefused": "Allowed range is {{allowed}} (accuracy {{accuracy}}). Move closer to start the visit.",
+      "noLocationTitle": "No location saved for this customer",
+      "noLocationBody": "The visit cannot be verified without it. Ask your supervisor to save the customer's location.",
+      "lowAccuracyTitle": "Location is not accurate enough",
+      "lowAccuracyBody": "Accuracy is {{accuracy}} m and at most {{max}} m is needed. Move outdoors and try again.",
+      "unavailable": {
+        "denied": {
+          "title": "Location permission is off",
+          "body": "Allow location access for this app, then try again."
+        },
+        "timeout": {
+          "title": "Could not get your location",
+          "body": "The GPS took too long to answer. Move outdoors and try again."
+        },
+        "unavailable": {
+          "title": "Location is unavailable",
+          "body": "Turn on your phone's location and try again."
+        }
+      },
+      "mockBody": "This phone reported a simulated location. The visit will be flagged for your supervisor to review.",
+      "tryAgain": "Try again",
+      "openSettings": "Open settings",
+      "addPhoto": "Add proof photo (optional)",
+      "photoAdded": "Proof photo added",
+      "photoPreview": "Proof photo",
+      "removePhoto": "Remove photo",
+      "offlineBody": "You are offline. The visit starts now and is sent automatically when you are back online.",
+      "startAnyway": "Start visit for review",
+      "alreadyOpenTitle": "A visit is already in progress",
+      "alreadyOpenBody": "Check out of your visit at {{customer}} before starting another one.",
+      "openActive": "Open current visit",
+      "noDayTitle": "Your day has not started",
+      "noDayBody": "Start your day before checking in to a visit."
+    },
+    "active": {
+      "elapsed": "Visit duration",
+      "startedAt": "Started {{time}}",
+      "accuracy": "accuracy {{accuracy}}",
+      "outsideNote": "Checked in {{distance}} from the customer. Your supervisor will review this visit.",
+      "createOrder": "Create order for this customer",
+      "banner": "Visit in progress: {{customer}}"
+    },
+    "checkOutFlow": {
+      "action": "Check out",
+      "title": "Check out of this visit?",
+      "lateTitle": "Check out with an explanation",
+      "body": "You are checking out of your visit at {{customer}}.",
+      "located": "Location captured, accuracy {{accuracy}}.",
+      "noLocation": "Your location could not be captured. You can still check out, and your supervisor will review this visit.",
+      "notes": "Note (optional)",
+      "notesPlaceholder": "Anything your supervisor should know",
+      "reason": "Why was the check-out late?",
+      "reasonPlaceholder": "For example: I forgot to check out when I left the clinic",
+      "confirm": "Confirm check-out",
+      "savedNote": "Check-out note"
+    },
+    "forgot": {
+      "body": "You are still checked in at {{customer}} since {{time}}. Did you forget to check out?",
+      "now": "Check out now",
+      "explain": "Add explanation"
+    },
+    "verification": {
+      "title": "Verification",
+      "accuracy": "Accuracy",
+      "distanceOf": "{{distance}} of {{radius}} allowed",
+      "checkOutLocation": "At check-out",
+      "checkOutFix": "{{distance}}, accuracy {{accuracy}}",
+      "noCheckOutFix": "No location captured",
+      "receivedAt": "Reached the server",
+      "photo": "Proof photo",
+      "openPhoto": "Open proof photo",
+      "photoFailed": "The photo could not be loaded"
+    },
+    "reviewReasons": {
+      "outside-geofence": "Checked in outside the allowed range",
+      "mock-location": "The phone reported a simulated location",
+      "no-check-out-location": "No location at check-out"
     }
   },
   "liveMap": {
@@ -740,7 +857,14 @@
     "visit_product_unavailable": "One of the products is not available to you.",
     "visit_no_feedback": "There is no feedback on this visit.",
     "stats_table_unknown": "This table cannot be exported.",
-    "customer_use_doctor_form": "Doctors are edited from the doctor lists."
+    "customer_use_doctor_form": "Doctors are edited from the doctor lists.",
+    "visit-in-progress": "Another visit is still open. Check out of it, then send this one again.",
+    "no-active-shift": "Your working day was not running at the time of this visit.",
+    "customer-location-missing": "This customer has no saved location.",
+    "accuracy-too-low": "The location was not accurate enough for this check-in.",
+    "outside-geofence": "This check-in was outside the allowed range.",
+    "visit-not-in-progress": "This visit is already closed.",
+    "visit-key-in-use": "This visit could not be saved. Start it again."
   },
   "resources": {
     "users": "Users",
@@ -1197,7 +1321,12 @@
       "result": "Added: {{added}} · already on the list: {{already}} · removed from source: {{removed}}",
       "outsideArea": "{{value}} of these doctors are outside the rep's area."
     },
-    "removeConsequence": "They stay in the directory and on other reps' lists; you can add them back at any time."
+    "removeConsequence": "They stay in the directory and on other reps' lists; you can add them back at any time.",
+    "location": "Clinic location",
+    "lat": "Latitude",
+    "lng": "Longitude",
+    "radius": "Range (m)",
+    "locationHint": "Used to verify visits. Range is 20 to 2000 metres; leave both coordinates empty for no location."
   },
   "orders": {
     "title": "Orders",

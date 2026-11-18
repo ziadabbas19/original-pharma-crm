@@ -122,6 +122,36 @@
         }
       }
     },
+    "/api/visits/rules": {
+      "get": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsRules",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitRulesDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitRulesDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitRulesDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/visits/check-in": {
       "post": {
         "tags": [
@@ -248,6 +278,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "clientRequestId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
@@ -282,6 +320,56 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VisitPhotoDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/visits/{visitId}/photos/{photoId}": {
+      "get": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsGetPhoto",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "photoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
                 }
               }
             }
@@ -7031,6 +7119,13 @@
               "null",
               "string"
             ]
+          },
+          "clientRequestId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -7044,15 +7139,24 @@
         "type": "object",
         "properties": {
           "lat": {
-            "type": "number",
+            "type": [
+              "null",
+              "number"
+            ],
             "format": "double"
           },
           "lng": {
-            "type": "number",
+            "type": [
+              "null",
+              "number"
+            ],
             "format": "double"
           },
           "accuracy": {
-            "type": "number",
+            "type": [
+              "null",
+              "number"
+            ],
             "format": "double"
           },
           "timestamp": {
@@ -7068,6 +7172,13 @@
               "null",
               "string"
             ]
+          },
+          "clientRequestId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -7221,6 +7332,13 @@
               "null",
               "string"
             ]
+          },
+          "visitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -7876,6 +7994,53 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "lat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "lng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "geofenceRadiusMeters": {
+            "type": "integer",
+            "format": "int32",
+            "default": 150
+          }
+        }
+      },
+      "DoctorLocationInput": {
+        "required": [
+          "lat",
+          "lng"
+        ],
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "lng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "geofenceRadiusMeters": {
+            "type": "integer",
+            "format": "int32",
+            "default": 150
           }
         }
       },
@@ -8698,6 +8863,13 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "visitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -10752,6 +10924,16 @@
           "isActive": {
             "type": "boolean",
             "default": true
+          },
+          "location": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DoctorLocationInput"
+              }
+            ]
           }
         }
       },
@@ -11165,7 +11347,16 @@
           "contentEditableUntil",
           "canReply",
           "canMarkSeen",
-          "archivedAt"
+          "archivedAt",
+          "checkInReceivedAt",
+          "checkInAccuracy",
+          "checkInIsMock",
+          "checkOutAccuracy",
+          "checkOutIsMock",
+          "geofenceRadiusMeters",
+          "reviewReasons",
+          "photos",
+          "orders"
         ],
         "type": "object",
         "properties": {
@@ -11290,6 +11481,52 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "checkInReceivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checkInAccuracy": {
+            "type": "number",
+            "format": "double"
+          },
+          "checkInIsMock": {
+            "type": "boolean"
+          },
+          "checkOutAccuracy": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "checkOutIsMock": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "geofenceRadiusMeters": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reviewReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitPhotoDto"
+            }
+          },
+          "orders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitOrderDto"
+            }
           }
         }
       },
@@ -11308,7 +11545,10 @@
           "checkOutWithinGeofence",
           "qrVerified",
           "needsReview",
-          "photos"
+          "photos",
+          "checkInAccuracy",
+          "geofenceRadiusMeters",
+          "reviewReasons"
         ],
         "type": "object",
         "properties": {
@@ -11374,6 +11614,20 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/VisitPhotoDto"
+            }
+          },
+          "checkInAccuracy": {
+            "type": "number",
+            "format": "double"
+          },
+          "geofenceRadiusMeters": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reviewReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }
@@ -11486,7 +11740,11 @@
           "checkOutWithinGeofence",
           "qrVerified",
           "needsReview",
-          "photoCount"
+          "photoCount",
+          "checkInAccuracy",
+          "checkInIsMock",
+          "productIds",
+          "reviewReasons"
         ],
         "type": "object",
         "properties": {
@@ -11561,6 +11819,26 @@
             "type": "integer",
             "format": "int32"
           },
+          "checkInAccuracy": {
+            "type": "number",
+            "format": "double"
+          },
+          "checkInIsMock": {
+            "type": "boolean"
+          },
+          "productIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "reviewReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "hasFeedback": {
             "type": "boolean",
             "default": false
@@ -11594,12 +11872,43 @@
           }
         }
       },
+      "VisitOrderDto": {
+        "required": [
+          "id",
+          "number",
+          "status",
+          "total",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "VisitPhotoDto": {
         "required": [
           "id",
           "contentType",
           "sizeBytes",
-          "uploadedAt"
+          "uploadedAt",
+          "url"
         ],
         "type": "object",
         "properties": {
@@ -11617,6 +11926,9 @@
           "uploadedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "url": {
+            "type": "string"
           }
         }
       },
@@ -11718,6 +12030,37 @@
         "properties": {
           "text": {
             "type": "string"
+          }
+        }
+      },
+      "VisitRulesDto": {
+        "required": [
+          "maxAccuracyMeters",
+          "maxAccuracyAllowanceMeters",
+          "rejectOutsideGeofence",
+          "maxPhotoBytes",
+          "contentEditHours"
+        ],
+        "type": "object",
+        "properties": {
+          "maxAccuracyMeters": {
+            "type": "number",
+            "format": "double"
+          },
+          "maxAccuracyAllowanceMeters": {
+            "type": "number",
+            "format": "double"
+          },
+          "rejectOutsideGeofence": {
+            "type": "boolean"
+          },
+          "maxPhotoBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "contentEditHours": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

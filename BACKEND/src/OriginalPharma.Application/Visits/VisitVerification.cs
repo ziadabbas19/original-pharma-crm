@@ -15,7 +15,7 @@ public sealed class VisitOptions
     public double MaxAccuracyAllowanceMeters { get; set; } = 50;
 
     /// <summary>Reject check-in outside the geofence (true) or accept and mark for review (false).</summary>
-    public bool RejectOutsideGeofence { get; set; } = true;
+    public bool RejectOutsideGeofence { get; set; }
 
     public long MaxPhotoBytes { get; set; } = 8 * 1024 * 1024;
 
@@ -46,6 +46,35 @@ public static class GeofenceEvaluator
         var distance = GeoMath.DistanceMeters(customerLat, customerLng, lat, lng);
         var allowed = radiusMeters + Math.Min(Math.Max(accuracyMeters, 0), maxAccuracyAllowanceMeters);
         return new GeofenceResult(distance, allowed, distance <= allowed);
+    }
+}
+
+/// <summary>Why a visit is waiting for a supervisor's eye. The codes are translated by the clients.</summary>
+public static class VisitReviewReasons
+{
+    public const string OutsideGeofence = "outside-geofence";
+    public const string MockLocation = "mock-location";
+    public const string NoCheckOutLocation = "no-check-out-location";
+
+    public static IReadOnlyList<string> For(bool withinGeofence, bool checkInMock, bool? checkOutMock, bool checkedOut, bool hasCheckOutLocation)
+    {
+        var reasons = new List<string>();
+        if (!withinGeofence)
+        {
+            reasons.Add(OutsideGeofence);
+        }
+
+        if (checkInMock || checkOutMock == true)
+        {
+            reasons.Add(MockLocation);
+        }
+
+        if (checkedOut && !hasCheckOutLocation)
+        {
+            reasons.Add(NoCheckOutLocation);
+        }
+
+        return reasons;
     }
 }
 

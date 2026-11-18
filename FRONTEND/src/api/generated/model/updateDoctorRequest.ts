@@ -2,6 +2,7 @@
  * Original Pharma CRM API v1.
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
+import type { DoctorLocationInput } from './doctorLocationInput'
 
 export interface UpdateDoctorRequest {
   name: string
@@ -14,4 +15,5 @@ export interface UpdateDoctorRequest {
   /** @nullable */
   notes?: string | null
   isActive?: boolean
+  location?: null | DoctorLocationInput
 }

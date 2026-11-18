@@ -19,4 +19,6 @@ export interface CreateOrderRequest {
   collectionMethodOther?: string | null
   /** @nullable */
   notes?: string | null
+  /** @nullable */
+  visitId?: string | null
 }

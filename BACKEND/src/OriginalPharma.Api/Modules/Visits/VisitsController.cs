@@ -33,11 +33,18 @@ public sealed class VisitsController(VisitService visits) : ControllerBase
         [FromQuery] bool archived = false) =>
         visits.ListAsync(from, to, userId, status, needsReview, cancellationToken, mine, productId, feedbackCategory, hasFeedback, archived);
 
+    /// <summary>The verification rules of this server (accuracy limit, geofence allowance, edit window).</summary>
+    [HttpGet("rules")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public VisitRulesDto Rules() => visits.Rules();
+
+    /// <summary>Check in. Safe to retry with the same clientRequestId.</summary>
     [HttpPost("check-in")]
     [HasPermission(Permissions.Visits.Create)]
     public Task<VisitDto> CheckIn(CheckInRequest request, CancellationToken cancellationToken) =>
         visits.CheckInAsync(request, cancellationToken);
 
+    /// <summary>Check out. Safe to retry with the same clientRequestId.</summary>
     [HttpPost("{visitId:guid}/check-out")]
     [HasPermission(Permissions.Visits.Create)]
     public Task<VisitDto> CheckOut(Guid visitId, CheckOutRequest request, CancellationToken cancellationToken) =>
@@ -47,10 +54,22 @@ public sealed class VisitsController(VisitService visits) : ControllerBase
     [HasPermission(Permissions.Visits.Create)]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(10 * 1024 * 1024)]
-    public async Task<VisitPhotoDto> UploadPhoto(Guid visitId, IFormFile photo, CancellationToken cancellationToken)
+    public async Task<VisitPhotoDto> UploadPhoto(Guid visitId, IFormFile photo, CancellationToken cancellationToken, [FromQuery] Guid? clientRequestId = null)
     {
         await using var stream = photo.OpenReadStream();
-        return await visits.AddPhotoAsync(visitId, stream, photo.ContentType, photo.Length, cancellationToken);
+        return await visits.AddPhotoAsync(visitId, stream, photo.ContentType, photo.Length, cancellationToken, clientRequestId);
+    }
+
+    /// <summary>A proof photo of a visit, for anyone who can read the visit.</summary>
+    [HttpGet("{visitId:guid}/photos/{photoId:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    [ProducesResponseType(typeof(Stream), StatusCodes.Status200OK, "image/jpeg", "image/png", "image/webp")]
+    public async Task<IActionResult> GetPhoto(Guid visitId, Guid photoId, CancellationToken cancellationToken)
+    {
+        var photo = await visits.OpenPhotoAsync(visitId, photoId, cancellationToken);
+        Response.Headers.CacheControl = "private, max-age=3600";
+        Response.Headers.XContentTypeOptions = "nosniff";
+        return File(photo.Content, photo.ContentType);
     }
 
     /// <summary>A visit with feedback, replies and products. Readable within visits:read scope or by the rep's reporting line.</summary>

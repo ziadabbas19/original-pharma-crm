@@ -86,6 +86,12 @@ public class Order : Entity, IScopedEntity, IArchivable
     public Guid? CustomerId { get; set; }
     public Customer? Customer { get; set; }
 
+    /// <summary>
+    /// The visit the order was taken in. Not a foreign key: orders and visits leave the app's outbox
+    /// independently, so an order can arrive before the check-in it belongs to.
+    /// </summary>
+    public Guid? VisitId { get; set; }
+
     /// <summary>Exactly one of <see cref="CollectionMethodId"/> and <see cref="CollectionMethodOther"/> is set.</summary>
     public Guid? CollectionMethodId { get; set; }
     public CollectionMethod? CollectionMethod { get; set; }

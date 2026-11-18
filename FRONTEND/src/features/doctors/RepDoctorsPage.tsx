@@ -1,4 +1,5 @@
-import { PencilIcon, PhoneIcon, PlusIcon, StethoscopeIcon, Trash2Icon } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { PencilIcon, PhoneIcon, PillIcon, PlusIcon, StethoscopeIcon, Trash2Icon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { doctorsRemoveManyFromMyList, useDoctorsList } from '@/api/generated/endpoints'
@@ -14,9 +15,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { usePermission } from '@/features/auth/usePermission'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
+import { StartVisitButton } from '@/features/visits/StartVisitButton'
+import { fromDoctor, fromPharmacy, usePharmacies } from '@/features/visits/use-rep-customers'
 import { formatNumber, localizedName } from '@/lib/format'
 import { readCache, writeCache } from '@/lib/offline-cache'
 import { P } from '@/lib/permissions'
+import { cn } from '@/lib/utils'
 import { AddDoctorSheet } from './AddDoctorSheet'
 import { OutsideAreaBadge, SpecialtySelect, TownSelect } from './doctor-fields'
 import { DoctorEditDialog } from './DoctorEditDialog'
@@ -27,8 +31,91 @@ const doctorId = (d: DoctorDto) => d.id
 const removeFromList = (request: BulkDeleteRequest): Promise<BulkResult> =>
   doctorsRemoveManyFromMyList({ ids: request.ids })
 
-/** The rep's own doctor list, with search and town / specialty filters. */
+/** Pharmacies in the rep's area; a visit can start from here as from the doctor list. */
+function RepPharmacies() {
+  const { t } = useTranslation()
+  const pharmacies = usePharmacies()
+  const [search, setSearch] = useState('')
+  const q = search.trim().toLowerCase()
+  const rows = (pharmacies.data ?? []).filter(
+    (p) => !q || p.name.toLowerCase().includes(q) || (p.nameAr ?? '').includes(q),
+  )
+
+  return (
+    <div className="space-y-4 [&_input]:h-11">
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder={t('visits.pharmacies.search')}
+        className="sm:w-full"
+      />
+      {pharmacies.isLoading ? (
+        <LoadingState rows={4} />
+      ) : pharmacies.error && !pharmacies.data ? (
+        <ErrorState error={pharmacies.error} onRetry={() => void pharmacies.refetch()} />
+      ) : rows.length === 0 ? (
+        <EmptyState icon={PillIcon} title={t('visits.pharmacies.empty')} />
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((p) => (
+            <li key={p.id}>
+              <Card className="py-3">
+                <CardContent className="grid gap-2 px-4">
+                  <Link to="/rep/customers/$customerId" params={{ customerId: p.id }} className="min-h-11">
+                    <p className="font-medium">{localizedName(p.name, p.nameAr)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {[p.address, localizedName(p.territoryName, p.territoryNameAr)]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  </Link>
+                  <StartVisitButton customer={fromPharmacy(p)} className="w-full" />
+                </CardContent>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/** The rep's doctors and the pharmacies of their area, each with "Start visit". */
 export function RepDoctorsPage() {
+  const { t } = useTranslation()
+  const [kind, setKind] = useState<'doctors' | 'pharmacies'>('doctors')
+
+  return (
+    <div className="space-y-4">
+      <div
+        className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+        role="tablist"
+        aria-label={t('visits.pharmacies.tabs')}
+      >
+        {(['doctors', 'pharmacies'] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={kind === value}
+            onClick={() => setKind(value)}
+            data-testid={`tab-${value}`}
+            className={cn(
+              'min-h-11 rounded-md px-3 text-sm font-medium text-muted-foreground',
+              kind === value && 'bg-background text-foreground shadow-xs',
+            )}
+          >
+            {t(`visits.pharmacies.${value}`)}
+          </button>
+        ))}
+      </div>
+      {kind === 'doctors' ? <RepDoctorList /> : <RepPharmacies />}
+    </div>
+  )
+}
+
+/** The rep's own doctor list, with search and town / specialty filters. */
+function RepDoctorList() {
   const { t } = useTranslation()
   const canAdd = usePermission(P.customers.create)
   const copy = readCache<DoctorDto[]>('my-doctors')
@@ -86,14 +173,14 @@ export function RepDoctorsPage() {
           )}
         </h1>
         {canAdd && (
-          <Button onClick={() => setAdding(true)}>
+          <Button size="lg" onClick={() => setAdding(true)}>
             <PlusIcon />
             {t('doctors.add')}
           </Button>
         )}
       </div>
 
-      <div className="grid gap-2">
+      <div className="grid gap-2 [&_input]:h-11 [&_select]:h-11">
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -130,7 +217,7 @@ export function RepDoctorsPage() {
         <>
           {canAdd && (
             <div className="overflow-hidden rounded-lg border">
-              <label className="flex items-center gap-2 px-3 py-2 text-sm">
+              <label className="flex min-h-11 items-center gap-2 px-3 py-1 text-sm">
                 <Checkbox
                   checked={selection.allSelected ? true : selection.someSelected ? 'indeterminate' : false}
                   onCheckedChange={(v) => selection.setAll(v === true)}
@@ -152,14 +239,19 @@ export function RepDoctorsPage() {
                   <CardContent className="grid gap-2 px-4">
                     <div className="flex items-start justify-between gap-2">
                       {canAdd && (
-                        <Checkbox
-                          className="mt-0.5"
-                          aria-label={t('bulk.selectRow', { name: localizedName(d.name, d.nameAr) })}
-                          checked={selection.has(d.id)}
-                          onCheckedChange={(v) => selection.toggle(d.id, v === true)}
-                        />
+                        <label className="-m-3 flex size-11 shrink-0 items-center justify-center">
+                          <Checkbox
+                            aria-label={t('bulk.selectRow', { name: localizedName(d.name, d.nameAr) })}
+                            checked={selection.has(d.id)}
+                            onCheckedChange={(v) => selection.toggle(d.id, v === true)}
+                          />
+                        </label>
                       )}
-                      <div className="min-w-0 flex-1">
+                      <Link
+                        to="/rep/customers/$customerId"
+                        params={{ customerId: d.id }}
+                        className="min-h-11 min-w-0 flex-1"
+                      >
                         <p className="font-medium">{localizedName(d.name, d.nameAr)}</p>
                         <p className="text-sm text-muted-foreground">
                           {[
@@ -169,15 +261,16 @@ export function RepDoctorsPage() {
                             .filter(Boolean)
                             .join(' · ')}
                         </p>
-                      </div>
+                      </Link>
                       {d.outsideMyArea && <OutsideAreaBadge />}
                     </div>
                     {d.notes && (
                       <p className="text-sm whitespace-pre-line text-muted-foreground">{d.notes}</p>
                     )}
+                    <StartVisitButton customer={fromDoctor(d)} className="w-full" />
                     <div className="flex flex-wrap gap-1">
                       {d.phone && (
-                        <Button asChild size="sm" variant="outline">
+                        <Button asChild size="lg" variant="outline">
                           <a href={`tel:${d.phone.replace(/\s+/g, '')}`} dir="ltr">
                             <PhoneIcon />
                             {d.phone}
@@ -186,11 +279,11 @@ export function RepDoctorsPage() {
                       )}
                       {canAdd && (
                         <>
-                          <Button size="sm" variant="ghost" onClick={() => setEditing(d)}>
+                          <Button size="lg" variant="ghost" onClick={() => setEditing(d)}>
                             <PencilIcon />
                             {t('doctors.edit')}
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => target.open([d.id])}>
+                          <Button size="lg" variant="ghost" onClick={() => target.open([d.id])}>
                             <Trash2Icon />
                             {t('doctors.removeFromList')}
                           </Button>

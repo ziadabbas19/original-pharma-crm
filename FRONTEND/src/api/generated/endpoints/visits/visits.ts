@@ -30,8 +30,10 @@ import type {
   VisitListItemDto,
   VisitPhotoDto,
   VisitReplyRequest,
+  VisitRulesDto,
   VisitsListParams,
   VisitsUploadPhotoBody,
+  VisitsUploadPhotoParams,
 } from '../../model'
 
 import { apiFetch } from '../../../../lib/api-client'
@@ -178,6 +180,98 @@ export function useVisitsList<TData = Awaited<ReturnType<typeof visitsList>>, TE
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getVisitsListQueryOptions(params, options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getVisitsRulesUrl = () => {
+  return `/api/visits/rules`
+}
+
+export const visitsRules = async (options?: Parameters<typeof apiFetch>[1]): Promise<VisitRulesDto> => {
+  return apiFetch<VisitRulesDto>(getVisitsRulesUrl(), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getVisitsRulesQueryKey = () => {
+  return [`/api/visits/rules`] as const
+}
+
+export const getVisitsRulesQueryOptions = <
+  TData = Awaited<ReturnType<typeof visitsRules>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsRules>>, TError, TData>>
+  request?: SecondParameter<typeof apiFetch>
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getVisitsRulesQueryKey()
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof visitsRules>>> = ({ signal }) =>
+    visitsRules({ signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof visitsRules>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type VisitsRulesQueryResult = NonNullable<Awaited<ReturnType<typeof visitsRules>>>
+export type VisitsRulesQueryError = unknown
+
+export function useVisitsRules<TData = Awaited<ReturnType<typeof visitsRules>>, TError = unknown>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsRules>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof visitsRules>>,
+          TError,
+          Awaited<ReturnType<typeof visitsRules>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useVisitsRules<TData = Awaited<ReturnType<typeof visitsRules>>, TError = unknown>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsRules>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof visitsRules>>,
+          TError,
+          Awaited<ReturnType<typeof visitsRules>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useVisitsRules<TData = Awaited<ReturnType<typeof visitsRules>>, TError = unknown>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsRules>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useVisitsRules<TData = Awaited<ReturnType<typeof visitsRules>>, TError = unknown>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsRules>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getVisitsRulesQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>
@@ -337,13 +431,26 @@ export const useVisitsCheckOut = <TError = unknown, TContext = unknown>(
 > => {
   return useMutation(getVisitsCheckOutMutationOptions(options), queryClient)
 }
-export const getVisitsUploadPhotoUrl = (visitId: string) => {
-  return `/api/visits/${visitId}/photos`
+export const getVisitsUploadPhotoUrl = (visitId: string, params?: VisitsUploadPhotoParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/visits/${visitId}/photos?${stringifiedParams}`
+    : `/api/visits/${visitId}/photos`
 }
 
 export const visitsUploadPhoto = async (
   visitId: string,
   visitsUploadPhotoBody: VisitsUploadPhotoBody,
+  params?: VisitsUploadPhotoParams,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<VisitPhotoDto> => {
   const formData = new FormData()
@@ -351,7 +458,7 @@ export const visitsUploadPhoto = async (
     formData.append(`photo`, visitsUploadPhotoBody.photo)
   }
 
-  return apiFetch<VisitPhotoDto>(getVisitsUploadPhotoUrl(visitId), {
+  return apiFetch<VisitPhotoDto>(getVisitsUploadPhotoUrl(visitId, params), {
     ...options,
     method: 'POST',
     body: formData,
@@ -385,9 +492,9 @@ export const getVisitsUploadPhotoMutationOptions = <TError = unknown, TContext =
     Awaited<ReturnType<typeof visitsUploadPhoto>>,
     VisitsUploadPhotoMutationVariables
   > = (props) => {
-    const { visitId, data } = props ?? {}
+    const { visitId, data, params } = props ?? {}
 
-    return visitsUploadPhoto(visitId, data, requestOptions)
+    return visitsUploadPhoto(visitId, data, params, requestOptions)
   }
 
   return { mutationFn, ...mutationOptions }
@@ -396,7 +503,11 @@ export const getVisitsUploadPhotoMutationOptions = <TError = unknown, TContext =
 export type VisitsUploadPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof visitsUploadPhoto>>>
 export type VisitsUploadPhotoMutationBody = VisitsUploadPhotoBody
 export type VisitsUploadPhotoMutationError = unknown
-export type VisitsUploadPhotoMutationVariables = { visitId: string; data: VisitsUploadPhotoBody }
+export type VisitsUploadPhotoMutationVariables = {
+  visitId: string
+  data: VisitsUploadPhotoBody
+  params?: VisitsUploadPhotoParams
+}
 
 export const useVisitsUploadPhoto = <TError = unknown, TContext = unknown>(
   options?: {
@@ -417,6 +528,117 @@ export const useVisitsUploadPhoto = <TError = unknown, TContext = unknown>(
 > => {
   return useMutation(getVisitsUploadPhotoMutationOptions(options), queryClient)
 }
+export const getVisitsGetPhotoUrl = (visitId: string, photoId: string) => {
+  return `/api/visits/${visitId}/photos/${photoId}`
+}
+
+export const visitsGetPhoto = async (
+  visitId: string,
+  photoId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<Blob> => {
+  return apiFetch<Blob>(getVisitsGetPhotoUrl(visitId, photoId), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getVisitsGetPhotoQueryKey = (visitId: string, photoId: string) => {
+  return [`/api/visits/${visitId}/photos/${photoId}`] as const
+}
+
+export const getVisitsGetPhotoQueryOptions = <
+  TData = Awaited<ReturnType<typeof visitsGetPhoto>>,
+  TError = unknown,
+>(
+  visitId: string,
+  photoId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsGetPhoto>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getVisitsGetPhotoQueryKey(visitId, photoId)
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof visitsGetPhoto>>> = ({ signal }) =>
+    visitsGetPhoto(visitId, photoId, { signal, ...requestOptions })
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: visitId !== null && visitId !== undefined && photoId !== null && photoId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof visitsGetPhoto>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+}
+
+export type VisitsGetPhotoQueryResult = NonNullable<Awaited<ReturnType<typeof visitsGetPhoto>>>
+export type VisitsGetPhotoQueryError = unknown
+
+export function useVisitsGetPhoto<TData = Awaited<ReturnType<typeof visitsGetPhoto>>, TError = unknown>(
+  visitId: string,
+  photoId: string,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsGetPhoto>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof visitsGetPhoto>>,
+          TError,
+          Awaited<ReturnType<typeof visitsGetPhoto>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useVisitsGetPhoto<TData = Awaited<ReturnType<typeof visitsGetPhoto>>, TError = unknown>(
+  visitId: string,
+  photoId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsGetPhoto>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof visitsGetPhoto>>,
+          TError,
+          Awaited<ReturnType<typeof visitsGetPhoto>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useVisitsGetPhoto<TData = Awaited<ReturnType<typeof visitsGetPhoto>>, TError = unknown>(
+  visitId: string,
+  photoId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsGetPhoto>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useVisitsGetPhoto<TData = Awaited<ReturnType<typeof visitsGetPhoto>>, TError = unknown>(
+  visitId: string,
+  photoId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsGetPhoto>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getVisitsGetPhotoQueryOptions(visitId, photoId, options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
 export const getVisitsGetUrl = (visitId: string) => {
   return `/api/visits/${visitId}`
 }

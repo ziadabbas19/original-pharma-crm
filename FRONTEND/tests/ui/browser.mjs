@@ -106,6 +106,14 @@ export async function launch() {
         uploadThroughput: -1,
       })
     },
+    /** Sets where the phone says it is. */
+    async geolocation({ lat, lng, accuracy = 12 }) {
+      await send('Emulation.setGeolocationOverride', { latitude: lat, longitude: lng, accuracy })
+    },
+    /** Lets the page ask for the location without a prompt. */
+    async allowGeolocation(origin) {
+      await send('Browser.grantPermissions', { origin, permissions: ['geolocation'] })
+    },
     /** Types into an input the way React expects. */
     async fill(selector, value) {
       await evaluate(`(() => {

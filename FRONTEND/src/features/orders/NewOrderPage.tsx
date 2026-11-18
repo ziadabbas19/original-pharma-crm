@@ -16,10 +16,17 @@ const route = getRouteApi('/rep/orders/new')
 export function NewOrderPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { retry } = route.useSearch()
+  const { retry, visitId, customerId, placeName, placeType } = route.useSearch()
   const { products } = useOrderReferenceData()
   const [initial, setInitial] = useState<OrderFormValues | null>(
-    retry === undefined ? emptyOrderForm() : null,
+    retry === undefined
+      ? {
+          ...emptyOrderForm(),
+          placeName: placeName ?? '',
+          customerId: customerId ?? null,
+          placeType: placeType ?? 'pharmacy',
+        }
+      : null,
   )
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
@@ -39,9 +46,9 @@ export function NewOrderPage() {
     setBusy(true)
     setError(null)
     try {
-      await queueOrder(toCreateRequest(values, newClientRequestId()), estimatedTotal)
+      await queueOrder({ ...toCreateRequest(values, newClientRequestId()), visitId }, estimatedTotal)
       if (retry !== undefined) await discardFailedOrder(retry)
-      await navigate({ to: '/rep/orders' })
+      await navigate({ to: visitId ? '/rep/visits/active' : '/rep/orders' })
     } catch (e) {
       setError(e)
       setBusy(false)
@@ -58,7 +65,7 @@ export function NewOrderPage() {
           busy={busy}
           error={error}
           onSubmit={submit}
-          onCancel={() => void navigate({ to: '/rep/orders' })}
+          onCancel={() => void navigate({ to: visitId ? '/rep/visits/active' : '/rep/orders' })}
         />
       ) : (
         <LoadingState rows={6} />

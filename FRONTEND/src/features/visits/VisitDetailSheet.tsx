@@ -15,10 +15,12 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
-import { formatDateTime, formatDistance, localizedName } from '@/lib/format'
+import { formatDateTime, localizedName } from '@/lib/format'
 import { invalidateApi } from '@/lib/invalidate-api'
 import { STATUS_BADGE } from './visit-labels'
 import { VisitContentView } from './VisitContentView'
+import { VisitOrdersList } from './VisitOrdersList'
+import { VisitVerificationCard } from './VisitVerificationCard'
 
 /** A visit on the dashboard: check-in facts, the rep's feedback and products, seen marker and reply. */
 export function VisitDetailSheet({ visitId, onClose }: { visitId: string; onClose: () => void }) {
@@ -89,8 +91,6 @@ export function VisitDetailSheet({ visitId, onClose }: { visitId: string; onClos
                     <dd className="tabular-nums">{formatDateTime(data.checkOutAt)}</dd>
                   </>
                 )}
-                <dt className="text-muted-foreground">{t('visits.distance')}</dt>
-                <dd className="tabular-nums">{formatDistance(data.checkInDistanceMeters)}</dd>
                 {data.notes && (
                   <>
                     <dt className="text-muted-foreground">{t('orders.notes')}</dt>
@@ -98,6 +98,10 @@ export function VisitDetailSheet({ visitId, onClose }: { visitId: string; onClos
                   </>
                 )}
               </dl>
+
+              <VisitVerificationCard visit={data} />
+
+              <VisitOrdersList orders={data.orders} app="admin" />
 
               <VisitContentView visit={data} />
 

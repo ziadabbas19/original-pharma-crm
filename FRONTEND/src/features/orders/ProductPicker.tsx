@@ -86,7 +86,7 @@ export function ProductPicker({
                 type="button"
                 onClick={() => setLineId(chip.id)}
                 className={cn(
-                  'shrink-0 rounded-full border px-3 py-1 text-sm whitespace-nowrap transition-colors',
+                  'min-h-11 shrink-0 rounded-full border px-4 text-sm whitespace-nowrap transition-colors',
                   lineId === chip.id
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'bg-card hover:bg-accent',

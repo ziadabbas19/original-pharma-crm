@@ -33,4 +33,9 @@ export interface DoctorDto {
   outsideMyArea: boolean
   /** @nullable */
   archivedAt?: string | null
+  /** @nullable */
+  lat?: number | null
+  /** @nullable */
+  lng?: number | null
+  geofenceRadiusMeters?: number
 }

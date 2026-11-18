@@ -1,9 +1,16 @@
 using FluentValidation;
 using OriginalPharma.Domain.Crm;
+using OriginalPharma.Domain.Orders;
 using OriginalPharma.Domain.Visits;
 
 namespace OriginalPharma.Application.Visits;
 
+/// <param name="Timestamp">Device time of the check-in; an offline check-in keeps the moment it really happened.</param>
+/// <param name="ClientRequestId">
+/// Idempotency key created by the app when the rep checks in (also offline). It becomes the id of the
+/// visit, so the app can refer to the visit before it reaches the server. Sending the same key again
+/// returns the visit that already exists instead of a second one.
+/// </param>
 public sealed record CheckInRequest(
     Guid CustomerId,
     string DeviceId,
@@ -12,17 +19,36 @@ public sealed record CheckInRequest(
     double Accuracy,
     DateTimeOffset Timestamp,
     bool IsMock = false,
-    string? QrPayload = null);
+    string? QrPayload = null,
+    Guid? ClientRequestId = null);
 
+/// <param name="Lat">Empty when no location could be captured; the visit is then marked for review.</param>
+/// <param name="ClientRequestId">Idempotency key: the same key again returns the closed visit instead of a conflict.</param>
 public sealed record CheckOutRequest(
-    double Lat,
-    double Lng,
-    double Accuracy,
+    double? Lat,
+    double? Lng,
+    double? Accuracy,
     DateTimeOffset Timestamp,
     bool IsMock = false,
-    string? Notes = null);
+    string? Notes = null,
+    Guid? ClientRequestId = null);
 
-public sealed record VisitPhotoDto(Guid Id, string ContentType, long SizeBytes, DateTimeOffset UploadedAt);
+/// <param name="Url">Path of the picture; needs the same access as the visit.</param>
+public sealed record VisitPhotoDto(Guid Id, string ContentType, long SizeBytes, DateTimeOffset UploadedAt, string Url);
+
+/// <summary>The verification rules of this server, so the app can tell the rep the outcome before going online.</summary>
+public sealed record VisitRulesDto(
+    double MaxAccuracyMeters,
+    double MaxAccuracyAllowanceMeters,
+    bool RejectOutsideGeofence,
+    long MaxPhotoBytes,
+    int ContentEditHours);
+
+/// <summary>An order taken during the visit.</summary>
+public sealed record VisitOrderDto(Guid Id, string Number, OrderStatus Status, decimal Total, DateTimeOffset CreatedAt);
+
+/// <summary>A stored visit photo, opened for reading.</summary>
+public sealed record VisitPhotoFile(Stream Content, string ContentType);
 
 public sealed record VisitDto(
     Guid Id,
@@ -38,7 +64,10 @@ public sealed record VisitDto(
     bool? CheckOutWithinGeofence,
     bool QrVerified,
     bool NeedsReview,
-    IReadOnlyList<VisitPhotoDto> Photos);
+    IReadOnlyList<VisitPhotoDto> Photos,
+    double CheckInAccuracy,
+    int GeofenceRadiusMeters,
+    IReadOnlyList<string> ReviewReasons);
 
 /// <summary>One row of the visit lists (dashboard and rep app).</summary>
 public sealed record VisitListItemDto(
@@ -59,6 +88,10 @@ public sealed record VisitListItemDto(
     bool QrVerified,
     bool NeedsReview,
     int PhotoCount,
+    double CheckInAccuracy,
+    bool CheckInIsMock,
+    IReadOnlyList<Guid> ProductIds,
+    IReadOnlyList<string> ReviewReasons,
     bool HasFeedback = false,
     VisitFeedbackCategory? FeedbackCategory = null,
     int ProductCount = 0,
@@ -114,7 +147,16 @@ public sealed record VisitDetailDto(
     DateTimeOffset? ContentEditableUntil,
     bool CanReply,
     bool CanMarkSeen,
-    DateTimeOffset? ArchivedAt);
+    DateTimeOffset? ArchivedAt,
+    DateTimeOffset CheckInReceivedAt,
+    double CheckInAccuracy,
+    bool CheckInIsMock,
+    double? CheckOutAccuracy,
+    bool? CheckOutIsMock,
+    int GeofenceRadiusMeters,
+    IReadOnlyList<string> ReviewReasons,
+    IReadOnlyList<VisitPhotoDto> Photos,
+    IReadOnlyList<VisitOrderDto> Orders);
 
 public sealed record VisitFeedbackInput(string Text, VisitFeedbackCategory? Category = null);
 
@@ -179,6 +221,7 @@ public sealed class CheckInRequestValidator : AbstractValidator<CheckInRequest>
         RuleFor(x => x.Accuracy).GreaterThanOrEqualTo(0);
         RuleFor(x => x.Timestamp).NotEmpty();
         RuleFor(x => x.QrPayload).MaximumLength(512);
+        RuleFor(x => x.ClientRequestId).NotEqual(Guid.Empty);
     }
 }
 
@@ -189,7 +232,10 @@ public sealed class CheckOutRequestValidator : AbstractValidator<CheckOutRequest
         RuleFor(x => x.Lat).InclusiveBetween(-90, 90);
         RuleFor(x => x.Lng).InclusiveBetween(-180, 180);
         RuleFor(x => x.Accuracy).GreaterThanOrEqualTo(0);
+        RuleFor(x => x).Must(x => (x.Lat is null) == (x.Lng is null)).OverridePropertyName("Lat")
+            .WithMessage("Give both latitude and longitude, or neither.");
         RuleFor(x => x.Timestamp).NotEmpty();
         RuleFor(x => x.Notes).MaximumLength(2000);
+        RuleFor(x => x.ClientRequestId).NotEqual(Guid.Empty);
     }
 }

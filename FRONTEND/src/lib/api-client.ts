@@ -77,6 +77,18 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
   return parse<T>(response)
 }
 
+/** Binary responses behind sign-in (visit photos), which an <img> tag cannot request by itself. */
+export async function apiFetchBlob(url: string): Promise<Blob> {
+  let response = await send(url, {})
+  if (response.status === 401) {
+    if ((await hooks.refreshSession()) !== 'ok') throw new TypeError('Network unavailable')
+    response = await send(url, {})
+  }
+  if (!response.ok)
+    throw new ApiError(response.status, { status: response.status, title: response.statusText })
+  return response.blob()
+}
+
 async function send(url: string, options: RequestInit): Promise<Response> {
   const headers = new Headers(options.headers)
   const token = hooks.getAccessToken()

@@ -4,11 +4,16 @@
  */
 
 export interface CheckOutRequest {
-  lat: number
-  lng: number
-  accuracy: number
+  /** @nullable */
+  lat: number | null
+  /** @nullable */
+  lng: number | null
+  /** @nullable */
+  accuracy: number | null
   timestamp: string
   isMock?: boolean
   /** @nullable */
   notes?: string | null
+  /** @nullable */
+  clientRequestId?: string | null
 }

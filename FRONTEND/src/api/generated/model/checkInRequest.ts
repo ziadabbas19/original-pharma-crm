@@ -13,4 +13,6 @@ export interface CheckInRequest {
   isMock?: boolean
   /** @nullable */
   qrPayload?: string | null
+  /** @nullable */
+  clientRequestId?: string | null
 }

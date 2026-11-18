@@ -22,6 +22,7 @@ export interface TrackingState {
 }
 
 const ONBOARDING_KEY = 'op.onboarding.completedAt'
+const SHIFT_KEY = 'op.shift.current'
 
 function readCompletedAt(): string | null {
   try {
@@ -31,8 +32,27 @@ function readCompletedAt(): string | null {
   }
 }
 
+/** The last shift the server reported, so a rep without a connection still knows their day is running. */
+function readShift(): ShiftDto | null {
+  try {
+    const raw = localStorage.getItem(SHIFT_KEY)
+    return raw ? (JSON.parse(raw) as ShiftDto) : null
+  } catch {
+    return null
+  }
+}
+
+function writeShift(shift: ShiftDto | null) {
+  try {
+    if (shift) localStorage.setItem(SHIFT_KEY, JSON.stringify(shift))
+    else localStorage.removeItem(SHIFT_KEY)
+  } catch {
+    // storage unavailable (private mode); state still holds it for this session
+  }
+}
+
 const initialState: TrackingState = {
-  shift: null,
+  shift: readShift(),
   config: null,
   trackingRunning: false,
   health: null,
@@ -47,6 +67,7 @@ const trackingSlice = createSlice({
   reducers: {
     shiftChanged(state, action: PayloadAction<ShiftDto | null>) {
       state.shift = action.payload
+      writeShift(action.payload)
     },
     configChanged(state, action: PayloadAction<TrackingConfigDto | null>) {
       state.config = action.payload
@@ -74,6 +95,7 @@ const trackingSlice = createSlice({
   extraReducers: (builder) => {
     builder.addCase(sessionEnded, (state) => {
       state.shift = null
+      writeShift(null)
       state.config = null
       state.trackingRunning = false
     })

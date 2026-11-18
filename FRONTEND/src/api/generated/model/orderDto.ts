@@ -64,4 +64,6 @@ export interface OrderDto {
   deliveryNote?: string | null
   /** @nullable */
   archivedAt?: string | null
+  /** @nullable */
+  visitId?: string | null
 }

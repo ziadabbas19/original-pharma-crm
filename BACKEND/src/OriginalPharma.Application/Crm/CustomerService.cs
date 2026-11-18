@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Auditing;
 using OriginalPharma.Application.Common.Bulk;
+using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Domain.Audit;
@@ -70,7 +71,12 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
         var query = db.Customers.AsNoTracking().Where(c => archived ? c.ArchivedAt != null : c.ArchivedAt == null);
         if (visible is not null)
         {
-            query = query.Where(c => c.TerritoryId != null && visible.Contains(c.TerritoryId.Value));
+            // A rep works in an area while pharmacies sit in its towns. Doctors stay with the reps' own lists.
+            var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
+            var withTowns = visible.SelectMany(id => tree.SelfAndDescendants(id)).Distinct().ToArray();
+            query = query.Where(c => c.TerritoryId != null &&
+                                     (visible.Contains(c.TerritoryId.Value) ||
+                                      (c.Type == CustomerType.Pharmacy && withTowns.Contains(c.TerritoryId.Value))));
         }
 
         if (type is not null)

@@ -9,6 +9,7 @@ using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Notifications;
+using OriginalPharma.Application.Tracking;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Identity;
@@ -35,6 +36,7 @@ public sealed class VisitService(
     AuditTrail audit,
     IFileStorage fileStorage,
     IOptions<VisitOptions> options,
+    IOptions<TrackingOptions> trackingOptions,
     TimeProvider time)
 {
     /// <summary>How many levels of the reporting line are notified of new feedback (supervisor and their manager).</summary>
@@ -47,21 +49,41 @@ public sealed class VisitService(
         ["image/webp"] = ".webp",
     };
 
+    public VisitRulesDto Rules()
+    {
+        var settings = options.Value;
+        return new VisitRulesDto(settings.MaxAccuracyMeters, settings.MaxAccuracyAllowanceMeters, settings.RejectOutsideGeofence,
+            settings.MaxPhotoBytes, settings.ContentEditHours);
+    }
+
+    /// <summary>
+    /// Opens a visit. Check-ins arrive from the app's outbox, possibly long after they happened, so the
+    /// client key makes retries safe and the shift is the one that was running at the device time.
+    /// </summary>
     public async Task<VisitDto> CheckInAsync(CheckInRequest request, CancellationToken cancellationToken = default)
     {
         var userId = currentUser.RequireUserId();
         var settings = options.Value;
         var now = time.GetUtcNow();
 
+        // A retry of a check-in that already reached the server (offline queue, lost response).
+        if (await FindCheckInAsync(request.ClientRequestId, userId, cancellationToken) is { } repeated)
+        {
+            return repeated;
+        }
+
+        var checkInAt = NotInTheFuture(request.Timestamp, now);
+        var grace = TimeSpan.FromSeconds(trackingOptions.Value.ShiftGraceSeconds);
         var shift = await db.Shifts
-                        .Where(s => s.UserId == userId && s.Status == ShiftStatus.Active)
+                        .Where(s => s.UserId == userId &&
+                                    (s.Status == ShiftStatus.Active || (s.StartedAt <= checkInAt + grace && s.EndedAt >= checkInAt - grace)))
                         .OrderByDescending(s => s.StartedAt)
                         .FirstOrDefaultAsync(cancellationToken)
                     ?? throw new BusinessRuleException("no-active-shift", "Start your day before checking in to a visit.");
 
-        if (await db.Visits.AnyAsync(v => v.UserId == userId && v.Status == VisitStatus.InProgress && v.ArchivedAt == null, cancellationToken))
+        if (await HasOpenVisitAsync(userId, cancellationToken))
         {
-            throw new ConflictException("visit-in-progress", "Check out of the current visit first.");
+            throw VisitInProgress();
         }
 
         var customer = await db.Customers.AsNoTracking().SingleOrDefaultAsync(c => c.Id == request.CustomerId && c.IsActive && c.ArchivedAt == null, cancellationToken)
@@ -104,7 +126,7 @@ public sealed class VisitService(
             CustomerId = customer.Id,
             ShiftId = shift.Id,
             DeviceId = request.DeviceId,
-            CheckInAt = request.Timestamp.ToUniversalTime(),
+            CheckInAt = checkInAt,
             CheckInReceivedAt = now,
             CheckInLocation = GeoFactory.Point(request.Lat, request.Lng),
             CheckInAccuracy = request.Accuracy,
@@ -114,6 +136,11 @@ public sealed class VisitService(
             QrVerified = qrVerified,
             NeedsReview = request.IsMock || !geofence.Inside,
         };
+        if (request.ClientRequestId is { } clientRequestId)
+        {
+            visit.Id = clientRequestId;
+        }
+
         db.Visits.Add(visit);
 
         if (request.IsMock || !geofence.Inside)
@@ -131,10 +158,33 @@ public sealed class VisitService(
             });
         }
 
-        await db.SaveChangesAsync(cancellationToken);
-        return ToDto(visit, customer.Name);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Two check-ins at the same moment: the unique indexes let only one of them through.
+            if (await FindCheckInAsync(request.ClientRequestId, userId, cancellationToken) is { } winner)
+            {
+                return winner;
+            }
+
+            if (await HasOpenVisitAsync(userId, cancellationToken))
+            {
+                throw VisitInProgress();
+            }
+
+            throw;
+        }
+
+        return ToDto(visit, customer.Name, customer.GeofenceRadiusMeters);
     }
 
+    /// <summary>
+    /// Closes a visit. Never refused for being away from the customer, and a location is not required:
+    /// a rep without a signal can still close the visit, which then goes to a supervisor for review.
+    /// </summary>
     public async Task<VisitDto> CheckOutAsync(Guid visitId, CheckOutRequest request, CancellationToken cancellationToken = default)
     {
         var userId = currentUser.RequireUserId();
@@ -144,31 +194,49 @@ public sealed class VisitService(
 
         if (visit.Status != VisitStatus.InProgress)
         {
+            // A retry of the check-out that closed this visit (offline queue, lost response).
+            if (request.ClientRequestId is { } key && visit.CheckOutClientRequestId == key)
+            {
+                return ToDto(visit, visit.Customer?.Name, visit.Customer?.GeofenceRadiusMeters ?? 0);
+            }
+
             throw new ConflictException("visit-not-in-progress", "This visit is already closed.");
         }
 
-        var location = visit.Customer!.Location!;
-        var geofence = GeofenceEvaluator.Evaluate(
-            location.Y, location.X, visit.Customer.GeofenceRadiusMeters,
-            request.Lat, request.Lng, request.Accuracy, options.Value.MaxAccuracyAllowanceMeters);
+        var hasFix = request is { Lat: not null, Lng: not null };
+        var geofence = hasFix && visit.Customer?.Location is { } location
+            ? GeofenceEvaluator.Evaluate(
+                location.Y, location.X, visit.Customer.GeofenceRadiusMeters,
+                request.Lat!.Value, request.Lng!.Value, request.Accuracy ?? 0, options.Value.MaxAccuracyAllowanceMeters)
+            : null;
 
         // Leaving before checking out is normal (rep walks to the car), so check-out is never rejected.
+        var now = time.GetUtcNow();
+        var checkOutAt = NotInTheFuture(request.Timestamp, now);
         visit.Status = VisitStatus.Completed;
-        visit.CheckOutAt = request.Timestamp.ToUniversalTime();
-        visit.CheckOutReceivedAt = time.GetUtcNow();
-        visit.CheckOutLocation = GeoFactory.Point(request.Lat, request.Lng);
-        visit.CheckOutAccuracy = request.Accuracy;
-        visit.CheckOutDistanceMeters = Math.Round(geofence.DistanceMeters, 1);
-        visit.CheckOutWithinGeofence = geofence.Inside;
+        visit.CheckOutAt = checkOutAt < visit.CheckInAt ? visit.CheckInAt : checkOutAt;
+        visit.CheckOutReceivedAt = now;
+        visit.CheckOutLocation = hasFix ? GeoFactory.Point(request.Lat!.Value, request.Lng!.Value) : null;
+        visit.CheckOutAccuracy = hasFix ? request.Accuracy : null;
+        visit.CheckOutDistanceMeters = geofence is null ? null : Math.Round(geofence.DistanceMeters, 1);
+        visit.CheckOutWithinGeofence = geofence?.Inside;
         visit.CheckOutIsMock = request.IsMock;
-        visit.Notes = request.Notes;
-        visit.NeedsReview |= request.IsMock;
+        visit.CheckOutClientRequestId = request.ClientRequestId;
+        visit.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+        visit.NeedsReview |= request.IsMock || !hasFix;
 
         await db.SaveChangesAsync(cancellationToken);
-        return ToDto(visit, visit.Customer.Name);
+        return ToDto(visit, visit.Customer?.Name, visit.Customer?.GeofenceRadiusMeters ?? 0);
     }
 
-    public async Task<VisitPhotoDto> AddPhotoAsync(Guid visitId, Stream content, string contentType, long length, CancellationToken cancellationToken = default)
+    /// <param name="clientRequestId">Idempotency key: the same key again returns the photo already stored.</param>
+    public async Task<VisitPhotoDto> AddPhotoAsync(
+        Guid visitId,
+        Stream content,
+        string contentType,
+        long length,
+        CancellationToken cancellationToken = default,
+        Guid? clientRequestId = null)
     {
         var userId = currentUser.RequireUserId();
         if (!PhotoExtensions.TryGetValue(contentType, out var extension))
@@ -184,6 +252,12 @@ public sealed class VisitService(
         var visit = await db.Visits.SingleOrDefaultAsync(v => v.Id == visitId && v.UserId == userId, cancellationToken)
                     ?? throw new NotFoundException("Visit", visitId);
 
+        if (clientRequestId is { } key &&
+            await db.VisitPhotos.AsNoTracking().SingleOrDefaultAsync(p => p.Id == key && p.VisitId == visit.Id, cancellationToken) is { } stored)
+        {
+            return ToPhotoDto(stored);
+        }
+
         var path = await fileStorage.SaveAsync(content, $"visits/{visit.Id}", extension, cancellationToken);
         var photo = new VisitPhoto
         {
@@ -193,10 +267,63 @@ public sealed class VisitService(
             SizeBytes = length,
             UploadedAt = time.GetUtcNow(),
         };
+        if (clientRequestId is { } photoId)
+        {
+            photo.Id = photoId;
+        }
+
         db.VisitPhotos.Add(photo);
         await db.SaveChangesAsync(cancellationToken);
 
-        return new VisitPhotoDto(photo.Id, photo.ContentType, photo.SizeBytes, photo.UploadedAt);
+        return ToPhotoDto(photo);
+    }
+
+    /// <summary>A proof photo, for anyone who can read the visit.</summary>
+    public async Task<VisitPhotoFile> OpenPhotoAsync(Guid visitId, Guid photoId, CancellationToken cancellationToken = default)
+    {
+        var me = currentUser.RequireUserId();
+        var visit = await LoadAsync(visitId, cancellationToken);
+        if (!(await AccessAsync(visit, me, cancellationToken)).CanRead)
+        {
+            throw new NotFoundException("Visit", visitId);
+        }
+
+        var photo = await db.VisitPhotos.AsNoTracking().SingleOrDefaultAsync(p => p.Id == photoId && p.VisitId == visitId, cancellationToken)
+                    ?? throw new NotFoundException("Photo", photoId);
+        var stream = await fileStorage.OpenReadAsync(photo.StoragePath, cancellationToken)
+                     ?? throw new NotFoundException("Photo", photoId);
+        return new VisitPhotoFile(stream, photo.ContentType);
+    }
+
+    private async Task<VisitDto?> FindCheckInAsync(Guid? clientRequestId, Guid userId, CancellationToken cancellationToken)
+    {
+        if (clientRequestId is not { } id)
+        {
+            return null;
+        }
+
+        var visit = await db.Visits.AsNoTracking().Include(v => v.Customer).Include(v => v.Photos)
+            .SingleOrDefaultAsync(v => v.Id == id, cancellationToken);
+        if (visit is null)
+        {
+            return null;
+        }
+
+        return visit.UserId == userId
+            ? ToDto(visit, visit.Customer?.Name, visit.Customer?.GeofenceRadiusMeters ?? 0)
+            : throw new ConflictException("visit-key-in-use", "This visit key cannot be used.");
+    }
+
+    private Task<bool> HasOpenVisitAsync(Guid userId, CancellationToken cancellationToken) =>
+        db.Visits.AsNoTracking().AnyAsync(v => v.UserId == userId && v.Status == VisitStatus.InProgress && v.ArchivedAt == null, cancellationToken);
+
+    private static ConflictException VisitInProgress() => new("visit-in-progress", "Check out of the current visit first.");
+
+    /// <summary>The device clock says when something happened, but it cannot be ahead of the server.</summary>
+    private static DateTimeOffset NotInTheFuture(DateTimeOffset deviceTime, DateTimeOffset now)
+    {
+        var utc = deviceTime.ToUniversalTime();
+        return utc > now ? now : utc;
     }
 
     /// <summary>
@@ -434,7 +561,8 @@ public sealed class VisitService(
             CanRead: inReadScope || inChain || isRep,
             CanEditContent: isRep && open && effective.Has(Permissions.Visits.Feedback),
             EditableUntil: editableUntil,
-            CanReply: overseer && live && visit.Feedback is not null);
+            CanReply: overseer && live && visit.Feedback is not null,
+            CanSeeOrders: isRep || effective.Has(Permissions.Orders.Read));
     }
 
     private async Task<VisitDetailDto> BuildDetailAsync(Visit visit, Guid me, VisitAccess access, CancellationToken cancellationToken)
@@ -445,14 +573,21 @@ public sealed class VisitService(
             .Where(p => productIds.Contains(p.Id))
             .Select(p => new { p.Id, p.NameAr, p.NameEn, p.ImageKey, p.ProductLineId })
             .ToDictionaryAsync(p => p.Id, cancellationToken);
-        var photoCount = await db.VisitPhotos.CountAsync(p => p.VisitId == visit.Id, cancellationToken);
+        var photos = await db.VisitPhotos.AsNoTracking().Where(p => p.VisitId == visit.Id).OrderBy(p => p.UploadedAt).ToListAsync(cancellationToken);
+        var orders = access.CanSeeOrders
+            ? await db.Orders.AsNoTracking()
+                .Where(o => o.VisitId == visit.Id && o.UserId == visit.UserId && o.ArchivedAt == null)
+                .OrderBy(o => o.CreatedAt)
+                .Select(o => new VisitOrderDto(o.Id, o.Number, o.Status, o.Total, o.CreatedAt))
+                .ToListAsync(cancellationToken)
+            : [];
         var feedback = visit.Feedback;
 
         return new VisitDetailDto(
             visit.Id, visit.UserId, repName, visit.CustomerId, visit.Customer?.Name ?? string.Empty, visit.Customer?.NameAr,
             visit.Customer?.Type ?? Domain.Crm.CustomerType.Doctor, visit.Status, visit.CheckInAt, visit.CheckOutAt,
             visit.CheckInDistanceMeters, visit.CheckInWithinGeofence, visit.CheckOutDistanceMeters, visit.CheckOutWithinGeofence,
-            visit.QrVerified, visit.NeedsReview, visit.Notes, photoCount,
+            visit.QrVerified, visit.NeedsReview, visit.Notes, photos.Count,
             feedback is null
                 ? null
                 : new VisitFeedbackDto(feedback.Text, feedback.Category, feedback.CreatedAt, feedback.UpdatedAt,
@@ -471,7 +606,16 @@ public sealed class VisitService(
             access.EditableUntil,
             access.CanReply,
             access.CanReply && feedback is not null && feedback.SeenBy.All(s => s.UserId != me),
-            visit.ArchivedAt);
+            visit.ArchivedAt,
+            visit.CheckInReceivedAt,
+            visit.CheckInAccuracy,
+            visit.CheckInIsMock,
+            visit.CheckOutAccuracy,
+            visit.CheckOutIsMock,
+            visit.Customer?.GeofenceRadiusMeters ?? 0,
+            ReasonsFor(visit),
+            photos.Select(ToPhotoDto).ToList(),
+            orders);
     }
 
     private async Task ApplyProductsAsync(Visit visit, IReadOnlyList<VisitProductInput> requested, Guid repId, CancellationToken cancellationToken)
@@ -573,7 +717,7 @@ public sealed class VisitService(
 
     private static string Excerpt(string text) => text.Length <= 140 ? text : text[..137] + "...";
 
-    private sealed record VisitAccess(bool CanRead, bool CanEditContent, DateTimeOffset? EditableUntil, bool CanReply);
+    private sealed record VisitAccess(bool CanRead, bool CanEditContent, DateTimeOffset? EditableUntil, bool CanReply, bool CanSeeOrders);
 
     /// <summary>Upper bound for one list response until the list gets server paging.</summary>
     public const int MaxListRows = 1000;
@@ -643,17 +787,18 @@ public sealed class VisitService(
             query = query.Where(v => v.NeedsReview == needsReview);
         }
 
-        return await query
+        var rows = await query
             .OrderByDescending(v => v.CheckInAt)
             .Take(MaxListRows)
-            .Select(v => new VisitListItemDto(
+            .Select(v => new
+            {
                 v.Id,
                 v.UserId,
-                db.Users.Where(u => u.Id == v.UserId).Select(u => u.FullName).FirstOrDefault() ?? string.Empty,
+                UserName = db.Users.Where(u => u.Id == v.UserId).Select(u => u.FullName).FirstOrDefault() ?? string.Empty,
                 v.CustomerId,
-                v.Customer!.Name,
-                v.Customer.NameAr,
-                v.Customer.Type,
+                CustomerName = v.Customer!.Name,
+                CustomerNameAr = v.Customer.NameAr,
+                CustomerType = v.Customer.Type,
                 v.Status,
                 v.CheckInAt,
                 v.CheckInDistanceMeters,
@@ -663,19 +808,42 @@ public sealed class VisitService(
                 v.CheckOutWithinGeofence,
                 v.QrVerified,
                 v.NeedsReview,
-                v.Photos.Count,
-                v.Feedback != null,
-                v.Feedback != null ? v.Feedback.Category : null,
-                v.Products.Count,
-                v.Replies.Count,
-                v.ArchivedAt))
+                PhotoCount = v.Photos.Count,
+                v.CheckInAccuracy,
+                v.CheckInIsMock,
+                v.CheckOutIsMock,
+                HasCheckOutLocation = v.CheckOutLocation != null,
+                ProductIds = v.Products.Select(p => p.ProductId).ToList(),
+                HasFeedback = v.Feedback != null,
+                FeedbackCategory = v.Feedback != null ? v.Feedback.Category : null,
+                ProductCount = v.Products.Count,
+                ReplyCount = v.Replies.Count,
+                v.ArchivedAt,
+            })
             .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(v => new VisitListItemDto(
+                v.Id, v.UserId, v.UserName, v.CustomerId, v.CustomerName, v.CustomerNameAr, v.CustomerType, v.Status,
+                v.CheckInAt, v.CheckInDistanceMeters, v.CheckInWithinGeofence, v.CheckOutAt, v.CheckOutDistanceMeters,
+                v.CheckOutWithinGeofence, v.QrVerified, v.NeedsReview, v.PhotoCount, v.CheckInAccuracy, v.CheckInIsMock,
+                v.ProductIds,
+                VisitReviewReasons.For(v.CheckInWithinGeofence, v.CheckInIsMock, v.CheckOutIsMock, v.CheckOutAt is not null, v.HasCheckOutLocation),
+                v.HasFeedback, v.FeedbackCategory, v.ProductCount, v.ReplyCount, v.ArchivedAt))
+            .ToList();
     }
 
-    private static VisitDto ToDto(Visit v, string? customerName) => new(
+    private static IReadOnlyList<string> ReasonsFor(Visit v) =>
+        VisitReviewReasons.For(v.CheckInWithinGeofence, v.CheckInIsMock, v.CheckOutIsMock, v.CheckOutAt is not null, v.CheckOutLocation is not null);
+
+    private static VisitPhotoDto ToPhotoDto(VisitPhoto p) =>
+        new(p.Id, p.ContentType, p.SizeBytes, p.UploadedAt, $"/api/visits/{p.VisitId}/photos/{p.Id}");
+
+    private static VisitDto ToDto(Visit v, string? customerName, int geofenceRadiusMeters) => new(
         v.Id, v.CustomerId, customerName, v.UserId, v.Status,
         v.CheckInAt, v.CheckInDistanceMeters, v.CheckInWithinGeofence,
         v.CheckOutAt, v.CheckOutDistanceMeters, v.CheckOutWithinGeofence,
         v.QrVerified, v.NeedsReview,
-        v.Photos.Select(p => new VisitPhotoDto(p.Id, p.ContentType, p.SizeBytes, p.UploadedAt)).ToList());
+        v.Photos.Select(ToPhotoDto).ToList(),
+        v.CheckInAccuracy, geofenceRadiusMeters, ReasonsFor(v));
 }

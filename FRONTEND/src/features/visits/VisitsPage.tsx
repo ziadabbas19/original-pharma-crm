@@ -224,6 +224,9 @@ export function VisitsPage() {
                 <MapPinXIcon className="size-4 text-destructive" aria-label={t('visits.outside')} />
               )}
               {formatDistance(row.original.checkInDistanceMeters)}
+              <span className="text-xs text-muted-foreground">
+                ±{formatDistance(Math.round(row.original.checkInAccuracy))}
+              </span>
             </span>
           ),
           meta: { className: 'hidden @[66rem]:table-cell' },
@@ -257,7 +260,12 @@ export function VisitsPage() {
           header: () => t('visits.review'),
           cell: (info) =>
             info.getValue() ? (
-              <Badge variant="destructive">{t('visits.needsReview')}</Badge>
+              <Badge
+                variant="destructive"
+                title={info.row.original.reviewReasons.map((r) => t(`visits.reviewReasons.${r}`)).join(' · ')}
+              >
+                {t('visits.needsReview')}
+              </Badge>
             ) : (
               <span className="text-muted-foreground">—</span>
             ),

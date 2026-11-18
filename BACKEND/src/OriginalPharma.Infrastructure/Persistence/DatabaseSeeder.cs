@@ -3,8 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Tracking;
 using OriginalPharma.Domain.Identity;
 
 namespace OriginalPharma.Infrastructure.Persistence;
@@ -38,7 +40,9 @@ internal sealed partial class DatabaseSeeder(
     UserManager<User> userManager,
     IPermissionService permissionService,
     ImageService images,
+    IFileStorage files,
     IOptions<SeedOptions> options,
+    IOptions<TrackingOptions> trackingOptions,
     TimeProvider time,
     ILogger<DatabaseSeeder> logger)
 {

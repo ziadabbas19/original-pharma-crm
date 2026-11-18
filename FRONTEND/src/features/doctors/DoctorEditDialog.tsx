@@ -15,8 +15,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { usePermission } from '@/features/auth/usePermission'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
+import { P } from '@/lib/permissions'
 import { DoctorFields } from './doctor-fields'
 import { doctorProblems, type DoctorFormValues } from './doctor-form'
 
@@ -34,15 +37,31 @@ export function DoctorEditDialog({ doctor, onClose }: { doctor: DoctorDto; onClo
     phone: doctor.phone ?? '',
     notes: doctor.notes ?? '',
   })
+  const canSetLocation = usePermission(P.customers.manage)
+  const [lat, setLat] = useState(doctor.lat?.toString() ?? '')
+  const [lng, setLng] = useState(doctor.lng?.toString() ?? '')
+  const [radius, setRadius] = useState(String(doctor.geofenceRadiusMeters ?? 150))
   const [active, setActive] = useState(doctor.isActive)
   const [touched, setTouched] = useState(false)
   const [error, setError] = useState<unknown>(null)
+
+  const latValue = lat.trim() === '' ? null : Number(lat)
+  const lngValue = lng.trim() === '' ? null : Number(lng)
+  const radiusValue = Number(radius)
+  const locationInvalid =
+    canSetLocation &&
+    ((latValue === null) !== (lngValue === null) ||
+      (latValue !== null && !(Math.abs(latValue) <= 90)) ||
+      (lngValue !== null && !(Math.abs(lngValue) <= 180)) ||
+      !Number.isInteger(radiusValue) ||
+      radiusValue < 20 ||
+      radiusValue > 2000)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setTouched(true)
     const problems = doctorProblems(values, t)
-    if (problems.name || problems.townId || problems.specialtyId) return
+    if (problems.name || problems.townId || problems.specialtyId || locationInvalid) return
     try {
       await update.mutateAsync({
         id: doctor.id,
@@ -54,6 +73,9 @@ export function DoctorEditDialog({ doctor, onClose }: { doctor: DoctorDto; onClo
           phone: values.phone.trim() || null,
           notes: values.notes.trim() || null,
           isActive: active,
+          ...(canSetLocation
+            ? { location: { lat: latValue, lng: lngValue, geofenceRadiusMeters: radiusValue } }
+            : {}),
         },
       })
       await queryClient.invalidateQueries({ queryKey: ['/api/doctors'] })
@@ -78,6 +100,50 @@ export function DoctorEditDialog({ doctor, onClose }: { doctor: DoctorDto; onClo
             specialties={specialties.data ?? []}
             touched={touched}
           />
+          {canSetLocation && (
+            <fieldset className="grid gap-2">
+              <legend className="text-sm font-medium">{t('doctors.location')}</legend>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="grid gap-1">
+                  <Label htmlFor="doctor-lat">{t('doctors.lat')}</Label>
+                  <Input
+                    id="doctor-lat"
+                    dir="ltr"
+                    inputMode="decimal"
+                    value={lat}
+                    onChange={(e) => setLat(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="doctor-lng">{t('doctors.lng')}</Label>
+                  <Input
+                    id="doctor-lng"
+                    dir="ltr"
+                    inputMode="decimal"
+                    value={lng}
+                    onChange={(e) => setLng(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="doctor-radius">{t('doctors.radius')}</Label>
+                  <Input
+                    id="doctor-radius"
+                    dir="ltr"
+                    inputMode="numeric"
+                    value={radius}
+                    onChange={(e) => setRadius(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p
+                className={
+                  locationInvalid && touched ? 'text-sm text-destructive' : 'text-xs text-muted-foreground'
+                }
+              >
+                {t('doctors.locationHint')}
+              </p>
+            </fieldset>
+          )}
           <Label className="flex items-center gap-2 font-normal">
             <Checkbox checked={active} onCheckedChange={(v) => setActive(v === true)} />
             {t('doctors.active')}

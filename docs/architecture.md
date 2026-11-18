@@ -282,10 +282,14 @@ The rep app re-checks on every open/resume and shows a banner when something bre
    nothing is auto-blocked.
 3. **Visit verification**
    - Geofence at check-in: distance to the customer ≤ radius + min(accuracy, 50 m);
-     fixes worse than 100 m are refused (the app retries with high accuracy).
+     fixes worse than 100 m are refused (the app retries with high accuracy). A customer with no saved
+     location cannot be checked in to.
+   - Outside the geofence the visit is kept and marked for review (`Visits:RejectOutsideGeofence` = false;
+     set it to true to refuse those check-ins instead).
    - Optional QR code at the location (constant-time comparison; rotating signed codes are a TODO).
    - Photo upload per visit.
-   - Mock flag or out-of-geofence check-out marks the visit for review.
+   - A mock location at check-in or check-out, a check-in outside the geofence and a check-out with no
+     location mark the visit for review; the reasons are returned as `reviewReasons`.
 
 ## Sales: doctors, catalog and orders
 
@@ -353,6 +357,17 @@ deliveries notify the rep; visit feedback notifies the rep's supervisor and the 
 and a reply notifies the rep. Rows are saved with the change they announce, then pushed to the
 recipient's inbox group on the hub. Rejecting needs a reason. Reasons and notes reach the rep; an
 internal note on a decision never does.
+
+## Visit flow in the rep app
+
+Check-in, proof photo, content and check-out go through one ordered outbox on the device, online or
+not (`features/visits/visit-outbox.ts`, order rules in `visit-queue.ts`). The check-in's
+`clientRequestId` becomes the visit id, so later steps and orders can point at a visit that has not
+reached the server yet; retries with the same key return what already exists. A step the server refuses
+holds back the later steps of that visit only, stays listed under My visits and can be sent again.
+A check-in that arrives late is matched to the shift running at its device time. The visit in progress
+is kept in the device database, so it survives the app being closed. One open visit per rep is enforced
+by a partial unique index.
 
 ## Visit feedback and products
 

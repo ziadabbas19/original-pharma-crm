@@ -24,4 +24,7 @@ export interface VisitDto {
   qrVerified: boolean
   needsReview: boolean
   photos: VisitPhotoDto[]
+  checkInAccuracy: number
+  geofenceRadiusMeters: number
+  reviewReasons: string[]
 }

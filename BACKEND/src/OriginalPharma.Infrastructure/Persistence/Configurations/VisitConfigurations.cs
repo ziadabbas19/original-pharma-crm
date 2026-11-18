@@ -47,6 +47,12 @@ internal sealed class VisitConfiguration : IEntityTypeConfiguration<Visit>
         builder.HasMany(v => v.Replies).WithOne().HasForeignKey(r => r.VisitId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(v => new { v.UserId, v.CheckInAt });
         builder.HasIndex(v => new { v.UserId, v.Status });
+
+        // A rep has at most one open visit, even when two check-ins arrive at the same moment.
+        builder.HasIndex(v => v.UserId)
+            .IsUnique()
+            .HasFilter("status = 1 AND archived_at IS NULL")
+            .HasDatabaseName("ux_visits_one_in_progress_per_user");
         builder.HasIndex(v => new { v.TerritoryId, v.CheckInAt });
         builder.HasIndex(v => v.CustomerId);
     }

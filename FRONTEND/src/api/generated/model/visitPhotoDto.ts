@@ -8,4 +8,5 @@ export interface VisitPhotoDto {
   contentType: string
   sizeBytes: number
   uploadedAt: string
+  url: string
 }

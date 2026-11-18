@@ -112,6 +112,7 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
 
         // Idempotency: one order per (rep, client request id), so offline retries never duplicate.
         builder.HasIndex(o => new { o.UserId, o.ClientRequestId }).IsUnique();
+        builder.HasIndex(o => o.VisitId);
         builder.HasIndex(o => new { o.UserId, o.OrderDate });
         builder.HasIndex(o => new { o.TerritoryId, o.OrderDate });
         builder.HasIndex(o => new { o.Status, o.OrderDate });

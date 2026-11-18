@@ -7,6 +7,7 @@ using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Domain.Audit;
+using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
 
@@ -35,7 +36,10 @@ public sealed record DoctorDto(
     IReadOnlyList<DoctorRepDto> Reps,
     bool OnMyList,
     bool OutsideMyArea,
-    DateTimeOffset? ArchivedAt = null);
+    DateTimeOffset? ArchivedAt = null,
+    double? Lat = null,
+    double? Lng = null,
+    int GeofenceRadiusMeters = 150);
 
 /// <param name="Mine">Only the caller's own list (the rep app).</param>
 /// <param name="RepId">Only this rep's list (must be in the caller's scope).</param>
@@ -62,6 +66,13 @@ public sealed record CreateDoctorRequest(
     string? Notes = null,
     Guid? RepId = null);
 
+/// <summary>Where the clinic is, for the visit geofence. Leave both coordinates empty to keep no location.</summary>
+public sealed record DoctorLocationInput(double? Lat, double? Lng, int GeofenceRadiusMeters = 150);
+
+/// <param name="Location">
+/// Null leaves the saved location as it is. Changing it needs customers:manage: a rep must not be able
+/// to move the clinic to wherever they are standing.
+/// </param>
 public sealed record UpdateDoctorRequest(
     string Name,
     string? NameAr,
@@ -69,7 +80,8 @@ public sealed record UpdateDoctorRequest(
     Guid SpecialtyId,
     string? Phone = null,
     string? Notes = null,
-    bool IsActive = true);
+    bool IsActive = true,
+    DoctorLocationInput? Location = null);
 
 public enum AssignMode
 {
@@ -226,7 +238,7 @@ public sealed class DoctorService(
 
         // Other reps' names are not part of the directory; phone and notes neither.
         return (await ToDtosAsync(rows, me, [me], tree, cancellationToken))
-            .Select(d => d with { Phone = null, Notes = null })
+            .Select(d => d with { Phone = null, Notes = null, Lat = null, Lng = null })
             .ToList();
     }
 
@@ -339,21 +351,30 @@ public sealed class DoctorService(
 
         var effective = await permissions.GetEffectivePermissionsAsync(me, cancellationToken);
         var onMyList = await db.RepDoctors.AnyAsync(a => a.UserId == me && a.CustomerId == id, cancellationToken);
-        var allowed = onMyList && effective.Has(Permissions.Customers.Create);
-        if (!allowed && effective.Has(Permissions.Customers.Manage))
+        var canManage = false;
+        if (effective.Has(Permissions.Customers.Manage))
         {
             var scope = await scopeResolver.ResolveAsync(Permissions.Customers.Manage, cancellationToken);
             var visibleReps = await VisibleRepIdsAsync(scope, cancellationToken);
-            allowed = await WhereVisible(db.Customers.Where(c => c.Id == id), scope, visibleReps).AnyAsync(cancellationToken);
+            canManage = await WhereVisible(db.Customers.Where(c => c.Id == id), scope, visibleReps).AnyAsync(cancellationToken);
         }
 
-        if (!allowed)
+        if (!canManage && !(onMyList && effective.Has(Permissions.Customers.Create)))
         {
             throw new ForbiddenException("You can only edit doctors on your own list or inside your scope.");
         }
 
+        if (request.Location is not null && !canManage)
+        {
+            throw new ForbiddenException("Only a manager can change the saved location of a doctor.");
+        }
+
         await EnsureTownAndSpecialtyAsync(request.TownId, request.SpecialtyId, cancellationToken);
-        var before = new { doctor.Name, doctor.NameAr, doctor.TerritoryId, doctor.SpecialtyId, doctor.Phone, doctor.Notes, doctor.IsActive };
+        var before = new
+        {
+            doctor.Name, doctor.NameAr, doctor.TerritoryId, doctor.SpecialtyId, doctor.Phone, doctor.Notes, doctor.IsActive,
+            Lat = doctor.Location?.Y, Lng = doctor.Location?.X, doctor.GeofenceRadiusMeters,
+        };
         doctor.Name = request.Name.Trim();
         doctor.NameAr = Clean(request.NameAr);
         doctor.TerritoryId = request.TownId;
@@ -361,7 +382,17 @@ public sealed class DoctorService(
         doctor.Phone = Clean(request.Phone);
         doctor.Notes = Clean(request.Notes);
         doctor.IsActive = request.IsActive;
-        var after = new { doctor.Name, doctor.NameAr, doctor.TerritoryId, doctor.SpecialtyId, doctor.Phone, doctor.Notes, doctor.IsActive };
+        if (request.Location is { } location)
+        {
+            doctor.Location = location is { Lat: { } lat, Lng: { } lng } ? GeoFactory.Point(lat, lng) : null;
+            doctor.GeofenceRadiusMeters = location.GeofenceRadiusMeters;
+        }
+
+        var after = new
+        {
+            doctor.Name, doctor.NameAr, doctor.TerritoryId, doctor.SpecialtyId, doctor.Phone, doctor.Notes, doctor.IsActive,
+            Lat = doctor.Location?.Y, Lng = doctor.Location?.X, doctor.GeofenceRadiusMeters,
+        };
         if (!before.Equals(after))
         {
             doctor.UpdatedAt = time.GetUtcNow();
@@ -509,7 +540,9 @@ public sealed class DoctorService(
             c.Phone,
             c.Notes,
             c.IsActive,
-            c.ArchivedAt));
+            c.ArchivedAt,
+            c.Location,
+            c.GeofenceRadiusMeters));
 
     private async Task<List<DoctorDto>> ToDtosAsync(
         IReadOnlyList<DoctorRow> rows,
@@ -537,7 +570,10 @@ public sealed class DoctorService(
                     .ToList(),
                 byDoctor[r.Id].Any(a => a.Id == me),
                 tree.IsOutsideArea(r.TownId, myTerritory),
-                r.ArchivedAt))
+                r.ArchivedAt,
+                r.Location?.Y,
+                r.Location?.X,
+                r.GeofenceRadiusMeters))
             .ToList();
     }
 
@@ -556,7 +592,9 @@ public sealed class DoctorService(
         string? Phone,
         string? Notes,
         bool IsActive,
-        DateTimeOffset? ArchivedAt);
+        DateTimeOffset? ArchivedAt,
+        NetTopologySuite.Geometries.Point? Location,
+        int GeofenceRadiusMeters);
 }
 
 public sealed class CreateDoctorRequestValidator : AbstractValidator<CreateDoctorRequest>
@@ -583,6 +621,14 @@ public sealed class UpdateDoctorRequestValidator : AbstractValidator<UpdateDocto
         RuleFor(x => x.SpecialtyId).NotEmpty();
         RuleFor(x => x.Phone).MaximumLength(Customer.PhoneMaxLength);
         RuleFor(x => x.Notes).MaximumLength(Customer.NotesMaxLength);
+        When(x => x.Location is not null, () =>
+        {
+            RuleFor(x => x.Location!.Lat).InclusiveBetween(-90, 90);
+            RuleFor(x => x.Location!.Lng).InclusiveBetween(-180, 180);
+            RuleFor(x => x.Location!.GeofenceRadiusMeters).InclusiveBetween(20, 2000);
+            RuleFor(x => x.Location!).Must(l => (l.Lat is null) == (l.Lng is null))
+                .WithMessage("Give both latitude and longitude, or neither.");
+        });
     }
 }
 

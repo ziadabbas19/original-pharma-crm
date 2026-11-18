@@ -4,6 +4,8 @@
  */
 import type { CustomerType } from './customerType'
 import type { VisitFeedbackDto } from './visitFeedbackDto'
+import type { VisitOrderDto } from './visitOrderDto'
+import type { VisitPhotoDto } from './visitPhotoDto'
 import type { VisitProductDto } from './visitProductDto'
 import type { VisitReplyDto } from './visitReplyDto'
 import type { VisitStatus } from './visitStatus'
@@ -42,4 +44,15 @@ export interface VisitDetailDto {
   canMarkSeen: boolean
   /** @nullable */
   archivedAt: string | null
+  checkInReceivedAt: string
+  checkInAccuracy: number
+  checkInIsMock: boolean
+  /** @nullable */
+  checkOutAccuracy: number | null
+  /** @nullable */
+  checkOutIsMock: boolean | null
+  geofenceRadiusMeters: number
+  reviewReasons: string[]
+  photos: VisitPhotoDto[]
+  orders: VisitOrderDto[]
 }

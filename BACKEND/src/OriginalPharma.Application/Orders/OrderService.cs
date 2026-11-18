@@ -58,6 +58,7 @@ public sealed class OrderService(
             UserId = me,
             TerritoryId = actor.TerritoryId,
             ClientRequestId = request.ClientRequestId,
+            VisitId = request.VisitId,
             Status = OrderStatus.Submitted,
             CreatedAt = now,
             CreatedById = me,
@@ -559,7 +560,8 @@ public sealed class OrderService(
             order.DeliveredAt,
             order.DeliveredByName,
             order.DeliveryNote,
-            order.ArchivedAt);
+            order.ArchivedAt,
+            order.VisitId);
     }
 
     private async Task<OrderRights> RightsAsync(Order order, OrderActor actor, CancellationToken cancellationToken)

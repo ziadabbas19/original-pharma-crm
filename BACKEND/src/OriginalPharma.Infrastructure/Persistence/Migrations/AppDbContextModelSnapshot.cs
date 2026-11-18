@@ -1303,6 +1303,10 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<Guid?>("VisitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("visit_id");
+
                     b.HasKey("Id")
                         .HasName("pk_orders");
 
@@ -1315,6 +1319,9 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.HasIndex("Number")
                         .IsUnique()
                         .HasDatabaseName("ix_orders_number");
+
+                    b.HasIndex("VisitId")
+                        .HasDatabaseName("ix_orders_visit_id");
 
                     b.HasIndex("Status", "OrderDate")
                         .HasDatabaseName("ix_orders_status_order_date");
@@ -2050,6 +2057,10 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("check_out_at");
 
+                    b.Property<Guid?>("CheckOutClientRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("check_out_client_request_id");
+
                     b.Property<double?>("CheckOutDistanceMeters")
                         .HasColumnType("double precision")
                         .HasColumnName("check_out_distance_meters");
@@ -2118,6 +2129,11 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CustomerId")
                         .HasDatabaseName("ix_visits_customer_id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_visits_one_in_progress_per_user")
+                        .HasFilter("status = 1 AND archived_at IS NULL");
 
                     b.HasIndex("TerritoryId", "CheckInAt")
                         .HasDatabaseName("ix_visits_territory_id_check_in_at");

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Orders;
+using OriginalPharma.Application.Visits;
 using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
@@ -38,6 +39,7 @@ internal sealed partial class DatabaseSeeder
         await RunOnceAsync("demo-orders-v1", SeedOrdersAsync, cancellationToken);
         await RunOnceAsync("demo-discounts-v1", SeedDiscountsAsync, cancellationToken);
         await RunOnceAsync("demo-activity-v1", SeedActivityAsync, cancellationToken);
+        await RunOnceAsync("demo-visit-flow-v1", SeedVisitFlowAsync, cancellationToken);
     }
 
     private async Task RunOnceAsync(string key, Func<CancellationToken, Task> step, CancellationToken cancellationToken)
@@ -678,6 +680,106 @@ internal sealed partial class DatabaseSeeder
 
         await db.SaveChangesAsync(cancellationToken);
         await SeedDecisionsAsync(rep, second, supervisor, products, now, cancellationToken);
+    }
+
+    private static readonly (string Doctor, double Lat, double Lng)[] ClinicLocations =
+    [
+        ("Dr. Ahmed Fathy", 30.0511, 31.3656),
+        ("Dr. Mona Saeed", 30.0594, 31.3387),
+        ("Dr. Tamer Nabil", 30.0074, 31.4913),
+        ("Dr. Youssef Samir", 30.0384, 31.2123),
+        ("Dr. Rania Hassan", 30.0911, 31.3225),
+        ("Dr. Heba Mostafa", 30.0131, 31.4289),
+    ];
+
+    /// <summary>
+    /// What the visit flow needs to be tried from a browser: clinic locations (Dr. Karim Adel keeps none, to
+    /// show that case), a running day for the first demo rep, and past visits with each verification outcome.
+    /// </summary>
+    private async Task SeedVisitFlowAsync(CancellationToken cancellationToken)
+    {
+        var doctors = await db.Customers.Where(c => c.Type == CustomerType.Doctor).ToDictionaryAsync(c => c.Name, cancellationToken);
+        foreach (var (name, lat, lng) in ClinicLocations)
+        {
+            if (doctors.TryGetValue(name, out var doctor) && doctor.Location is null)
+            {
+                doctor.Location = GeoFactory.Point(lat, lng);
+            }
+        }
+
+        var rep = await userManager.FindByEmailAsync(RepEmail);
+        if (rep is null)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        var now = time.GetUtcNow();
+        var today = await db.Shifts.Where(s => s.UserId == rep.Id).OrderByDescending(s => s.StartedAt).FirstOrDefaultAsync(cancellationToken);
+        if (today is not null)
+        {
+            today.Status = ShiftStatus.Active;
+            today.EndedAt = null;
+        }
+
+        var consentVersion = trackingOptions.Value.ConsentVersion;
+        if (!await db.TrackingConsents.AnyAsync(c => c.UserId == rep.Id && c.ConsentVersion == consentVersion, cancellationToken))
+        {
+            db.TrackingConsents.Add(new TrackingConsent
+            {
+                UserId = rep.Id, TerritoryId = rep.TerritoryId, ConsentVersion = consentVersion, DeviceId = "demo-rep",
+                Platform = DevicePlatform.Web, AcceptedAt = now,
+            });
+        }
+
+        var visits = await db.Visits.Include(v => v.Customer).Where(v => v.UserId == rep.Id).ToListAsync(cancellationToken);
+        Visit? VisitAt(string doctor) => visits.Where(v => v.Customer?.Name == doctor).MaxBy(v => v.CheckInAt);
+
+        void MarkForReview(Visit visit, TrackingFlagType type, string signal, double distance, bool inside, bool mock)
+        {
+            var clinic = visit.Customer?.Location;
+            visit.CheckInLocation = clinic is null ? visit.CheckInLocation : GeoFactory.Point(clinic.Y + (distance / 111_320), clinic.X);
+            visit.CheckInDistanceMeters = distance;
+            visit.CheckInWithinGeofence = inside;
+            visit.CheckInIsMock = mock;
+            visit.NeedsReview = true;
+            db.TrackingFlags.Add(new TrackingFlag
+            {
+                UserId = rep.Id, TerritoryId = rep.TerritoryId, ShiftId = visit.ShiftId, Type = type, Score = mock ? 60 : 30,
+                Signals = [signal], Details = $"Visit check-in at {visit.Customer?.Name}: {distance:0} m from location.",
+                CreatedAt = visit.CheckInAt,
+            });
+        }
+
+        if (VisitAt("Dr. Tamer Nabil") is { } outside)
+        {
+            MarkForReview(outside, TrackingFlagType.VisitOutsideGeofence, VisitReviewReasons.OutsideGeofence, 240, inside: false, mock: false);
+        }
+
+        if (VisitAt("Dr. Youssef Samir") is { } mocked)
+        {
+            MarkForReview(mocked, TrackingFlagType.MockLocation, VisitReviewReasons.MockLocation, 35, inside: true, mock: true);
+        }
+
+        if (VisitAt("Dr. Ahmed Fathy") is { } proof)
+        {
+            var picture = PlaceholderPicture(new SKColor(0x00, 0x63, 0xAD), 0);
+            await using var content = new MemoryStream(picture);
+            var path = await files.SaveAsync(content, $"visits/{proof.Id}", ".png", cancellationToken);
+            db.VisitPhotos.Add(new VisitPhoto
+            {
+                VisitId = proof.Id, StoragePath = path, ContentType = "image/png", SizeBytes = picture.Length, UploadedAt = proof.CheckInAt,
+            });
+
+            var order = await db.Orders.Where(o => o.UserId == rep.Id && o.Status == OrderStatus.Submitted)
+                .OrderByDescending(o => o.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+            if (order is not null)
+            {
+                order.VisitId = proof.Id;
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>The approved demo order gets delivered; three more orders show a rejection, a cancellation and an open delivery.</summary>

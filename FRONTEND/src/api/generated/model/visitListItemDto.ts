@@ -28,6 +28,10 @@ export interface VisitListItemDto {
   qrVerified: boolean
   needsReview: boolean
   photoCount: number
+  checkInAccuracy: number
+  checkInIsMock: boolean
+  productIds: string[]
+  reviewReasons: string[]
   hasFeedback?: boolean
   feedbackCategory?: null | VisitFeedbackCategory
   productCount?: number

@@ -53,6 +53,9 @@ public class Visit : Entity, IScopedEntity, IArchivable
     public bool? CheckOutWithinGeofence { get; set; }
     public bool? CheckOutIsMock { get; set; }
 
+    /// <summary>Idempotency key of the check-out, so a retry from the app's outbox is answered instead of refused.</summary>
+    public Guid? CheckOutClientRequestId { get; set; }
+
     public bool QrVerified { get; set; }
     public string? Notes { get; set; }
 

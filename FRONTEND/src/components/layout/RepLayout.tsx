@@ -18,6 +18,7 @@ import { RecheckContext } from '@/features/onboarding/recheck-context'
 import { TrackingHealthBanner } from '@/features/onboarding/TrackingHealthBanner'
 import { useTrackingHealthMonitor } from '@/features/onboarding/useTrackingHealthMonitor'
 import { useTrackingHub } from '@/features/tracking/useTrackingHub'
+import { ActiveVisitBanner } from '@/features/visits/ActiveVisitBanner'
 import { startVisitSync, useVisitOutbox } from '@/features/visits/visit-outbox'
 import { useDocumentVisible } from '@/hooks/use-document-visible'
 import { useAppSelector } from '@/store'
@@ -42,7 +43,8 @@ export function RepLayout() {
   const outbox = useOrderOutbox()
   const waiting = outbox.pending.length + outbox.failed.length
   const visitOutbox = useVisitOutbox()
-  const visitsWaiting = visitOutbox.pending.length + visitOutbox.failed.length
+  const visitsRefused = visitOutbox.failed.length + visitOutbox.failedSteps.length
+  const visitsWaiting = visitOutbox.pending.length + visitOutbox.steps.length + visitsRefused
 
   // Queued orders and visit content go out as soon as there is network (and on return to the app).
   useEffect(() => startOrderSync(), [])
@@ -63,6 +65,7 @@ export function RepLayout() {
             </div>
           </div>
           <TrackingHealthBanner />
+          <ActiveVisitBanner />
         </header>
 
         <main className="flex-1 p-4">
@@ -92,7 +95,7 @@ export function RepLayout() {
                   <span
                     className={
                       (tab.to === '/rep/orders' && outbox.failed.length === 0) ||
-                      (tab.to === '/rep/visits' && visitOutbox.failed.length === 0)
+                      (tab.to === '/rep/visits' && visitsRefused === 0)
                         ? 'absolute top-2 size-2 rounded-full bg-warning ltr:ms-6 rtl:me-6'
                         : 'absolute top-2 size-2 rounded-full bg-destructive ltr:ms-6 rtl:me-6'
                     }

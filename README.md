@@ -93,6 +93,10 @@ rows sticks.
 
 All demo users use the admin password from user secrets (Development only).
 
+To try the visit flow in a browser, sign in as `rep@demo.local` (the demo day is already running), open
+**Doctors** and press **Start visit**. Chrome DevTools > Sensors can set the location: Dr. Ahmed Fathy is
+at `30.0511, 31.3656`, and Dr. Karim Adel has no saved location on purpose.
+
 Uploaded pictures (products, profile pictures, visit photos) are stored outside the
 repository, in `~/.local/share/original-pharma/uploads` by default (`FileStorage:RootPath`).
 `podman compose --profile api up -d` builds and runs the API in a container
@@ -134,6 +138,13 @@ Playwright browser in `~/.cache/ms-playwright`) against a running API and dev se
 
 ```bash
 cd FRONTEND && UI_TEST_PASSWORD=<demo password> UI_TEST_URL=http://localhost:5173 npm run test:ui
+```
+
+The visit flow has a browser check at phone size, with the location mocked. It creates visits, so run it
+against a throwaway database:
+
+```bash
+cd FRONTEND && UI_TEST_PASSWORD=<demo password> UI_TEST_URL=http://localhost:5173 npm run test:ui:visits
 ```
 
 The integration tests (`tests/OriginalPharma.Tests/Integration`) run against the local
