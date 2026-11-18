@@ -50,3 +50,10 @@ captures/
 
 # TanStack Router route tree (rebuilt by `npm run dev` / `npm run build`)
 FRONTEND/src/routeTree.gen.ts
+
+# Local tooling
+.claude/
+CLAUDE.md
+AGENTS.md
+.cursorrules
+.cursor/
