@@ -9,11 +9,15 @@ import {
   MapIcon,
   MapPinIcon,
   SmartphoneIcon,
+  Trash2Icon,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useTrackingMonitorGetDevices } from '@/api/generated/endpoints'
+import { trackingMonitorDeleteDevices, useTrackingMonitorGetDevices } from '@/api/generated/endpoints'
 import type { DeviceDto, DevicePlatform, TrackingMonitorGetDevicesParams } from '@/api/generated/model'
+import { BulkDeleteDialog } from '@/components/bulk/BulkDeleteDialog'
+import { useBulkRunner, useDeleteTarget } from '@/components/bulk/use-bulk-delete'
+import { useSelection } from '@/components/bulk/use-selection'
 import { DataTable } from '@/components/data-table/DataTable'
 import { dataTableColumns } from '@/components/data-table/features'
 import { FilterField, SearchInput, ToolbarSpacer } from '@/components/data-table/toolbar'
@@ -23,12 +27,13 @@ import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import { usePermission } from '@/features/auth/usePermission'
 import { useNow } from '@/hooks/use-now'
-import { formatDate, formatDateTime, formatRelative } from '@/lib/format'
+import { formatDate, formatDateTime, formatNumber, formatRelative } from '@/lib/format'
 import { P } from '@/lib/permissions'
 
 const column = dataTableColumns<DeviceDto>()
 type HealthFilter = 'all' | 'unhealthy' | 'healthy'
 const PLATFORMS: DevicePlatform[] = ['android', 'ios', 'web']
+const deviceId = (d: DeviceDto) => d.id
 
 /**
  * Health of every rep phone as last reported by the app (permissions, battery
@@ -39,7 +44,9 @@ export function DevicesPage() {
   const { t } = useTranslation()
   const canReviewFlags = usePermission(P.tracking.reviewFlags)
   const canViewLive = usePermission(P.tracking.viewLive)
+  const canDelete = usePermission(P.devices.delete)
   const now = useNow(60_000)
+  const target = useDeleteTarget()
   const [health, setHealth] = useState<HealthFilter>('all')
   const [platform, setPlatform] = useState<'' | DevicePlatform>('')
   const [search, setSearch] = useState('')
@@ -64,6 +71,14 @@ export function DevicesPage() {
   }, [devices.data, platform, search])
 
   const unhealthyCount = devices.data?.filter((d) => !d.isHealthy).length ?? 0
+
+  const selection = useSelection(filtered, deviceId)
+  const bulk = useBulkRunner(trackingMonitorDeleteDevices, ['/api/tracking/monitor/devices'], selection)
+
+  const flagsLabel = useCallback(
+    (open: number) => (open > 0 ? t('devices.reviewFlags', { count: open }) : t('devices.flags')),
+    [t],
+  )
 
   const columns = useMemo(
     () =>
@@ -91,6 +106,7 @@ export function DevicesPage() {
               </div>
             </div>
           ),
+          meta: { className: 'hidden @[50rem]:table-cell' },
         }),
         column.accessor('isHealthy', {
           header: () => t('devices.health'),
@@ -117,7 +133,7 @@ export function DevicesPage() {
           id: 'checks',
           header: () => t('devices.checks'),
           cell: ({ row }) => <DeviceChecks device={row.original} />,
-          meta: { className: 'hidden lg:table-cell' },
+          meta: { className: 'hidden @[65rem]:table-cell' },
         }),
         column.accessor((d) => d.appVersion ?? '', {
           id: 'appVersion',
@@ -130,7 +146,7 @@ export function DevicesPage() {
               <div className="text-muted-foreground">{row.original.osVersion ?? ''}</div>
             </div>
           ),
-          meta: { className: 'hidden xl:table-cell' },
+          meta: { className: 'hidden @[74rem]:table-cell' },
         }),
         column.accessor('onboardingCompletedAt', {
           header: () => t('devices.setup'),
@@ -142,7 +158,7 @@ export function DevicesPage() {
             ) : (
               <Badge variant="warning">{t('devices.setupMissing')}</Badge>
             ),
-          meta: { className: 'hidden md:table-cell' },
+          meta: { className: 'hidden @[57rem]:table-cell' },
         }),
         column.accessor('lastReportedAt', {
           header: () => t('devices.lastReport'),
@@ -152,6 +168,7 @@ export function DevicesPage() {
               {formatRelative(info.getValue(), now)}
             </span>
           ),
+          meta: { className: 'hidden @[40rem]:table-cell' },
         }),
         column.display({
           id: 'actions',
@@ -171,19 +188,39 @@ export function DevicesPage() {
               )}
               {canReviewFlags && (
                 <Button asChild size="sm" variant={row.original.openFlags > 0 ? 'default' : 'outline'}>
-                  <Link to="/admin/flags" search={{ userId: row.original.userId, status: 'open' }}>
+                  <Link
+                    to="/admin/flags"
+                    search={{ userId: row.original.userId, status: 'open' }}
+                    aria-label={flagsLabel(row.original.openFlags)}
+                    title={flagsLabel(row.original.openFlags)}
+                  >
                     <FlagIcon />
-                    {row.original.openFlags > 0
-                      ? t('devices.reviewFlags', { count: row.original.openFlags })
-                      : t('devices.flags')}
+                    <span className="hidden @[40rem]:inline">{flagsLabel(row.original.openFlags)}</span>
+                    {row.original.openFlags > 0 && (
+                      <span className="tabular-nums @[40rem]:hidden">
+                        {formatNumber(row.original.openFlags)}
+                      </span>
+                    )}
                   </Link>
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8 text-destructive"
+                  aria-label={t('common.delete')}
+                  title={t('common.delete')}
+                  onClick={() => target.open([row.original.id])}
+                >
+                  <Trash2Icon />
                 </Button>
               )}
             </div>
           ),
         }),
       ]),
-    [t, now, canViewLive, canReviewFlags],
+    [t, now, canViewLive, canReviewFlags, canDelete, target, flagsLabel],
   )
 
   return (
@@ -204,7 +241,15 @@ export function DevicesPage() {
         isLoading={devices.isLoading}
         error={devices.error}
         onRetry={() => void devices.refetch()}
-        getRowId={(d) => d.id}
+        getRowId={deviceId}
+        selection={canDelete ? selection : undefined}
+        rowLabel={nameOfDevice}
+        bulkActions={
+          <Button size="sm" variant="destructive" onClick={() => target.open(selection.ids)}>
+            <Trash2Icon />
+            {t('bulk.deleteSelected')}
+          </Button>
+        }
         rowClassName={(d) => (d.isHealthy ? undefined : 'bg-destructive/5')}
         filtered={search !== '' || platform !== '' || health !== 'all'}
         onClearFilters={() => {
@@ -257,8 +302,25 @@ export function DevicesPage() {
           </>
         }
       />
+      {target.ids && (
+        <BulkDeleteDialog
+          ids={target.ids}
+          nameOf={(id) => {
+            const device = devices.data?.find((d) => d.id === id)
+            return device ? nameOfDevice(device) : id
+          }}
+          consequence={t('devices.deleteConsequence')}
+          run={bulk.run}
+          onDone={bulk.onDone}
+          onClose={target.close}
+        />
+      )}
     </>
   )
+}
+
+function nameOfDevice(d: DeviceDto): string {
+  return [d.userName, d.manufacturer, d.model].filter(Boolean).join(' · ')
 }
 
 /** Compact view of the settings that matter for background tracking. */

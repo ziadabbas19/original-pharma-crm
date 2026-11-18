@@ -5,4 +5,5 @@
 
 export type LookupsListSpecialtiesParams = {
   includeInactive?: boolean
+  archived?: boolean
 }

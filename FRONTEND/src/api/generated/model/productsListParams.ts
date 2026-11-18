@@ -7,4 +7,6 @@ export type ProductsListParams = {
   lineId?: string
   search?: string
   includeInactive?: boolean
+  unassigned?: boolean
+  archived?: boolean
 }

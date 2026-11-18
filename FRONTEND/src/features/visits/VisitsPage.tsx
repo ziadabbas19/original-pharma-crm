@@ -1,4 +1,5 @@
-import { keepPreviousData } from '@tanstack/react-query'
+import { keepPreviousData, useQueryClient } from '@tanstack/react-query'
+import { getRouteApi } from '@tanstack/react-router'
 import {
   CameraIcon,
   CheckIcon,
@@ -6,23 +7,41 @@ import {
   Loader2Icon,
   MapPinCheckIcon,
   MapPinXIcon,
+  PackageIcon,
   PillIcon,
   QrCodeIcon,
   StethoscopeIcon,
+  Trash2Icon,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useVisitsList } from '@/api/generated/endpoints'
-import type { VisitListItemDto, VisitsListParams, VisitStatus } from '@/api/generated/model'
+import {
+  useProductsList,
+  useVisitsList,
+  visitsBulkDelete,
+  visitsBulkRestore,
+} from '@/api/generated/endpoints'
+import type {
+  VisitFeedbackCategory,
+  VisitListItemDto,
+  VisitsListParams,
+  VisitStatus,
+} from '@/api/generated/model'
+import { ArchivedBadge, ArchivedToggle, RestoreSelectedButton } from '@/components/bulk/ArchiveControls'
+import { BulkDeleteDialog } from '@/components/bulk/BulkDeleteDialog'
+import { useBulkRunner, useDeleteTarget } from '@/components/bulk/use-bulk-delete'
+import { useSelection } from '@/components/bulk/use-selection'
 import { DataTable } from '@/components/data-table/DataTable'
 import { dataTableColumns } from '@/components/data-table/features'
 import { FilterField, SearchInput, ToolbarSpacer } from '@/components/data-table/toolbar'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { usePermission } from '@/features/auth/usePermission'
 import {
   formatDateTime,
   formatDistance,
@@ -32,19 +51,19 @@ import {
   localizedName,
   toDateInputValue,
 } from '@/lib/format'
+import { invalidateApi } from '@/lib/invalidate-api'
+import { P } from '@/lib/permissions'
+import { CATEGORY_BADGE, FEEDBACK_CATEGORIES, STATUS_BADGE } from './visit-labels'
+import { VisitDetailSheet } from './VisitDetailSheet'
 
+const route = getRouteApi('/admin/visits')
 const column = dataTableColumns<VisitListItemDto>()
+const visitId = (v: VisitListItemDto) => v.id
 /** Same limits as VisitService in the API. */
 const MAX_RANGE_DAYS = 31
 const MAX_ROWS = 1000
 const DAY_MS = 86_400_000
 const NO_VISITS: VisitListItemDto[] = []
-
-const STATUS_BADGE: Record<VisitStatus, 'warning' | 'success' | 'outline'> = {
-  inProgress: 'warning',
-  completed: 'success',
-  cancelled: 'outline',
-}
 
 function lastWeek(): { from: string; to: string } {
   const today = new Date()
@@ -57,6 +76,16 @@ export function VisitsPage() {
   const [status, setStatus] = useState<'' | VisitStatus>('')
   const [reviewOnly, setReviewOnly] = useState(false)
   const [search, setSearch] = useState('')
+  const [category, setCategory] = useState<'' | NonNullable<VisitFeedbackCategory>>('')
+  const [productId, setProductId] = useState('')
+  const [archived, setArchived] = useState(false)
+  const opened = route.useSearch().visit
+  const [openId, setOpenId] = useState<string | null>(opened ?? null)
+  const queryClient = useQueryClient()
+  const canDelete = usePermission(P.visits.delete)
+  const canRestore = usePermission(P.visits.restore)
+  const canReadProducts = usePermission(P.products.read)
+  const products = useProductsList(undefined, { query: { enabled: canReadProducts } })
 
   // Whole local days: from 00:00 of the first day to 00:00 after the last day.
   const start = fromDateInputValue(range.from)
@@ -69,6 +98,9 @@ export function VisitsPage() {
     to: end.toISOString(),
     ...(status ? { status } : {}),
     ...(reviewOnly ? { needsReview: true } : {}),
+    ...(category ? { feedbackCategory: category } : {}),
+    ...(productId ? { productId } : {}),
+    ...(archived ? { archived: true } : {}),
   }
   const visits = useVisitsList(params, { query: { enabled: rangeValid, placeholderData: keepPreviousData } })
 
@@ -84,6 +116,14 @@ export function VisitsPage() {
     )
   }, [visits.data, search])
 
+  const selection = useSelection(rangeValid ? filtered : NO_VISITS, visitId)
+  const target = useDeleteTarget()
+  const bulk = useBulkRunner(visitsBulkDelete, ['/api/visits', '/api/stats'], selection)
+  const nameOf = (id: string) => {
+    const v = visits.data?.find((x) => x.id === id)
+    return v ? `${v.userName} · ${localizedName(v.customerName, v.customerNameAr)}` : id
+  }
+
   const columns = useMemo(
     () =>
       column.columns([
@@ -95,6 +135,7 @@ export function VisitsPage() {
         column.accessor('userName', {
           header: () => t('visits.rep'),
           cell: (info) => <span className="font-medium">{info.getValue()}</span>,
+          meta: { className: 'hidden @[39rem]:table-cell' },
         }),
         column.accessor((v) => localizedName(v.customerName, v.customerNameAr), {
           id: 'customer',
@@ -118,9 +159,44 @@ export function VisitsPage() {
         }),
         column.accessor('status', {
           header: () => t('visits.status'),
-          cell: (info) => (
-            <Badge variant={STATUS_BADGE[info.getValue()]}>{t(`visits.statuses.${info.getValue()}`)}</Badge>
-          ),
+          cell: ({ row }) =>
+            row.original.archivedAt ? (
+              <ArchivedBadge />
+            ) : (
+              <Badge variant={STATUS_BADGE[row.original.status]}>
+                {t(`visits.statuses.${row.original.status}`)}
+              </Badge>
+            ),
+          meta: { className: 'hidden @[31rem]:table-cell' },
+        }),
+        column.accessor((v) => v.feedbackCategory ?? (v.hasFeedback ? 'text' : ''), {
+          id: 'feedback',
+          header: () => t('visits.feedback.title'),
+          cell: ({ row }) =>
+            row.original.feedbackCategory ? (
+              <Badge variant={CATEGORY_BADGE[row.original.feedbackCategory]}>
+                {t(`visits.feedback.categories.${row.original.feedbackCategory}`)}
+              </Badge>
+            ) : row.original.hasFeedback ? (
+              <Badge variant="secondary">{t('visits.feedback.written')}</Badge>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            ),
+          meta: { className: 'hidden @[54rem]:table-cell' },
+        }),
+        column.accessor((v) => v.productCount ?? 0, {
+          id: 'products',
+          header: () => t('visits.products.title'),
+          cell: (info) =>
+            info.getValue() > 0 ? (
+              <span className="inline-flex items-center gap-1 tabular-nums">
+                <PackageIcon className="size-3.5 text-muted-foreground" aria-hidden />
+                {formatNumber(info.getValue())}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            ),
+          meta: { className: 'hidden @[81rem]:table-cell' },
         }),
         column.accessor(
           (v) => (v.checkOutAt ? new Date(v.checkOutAt).getTime() - new Date(v.checkInAt).getTime() : -1),
@@ -135,7 +211,7 @@ export function VisitsPage() {
               ) : (
                 <span className="text-muted-foreground">—</span>
               ),
-            meta: { className: 'hidden md:table-cell' },
+            meta: { className: 'hidden @[60rem]:table-cell' },
           },
         ),
         column.accessor('checkInDistanceMeters', {
@@ -150,7 +226,7 @@ export function VisitsPage() {
               {formatDistance(row.original.checkInDistanceMeters)}
             </span>
           ),
-          meta: { className: 'hidden lg:table-cell' },
+          meta: { className: 'hidden @[66rem]:table-cell' },
         }),
         column.display({
           id: 'proof',
@@ -175,7 +251,7 @@ export function VisitsPage() {
               {!row.original.qrVerified && row.original.photoCount === 0 && '—'}
             </span>
           ),
-          meta: { className: 'hidden lg:table-cell' },
+          meta: { className: 'hidden @[70.5rem]:table-cell' },
         }),
         column.accessor('needsReview', {
           header: () => t('visits.review'),
@@ -185,6 +261,7 @@ export function VisitsPage() {
             ) : (
               <span className="text-muted-foreground">—</span>
             ),
+          meta: { className: 'hidden @[44.5rem]:table-cell' },
         }),
       ]),
     [t],
@@ -201,12 +278,32 @@ export function VisitsPage() {
         onRetry={() => void visits.refetch()}
         getRowId={(v) => v.id}
         initialSorting={[{ id: 'checkInAt', desc: true }]}
-        filtered={search !== '' || status !== '' || reviewOnly}
+        filtered={search !== '' || status !== '' || reviewOnly || category !== '' || productId !== ''}
         onClearFilters={() => {
           setSearch('')
           setStatus('')
           setReviewOnly(false)
+          setCategory('')
+          setProductId('')
         }}
+        onRowClick={(v) => setOpenId(v.id)}
+        selection={(archived ? canRestore : canDelete) ? selection : undefined}
+        rowLabel={(v) => `${v.userName} · ${v.customerName}`}
+        bulkActions={
+          archived ? (
+            <RestoreSelectedButton
+              selection={selection}
+              nameOf={nameOf}
+              run={(ids) => visitsBulkRestore({ ids })}
+              onDone={() => void invalidateApi(queryClient, '/api/visits', '/api/stats')}
+            />
+          ) : (
+            <Button size="sm" variant="destructive" onClick={() => target.open(selection.ids)}>
+              <Trash2Icon />
+              {t('bulk.deleteSelected')}
+            </Button>
+          )
+        }
         empty={
           rangeValid
             ? { icon: ClipboardListIcon, title: t('visits.empty'), description: t('visits.emptyHint') }
@@ -259,6 +356,42 @@ export function VisitsPage() {
                 </NativeSelect>
               )}
             </FilterField>
+            <FilterField label={t('visits.feedback.category')}>
+              {(id) => (
+                <NativeSelect
+                  id={id}
+                  className="w-36"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as '' | NonNullable<VisitFeedbackCategory>)}
+                >
+                  <option value="">{t('table.all')}</option>
+                  {FEEDBACK_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {t(`visits.feedback.categories.${c}`)}
+                    </option>
+                  ))}
+                </NativeSelect>
+              )}
+            </FilterField>
+            {canReadProducts && (
+              <FilterField label={t('visits.products.filter')}>
+                {(id) => (
+                  <NativeSelect
+                    id={id}
+                    className="w-44"
+                    value={productId}
+                    onChange={(e) => setProductId(e.target.value)}
+                  >
+                    <option value="">{t('table.all')}</option>
+                    {(products.data ?? []).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {localizedName(p.nameEn, p.nameAr)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                )}
+              </FilterField>
+            )}
             <div className="flex h-9 items-center gap-2">
               <Checkbox
                 id="visits-review-only"
@@ -276,9 +409,29 @@ export function VisitsPage() {
                 aria-label={t('common.loading')}
               />
             )}
+            {(canDelete || canRestore) && (
+              <ArchivedToggle
+                archived={archived}
+                onChange={(value) => {
+                  selection.clear()
+                  setArchived(value)
+                }}
+              />
+            )}
           </>
         }
       />
+      {target.ids && (
+        <BulkDeleteDialog
+          ids={target.ids}
+          nameOf={nameOf}
+          consequence={t('visits.deleteConsequence')}
+          run={bulk.run}
+          onDone={bulk.onDone}
+          onClose={target.close}
+        />
+      )}
+      {openId && <VisitDetailSheet key={openId} visitId={openId} onClose={() => setOpenId(null)} />}
     </>
   )
 }

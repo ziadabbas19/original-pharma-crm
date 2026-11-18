@@ -13,4 +13,6 @@ export interface OrderHistoryDto {
   /** @nullable */
   reason: string | null
   createdAt: string
+  /** @nullable */
+  internalNote?: string | null
 }

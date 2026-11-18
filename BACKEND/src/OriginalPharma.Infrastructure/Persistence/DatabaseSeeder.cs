@@ -139,6 +139,23 @@ internal sealed partial class DatabaseSeeder(
             logger.LogInformation("Created role {Role}", template.Key);
         }
 
+        // An ability that moved to its own key: every role (custom ones too) holding the old key gets
+        // the new one with the same scope, once, when the key first appears.
+        foreach (var definition in Permissions.All.Where(d => d.DerivedFrom is not null && addedPermissions.Contains(d.Key)))
+        {
+            var sourceId = permissionIds[definition.DerivedFrom!];
+            var targetId = permissionIds[definition.Key];
+            foreach (var role in roles.Values)
+            {
+                if (role.Permissions.FirstOrDefault(rp => rp.PermissionId == sourceId) is { } source &&
+                    role.Permissions.All(rp => rp.PermissionId != targetId))
+                {
+                    role.Permissions.Add(new RolePermission { PermissionId = targetId, Scope = source.Scope });
+                    changed.Add(role.Id);
+                }
+            }
+        }
+
         var admin = roles[Role.NormalizeKey(DefaultRoles.Admin)];
         admin.IsSystem = true;
         admin.Level = Role.TopLevel;

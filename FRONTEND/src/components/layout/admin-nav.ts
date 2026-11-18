@@ -1,6 +1,9 @@
 import {
+  BarChart3Icon,
+  BellIcon,
   BuildingIcon,
   ClipboardListIcon,
+  HistoryIcon,
   ListChecksIcon,
   PackageIcon,
   ReceiptTextIcon,
@@ -19,6 +22,9 @@ import { P, type PermissionKey } from '@/lib/permissions'
 export type AdminPath =
   | '/admin'
   | '/admin/live-map'
+  | '/admin/statistics'
+  | '/admin/notifications'
+  | '/admin/activity'
   | '/admin/users'
   | '/admin/roles'
   | '/admin/territories'
@@ -54,6 +60,8 @@ export const ADMIN_NAV: AdminNavSection[] = [
     items: [
       { to: '/admin', label: 'nav.dashboard', icon: LayoutDashboardIcon },
       { to: '/admin/live-map', label: 'nav.liveMap', icon: MapIcon, permission: P.tracking.viewLive },
+      { to: '/admin/statistics', label: 'nav.statistics', icon: BarChart3Icon, permission: P.stats.read },
+      { to: '/admin/notifications', label: 'nav.notifications', icon: BellIcon },
     ],
   },
   {
@@ -102,6 +110,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
       { to: '/admin/users', label: 'nav.users', icon: UsersIcon, permission: P.users.read },
       { to: '/admin/roles', label: 'nav.roles', icon: ShieldCheckIcon, permission: P.roles.read },
       { to: '/admin/lookups', label: 'nav.lookups', icon: ListChecksIcon, permission: P.lookups.manage },
+      { to: '/admin/activity', label: 'nav.activity', icon: HistoryIcon, permission: P.audit.read },
     ],
   },
 ]

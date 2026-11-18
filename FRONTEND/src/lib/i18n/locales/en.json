@@ -21,7 +21,14 @@
     "reload": "Reload",
     "save": "Save",
     "saving": "Saving…",
-    "yes": "Yes"
+    "yes": "Yes",
+    "delete": "Delete",
+    "edit": "Edit",
+    "restore": "Restore",
+    "note": "Note",
+    "optional": "optional",
+    "send": "Send",
+    "seeAll": "See all"
   },
   "status": {
     "done": "Done",
@@ -77,7 +84,11 @@
     "lookups": "Lists & lookups",
     "myDoctors": "Doctors",
     "myOrders": "Orders",
-    "health": "Health"
+    "health": "Health",
+    "myVisits": "My visits",
+    "statistics": "Statistics",
+    "notifications": "Notifications",
+    "activity": "Activity log"
   },
   "admin": {
     "welcome": "Welcome, {{name}}",
@@ -190,7 +201,8 @@
       "warning": "The user is signed out on every device and must choose a new password at next sign-in.",
       "submit": "Reset password",
       "after": "The old password no longer works."
-    }
+    },
+    "deleteConsequence": "Users with activity are archived: signed out, deactivated and hidden, with their history kept. Users without activity are removed."
   },
   "roles": {
     "title": "Roles & permissions",
@@ -246,7 +258,8 @@
     "list": {
       "title": "Roles",
       "order": "By level",
-      "unsaved": "Unsaved permission changes"
+      "unsaved": "Unsaved permission changes",
+      "selectHint": "Select roles to delete"
     },
     "reason": {
       "aboveYou": "Above your level",
@@ -295,7 +308,8 @@
       "moveHint": "Users who already have that role just lose this one.",
       "confirm": "Delete role",
       "moveAndDelete": "Move users and delete",
-      "deleting": "Deleting…"
+      "deleting": "Deleting…",
+      "bulkConsequence": "Deleted roles cannot be brought back. System roles and roles that users still hold are refused."
     },
     "audit": {
       "title": "Recent changes",
@@ -357,6 +371,42 @@
       "inProgress": "In progress",
       "completed": "Completed",
       "cancelled": "Cancelled"
+    },
+    "detail": "Visit",
+    "mine": "My visits",
+    "checkOut": "Check-out",
+    "emptyMine": "No visits in the last 30 days.",
+    "emptyMineHint": "Your visits appear here after you check in.",
+    "deleteConsequence": "Visits are archived: hidden from lists and statistics, kept for audit, and can be restored.",
+    "editContent": "Edit feedback and products",
+    "editableUntil": "You can change this until {{date}}.",
+    "contentClosed": "This visit is closed for changes.",
+    "waitingHint": "Saved on this device. It will be sent when you are back online.",
+    "notSaved": "Not saved",
+    "feedback": {
+      "title": "Feedback",
+      "category": "Category",
+      "none": "No feedback yet.",
+      "written": "Written",
+      "placeholder": "How did the visit go? What should your supervisor know?",
+      "categories": {
+        "positive": "Positive",
+        "needsFollowUp": "Needs follow-up",
+        "complaint": "Complaint",
+        "request": "Request"
+      },
+      "seenBy": "Seen by {{names}}",
+      "markSeen": "Mark as seen",
+      "replies": "Replies",
+      "reply": "Reply to the rep"
+    },
+    "products": {
+      "title": "Products discussed",
+      "none": "No products added.",
+      "add": "Add products",
+      "remove": "Remove product",
+      "notePlaceholder": "Short note (optional)",
+      "filter": "Product discussed"
     }
   },
   "liveMap": {
@@ -662,7 +712,7 @@
     "image_too_large": "The picture is larger than 5 MB.",
     "image_type_unsupported": "Only JPEG, PNG or WebP pictures are accepted.",
     "image_invalid": "The file could not be read as a picture.",
-    "discount_above_cap": "The discount is above your limit of {{max}}.",
+    "discount_above_cap": "The highest discount for this product is {{max}}.",
     "product_unavailable": "One of the products is not available to you any more.",
     "collection_method_invalid": "Choose an available collection method, or Other and type it.",
     "order_status_invalid": "This order can no longer be changed.",
@@ -683,7 +733,14 @@
     "current_password_incorrect": "The current password is incorrect.",
     "password_unchanged": "Choose a password different from the current one.",
     "password_policy": "The password needs at least 8 characters with upper-case, lower-case and a digit.",
-    "unknown-product-line": "One or more product lines do not exist."
+    "unknown-product-line": "One or more product lines do not exist.",
+    "discount_default_above_max": "The default discount cannot be above the maximum ({{max}}).",
+    "order_archived": "This order was deleted. Restore it first.",
+    "visit_content_closed": "This visit can no longer be changed.",
+    "visit_product_unavailable": "One of the products is not available to you.",
+    "visit_no_feedback": "There is no feedback on this visit.",
+    "stats_table_unknown": "This table cannot be exported.",
+    "customer_use_doctor_form": "Doctors are edited from the doctor lists."
   },
   "resources": {
     "users": "Users",
@@ -696,14 +753,18 @@
     "reports": "Reports",
     "lookups": "Lists & lookups",
     "products": "Products",
-    "orders": "Orders"
+    "orders": "Orders",
+    "stats": "Statistics",
+    "audit": "Activity log"
   },
   "permissionNames": {
     "users": {
       "read": "View users",
       "manage": "Edit users, roles and product lines",
       "create": "Create user accounts",
-      "reset-password": "Reset other users' passwords"
+      "reset-password": "Reset other users' passwords",
+      "delete": "Delete users (archived when they have activity)",
+      "restore": "Restore archived users"
     },
     "roles": {
       "read": "View roles and permissions",
@@ -711,18 +772,25 @@
     },
     "territories": {
       "read": "View territories",
-      "manage": "Manage areas and towns"
+      "manage": "Manage areas and towns",
+      "delete": "Delete areas and towns (archived when in use)",
+      "restore": "Restore archived areas and towns"
     },
     "customers": {
       "read": "View doctors and pharmacies",
       "manage": "Edit doctors and pharmacies",
       "create": "Add doctors to own list",
-      "assign": "Copy or move doctors between reps"
+      "assign": "Copy or move doctors between reps",
+      "delete": "Delete doctors and pharmacies (archived when used)",
+      "restore": "Restore archived doctors and pharmacies"
     },
     "visits": {
       "read": "View visits",
       "create": "Check in and out of visits",
-      "manage": "Edit or cancel visits"
+      "manage": "Edit or cancel visits",
+      "feedback": "Write visit feedback and products discussed",
+      "delete": "Delete visits (archived)",
+      "restore": "Restore archived visits"
     },
     "tracking": {
       "report": "Share own location (rep app)",
@@ -731,22 +799,37 @@
       "review-flags": "Review tracking flags"
     },
     "devices": {
-      "read": "View devices health"
+      "read": "View devices health",
+      "delete": "Remove device records"
     },
     "reports": {
       "read": "View reports"
     },
     "lookups": {
-      "manage": "Manage specialties and collection methods"
+      "manage": "Manage specialties and collection methods",
+      "delete": "Delete specialties and collection methods (archived when in use)",
+      "restore": "Restore archived specialties and collection methods"
     },
     "products": {
       "read": "View products",
-      "manage": "Manage products, prices and stock"
+      "manage": "Manage product lines, products, prices, stock and discounts",
+      "delete": "Delete product lines and products",
+      "restore": "Restore archived products"
     },
     "orders": {
       "create": "Take orders",
       "read": "View orders",
-      "manage": "Approve, reject, cancel and edit orders"
+      "manage": "Approve, reject, cancel and edit orders",
+      "deliver": "Mark approved orders as delivered",
+      "delete": "Delete orders (archived)",
+      "restore": "Restore archived orders"
+    },
+    "stats": {
+      "read": "View statistics",
+      "export": "Export statistics as CSV"
+    },
+    "audit": {
+      "read": "View the activity log"
     }
   },
   "territories": {
@@ -777,13 +860,12 @@
     },
     "edit": "Edit",
     "delete": "Delete",
-    "deleteConfirm": "Delete {{name}}?",
-    "notEmpty": "Only empty entries can be deleted (no towns, users or doctors).",
-    "codeAuto": "Leave empty to generate"
+    "codeAuto": "Leave empty to generate",
+    "deleteConsequence": "Towns and areas that doctors, orders or visits use are archived and keep their history; unused ones are removed. Anything with active towns or users is refused."
   },
   "customers": {
     "title": "Doctors & pharmacies",
-    "hint": "Customers in your territories. Editing, classification and QR printing come later.",
+    "hint": "Doctors and pharmacies in your territories. Edit their details, or delete those you no longer need.",
     "name": "Name",
     "type": "Type",
     "territory": "Territory",
@@ -800,7 +882,15 @@
     "types": {
       "doctor": "Doctor",
       "pharmacy": "Pharmacy"
-    }
+    },
+    "deleteConsequence": "Doctors and pharmacies with visits or orders are archived and keep their history; the others are removed with their place on reps' lists.",
+    "editPharmacy": "Edit pharmacy",
+    "editPharmacyHint": "Name, address, town and the location used to verify visits.",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "radius": "Geofence (m)",
+    "locationInvalid": "Enter both latitude and longitude, or leave both empty.",
+    "radiusInvalid": "The geofence must be between 20 and 2000 metres."
   },
   "flags": {
     "title": "Tracking flags",
@@ -900,7 +990,8 @@
       "none": "No location",
       "whileInUse": "While in use",
       "always": "Always"
-    }
+    },
+    "deleteConsequence": "The device record and its health history are removed. A phone still in use registers again the next time the app opens."
   },
   "theme": {
     "label": "Appearance",
@@ -924,7 +1015,9 @@
     "cropHint": "Drag to move, use the slider to zoom.",
     "zoom": "Zoom",
     "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out"
+    "zoomOut": "Zoom out",
+    "removePictureTitle": "Remove your profile picture?",
+    "removePictureHint": "Your initials are shown instead. You can add a new picture at any time."
   },
   "password": {
     "title": "Password",
@@ -950,25 +1043,30 @@
   },
   "lookups": {
     "title": "Lists & lookups",
-    "hint": "Values offered in the doctor and order forms. Deactivate an entry instead of deleting it.",
+    "hint": "Lists the forms offer. Delete what you do not need: an entry that doctors or orders already use is archived (hidden from the forms, old records keep it); unused entries are removed. Switching an entry off hides it from the forms but keeps it in this list.",
     "add": "Add",
     "edit": "Edit",
     "empty": "Nothing here yet.",
     "sortOrder": "Order",
     "specialties": {
       "title": "Specialties",
-      "hint": "A doctor's medical specialty.",
-      "add": "Add specialty"
+      "hint": "Doctor specialties. A specialty doctors use is archived when deleted; they keep it.",
+      "add": "Add specialty",
+      "usage": "Doctors",
+      "deleteConsequence": "Specialties that doctors use are archived (hidden from the forms, those doctors keep them); unused ones are removed."
     },
     "collectionMethods": {
       "title": "Collection methods",
-      "hint": "How the customer pays for an order. Reps can also choose Other and type it.",
-      "add": "Add collection method"
-    }
+      "hint": "How customers pay. A method past orders use is archived when deleted; those orders keep it.",
+      "add": "Add collection method",
+      "usage": "Orders",
+      "deleteConsequence": "Methods that past orders use are archived (hidden from the order form, those orders keep them); unused ones are removed."
+    },
+    "name": "Name"
   },
   "catalog": {
     "title": "Products",
-    "hint": "Product lines and products with price (EGP), stock and picture. Reps see only the lines assigned to them.",
+    "hint": "Product lines and products with price (EGP), stock, discounts and picture. Reps see only the lines assigned to them.",
     "lines": "Product lines",
     "allLines": "All lines",
     "line": "Product line",
@@ -994,11 +1092,43 @@
     "replacePicture": "Replace picture",
     "removePicture": "Remove picture",
     "searchPlaceholder": "Search products",
-    "empty": "No products yet."
+    "empty": "No products yet.",
+    "tabs": {
+      "products": "Products",
+      "lines": "Product lines"
+    },
+    "products": "Products",
+    "reps": "Reps",
+    "discount": "Discount",
+    "discounts": "Discounts",
+    "defaultDiscount": "Default discount %",
+    "maxDiscount": "Maximum discount %",
+    "maxShort": "max {{value}}",
+    "discountHint": "Optional. The product's default wins over its line's. The lowest of the product, line and role limits applies on an order.",
+    "lineDiscountHint": "This line: default {{default}}, maximum {{max}}. The product's default wins; the lower maximum applies.",
+    "lineDiscountFormHint": "Optional. Used for the line's products; a product's own default wins, and the lowest maximum applies.",
+    "defaultAboveMax": "The default cannot be above the maximum ({{max}}).",
+    "defaultAboveOwnMax": "The default cannot be above the maximum.",
+    "unassigned": "Unassigned",
+    "noLine": "No line (unassigned)",
+    "unassignedHint": "Only catalog and order managers see this product until it is placed in a line.",
+    "unassignedCount_one": "{{value}} product has no line.",
+    "unassignedCount_other": "{{value}} products have no line.",
+    "showUnassigned": "Show them",
+    "noLines": "No product lines yet.",
+    "moveToLine": "Move to line",
+    "move": "Move",
+    "moveTitle_one": "Move {{value}} product",
+    "moveTitle_other": "Move {{value}} products",
+    "moveHint": "Choose the line, or take the products out of their line.",
+    "deleteLineConsequence": "Products are never deleted with their line: they stay in the catalog as unassigned, and reps lose the line from their assignments.",
+    "deleteProductConsequence": "Products on past orders or visits are archived and those records keep them; unused products are removed with their picture.",
+    "removePictureTitle": "Remove this picture?",
+    "removePictureHint": "The product shows a placeholder until a new picture is uploaded."
   },
   "doctors": {
     "title": "Doctor lists",
-    "hint": "Which rep covers which doctor. Select doctors to copy or move them to another rep's list.",
+    "hint": "Which rep covers which doctor. Select doctors to copy or move them to another rep's list, or to delete them.",
     "mine": "My doctors",
     "add": "Add doctor",
     "addHint": "Look for the doctor first so the same doctor is not entered twice.",
@@ -1029,7 +1159,6 @@
     "edit": "Edit",
     "editHint": "Changes are seen by every rep who has this doctor.",
     "removeFromList": "Remove",
-    "removeConfirm": "Remove {{name}} from your list?",
     "outsideArea": "Outside area",
     "outsideAreaHint": "This doctor's town is outside the rep's area.",
     "allTowns": "All towns",
@@ -1043,8 +1172,6 @@
     "reps": "Reps",
     "unassigned": "Nobody",
     "onlyUnassigned": "Unassigned only",
-    "select": "Select {{name}}",
-    "selectAll": "Select all",
     "assign": {
       "action": "Copy / move ({{value}})",
       "title": "Copy or move doctors",
@@ -1069,11 +1196,12 @@
       },
       "result": "Added: {{added}} · already on the list: {{already}} · removed from source: {{removed}}",
       "outsideArea": "{{value}} of these doctors are outside the rep's area."
-    }
+    },
+    "removeConsequence": "They stay in the directory and on other reps' lists; you can add them back at any time."
   },
   "orders": {
     "title": "Orders",
-    "hint": "Orders taken by the reps in your scope. Open one to approve, reject or cancel it.",
+    "hint": "Orders taken by the reps in your scope. Open one to approve, reject, cancel or mark it delivered.",
     "mine": "My orders",
     "new": "New order",
     "detail": "Order",
@@ -1091,7 +1219,7 @@
     "collectionMethod": "Collection",
     "status": "Status",
     "statuses": {
-      "submitted": "Submitted",
+      "submitted": "Waiting for review",
       "approved": "Approved",
       "rejected": "Rejected",
       "cancelled": "Cancelled"
@@ -1101,12 +1229,16 @@
       "edited": "Edited",
       "approved": "Approved",
       "rejected": "Rejected",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "delivered": "Delivered",
+      "archived": "Deleted",
+      "restored": "Restored"
     },
     "do": {
       "approve": "Approve",
       "reject": "Reject",
-      "cancel": "Cancel order"
+      "cancel": "Cancel order",
+      "deliver": "Mark delivered"
     },
     "lines": "Products",
     "quantity": "Quantity",
@@ -1155,7 +1287,6 @@
       "discountRange": "Discount must be between 0 and 100.",
       "discountDecimals": "Use at most 2 decimals.",
       "discountCap": "The highest discount you can give is {{max}}.",
-      "capHint": "Estimate; the server calculates the final total. Your highest discount is {{max}}.",
       "estimateHint": "Estimate; the server calculates the final total.",
       "choose": "Choose…",
       "otherMethod": "Other…",
@@ -1164,6 +1295,267 @@
       "collectionOtherRequired": "Type the collection method.",
       "placePlaceholder": "Pharmacy, warehouse or shop name",
       "submit": "Send order"
+    },
+    "delivery": {
+      "notDelivered": "Not delivered",
+      "delivered": "Delivered"
+    },
+    "deliveryLabel": "Delivery",
+    "decidedBy": {
+      "submitted": "Reviewed by {{name}}",
+      "approved": "Approved by {{name}}",
+      "rejected": "Rejected by {{name}}",
+      "cancelled": "Cancelled by {{name}}"
+    },
+    "deliveredBy": "Delivered, set by {{name}}",
+    "internalNote": "Internal note (optional)",
+    "internalNoteHint": "For managers only. The rep never sees it.",
+    "lineDiscount": "discount {{percent}} ({{amount}})",
+    "discountShort": "Discount {{value}}",
+    "deleteConsequence": "Orders are archived: hidden from lists and statistics, kept for audit, and can be restored.",
+    "discardConsequence": "These orders were refused by the server and exist only on this device."
+  },
+  "bulk": {
+    "actions": "Bulk actions",
+    "selected_one": "{{value}} selected",
+    "selected_other": "{{value}} selected",
+    "selectAll_one": "Select the {{value}} matching row",
+    "selectAll_other": "Select all {{value}} matching rows",
+    "selectAllMatching_one": "Select the {{value}} matching row",
+    "selectAllMatching_other": "Select all {{value}} matching rows",
+    "selectRow": "Select {{name}}",
+    "clear": "Clear selection",
+    "deleteSelected": "Delete selected",
+    "andMore": "and {{value}} more",
+    "blockedStaySelected": "These stay selected so you can see which ones were not changed.",
+    "progress": "Processed {{done}} of {{total}}",
+    "done": {
+      "delete_one": "{{value}} deleted",
+      "delete_other": "{{value}} deleted",
+      "remove_one": "{{value}} removed from the list",
+      "remove_other": "{{value}} removed from the list",
+      "discard_one": "{{value}} discarded",
+      "discard_other": "{{value}} discarded",
+      "archived_one": "{{value}} archived",
+      "archived_other": "{{value}} archived",
+      "restored_one": "{{value}} restored",
+      "restored_other": "{{value}} restored",
+      "updated_one": "{{value}} updated",
+      "updated_other": "{{value}} updated",
+      "blocked_one": "{{value}} not changed",
+      "blocked_other": "{{value}} not changed"
+    },
+    "codes": {
+      "unknown": "Refused by the server",
+      "not_found": "Not found (already deleted?)",
+      "not_processed": "Not processed because the request failed. Try again.",
+      "out_of_scope": "Outside your scope",
+      "self_delete_forbidden": "You cannot delete your own account",
+      "last_admin": "The last active admin cannot be deleted",
+      "system_role": "System roles cannot be deleted",
+      "role_in_use_one": "{{value}} user still has this role",
+      "role_in_use_other": "{{value}} users still have this role",
+      "role_level_too_high": "At or above your own level",
+      "user_level_too_high": "At or above your own level",
+      "user_has_reports_one": "{{value}} person still reports to them",
+      "user_has_reports_other": "{{value}} people still report to them",
+      "territory_has_children": "Delete or move its towns first",
+      "territory_has_users": "Users are assigned here; move them first",
+      "not_archived": "Not archived",
+      "visit_in_progress": "The visit is still in progress",
+      "parent_archived": "Its parent is archived; restore that first",
+      "doctor_not_on_list": "Not on your list",
+      "discount_default_above_max": "Its default discount is above the line's maximum"
     }
+  },
+  "confirm": {
+    "word": "delete",
+    "typeToConfirm": "Type \"{{word}}\" to confirm",
+    "checking": "Checking what will happen…",
+    "willArchive_one": "{{value}} is still used by {{records}} records, so it will be archived: hidden from lists and pickers, kept for those records, and can be restored.",
+    "willArchive_other": "{{value}} are still used by {{records}} records, so they will be archived: hidden from lists and pickers, kept for those records, and can be restored.",
+    "willArchiveHistory_one": "{{value}} has history, so it will be archived: hidden from lists, kept for reports and audit, and can be restored.",
+    "willArchiveHistory_other": "{{value}} have history, so they will be archived: hidden from lists, kept for reports and audit, and can be restored.",
+    "delete": {
+      "titleOne": "Delete {{name}}?",
+      "titleMany_one": "Delete {{value}} item?",
+      "titleMany_other": "Delete {{value}} items?",
+      "willDeleteOne": "It is not used anywhere and will be removed for good.",
+      "willDelete_one": "{{value}} will be removed for good.",
+      "willDelete_other": "{{value}} will be removed for good.",
+      "button": "Delete",
+      "buttonMany_one": "Delete {{value}}",
+      "buttonMany_other": "Delete {{value}}"
+    },
+    "remove": {
+      "titleOne": "Remove {{name}} from your list?",
+      "titleMany_one": "Remove {{value}} doctor from your list?",
+      "titleMany_other": "Remove {{value}} doctors from your list?",
+      "willDeleteOne": "It leaves your list only.",
+      "willDelete_one": "{{value}} will leave your list.",
+      "willDelete_other": "{{value}} will leave your list.",
+      "button": "Remove",
+      "buttonMany_one": "Remove {{value}}",
+      "buttonMany_other": "Remove {{value}}"
+    },
+    "discard": {
+      "titleOne": "Discard {{name}}?",
+      "titleMany_one": "Discard {{value}} order?",
+      "titleMany_other": "Discard {{value}} orders?",
+      "willDeleteOne": "It is only on this device and will be lost.",
+      "willDelete_one": "{{value}} will be lost.",
+      "willDelete_other": "{{value}} will be lost.",
+      "button": "Discard",
+      "buttonMany_one": "Discard {{value}}",
+      "buttonMany_other": "Discard {{value}}"
+    }
+  },
+  "archive": {
+    "view": "Show",
+    "current": "Current",
+    "archived": "Archived",
+    "badge": "Archived",
+    "empty": "Nothing archived here.",
+    "restoreSelected": "Restore selected",
+    "restoreResult": "Restore",
+    "archivedOn": "Archived {{date}}"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "hint": "Decisions on your orders, deliveries, and visit feedback.",
+    "bellUnread_one": "{{value}} unread notification",
+    "bellUnread_other": "{{value}} unread notifications",
+    "empty": "No notifications.",
+    "emptyHint": "You will be told here when something needs your attention.",
+    "markRead": "Mark as read",
+    "markAllRead": "Mark all as read",
+    "showUnread": "Unread only",
+    "showAll": "Show all",
+    "deleteConsequence": "They are removed from your notifications only; the orders and visits stay as they are.",
+    "types": {
+      "orderApproved": "Order {{number}} was approved by {{actor}}",
+      "orderRejected": "Order {{number}} was rejected by {{actor}}",
+      "orderCancelled": "Order {{number}} was cancelled by {{actor}}",
+      "orderDelivered": "Order {{number}} was delivered",
+      "visitFeedback": "{{rep}} wrote feedback on the visit to {{customer}}",
+      "visitFeedbackReply": "{{author}} replied about your visit to {{customer}}"
+    }
+  },
+  "activity": {
+    "title": "Activity log",
+    "hint": "Who changed, deleted, archived or restored what, when and how many. This list is read-only.",
+    "when": "When",
+    "who": "Who",
+    "action": "Action",
+    "what": "Record",
+    "howMany": "How many",
+    "details": "Details",
+    "empty": "Nothing recorded yet.",
+    "actions": {
+      "created": "Created",
+      "updated": "Edited",
+      "deleted": "Deleted",
+      "archived": "Archived",
+      "restored": "Restored",
+      "moved": "Moved",
+      "bulkDelete": "Bulk delete",
+      "bulkRestore": "Bulk restore"
+    },
+    "entities": {
+      "product": "Product",
+      "product_line": "Product line",
+      "specialty": "Specialty",
+      "collection_method": "Collection method",
+      "territory": "Territory",
+      "customer": "Doctor or pharmacy",
+      "user": "User",
+      "role": "Role",
+      "order": "Order",
+      "visit": "Visit",
+      "device": "Device"
+    }
+  },
+  "stats": {
+    "title": "Statistics",
+    "hint": "Numbers for the people and places in your scope.",
+    "mine": "My numbers",
+    "period": "Period",
+    "name": "Name",
+    "presets": {
+      "today": "Today",
+      "days7": "7 days",
+      "days30": "30 days",
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "custom": "Custom"
+    },
+    "sections": {
+      "orders": "Orders",
+      "visits": "Visits",
+      "doctors": "Doctors",
+      "reps": "Reps",
+      "catalog": "Catalog and users"
+    },
+    "scope": {
+      "own": "Your own numbers",
+      "team": "Your team",
+      "territory": "Your territory",
+      "all": "Everyone"
+    },
+    "noData": "No data for this period.",
+    "exportCsv": "Export CSV",
+    "showTable": "Show as table",
+    "showChart": "Show as chart",
+    "moreInTable": "{{value}} more in the table view",
+    "orders": "Orders",
+    "value": "Value",
+    "units": "Units",
+    "orderValue": "Order value",
+    "orderValueHint": "Without rejected and cancelled",
+    "averageOrder": "Average order",
+    "discounts": "Discounts given",
+    "salesTrend": "Sales over time",
+    "ordersCount": "{{value}} orders",
+    "byStatus": "By status",
+    "topProducts": "Top products",
+    "topLines": "Top product lines",
+    "byRep": "By rep",
+    "byArea": "By area",
+    "byPlaceType": "By place type",
+    "byCollectionMethod": "By collection method",
+    "visits": "Visits",
+    "verified": "Verified",
+    "unverified": "Unverified",
+    "verifiedCount": "{{value}} verified",
+    "perRepDay": "Visits per rep per day",
+    "doctorsOnList": "Doctors on lists",
+    "doctorsCovered": "Doctors visited",
+    "doctorsNotCovered": "Not visited",
+    "coverage": "Coverage",
+    "coveredOf": "{{covered}} of {{total}} doctors",
+    "visitsTrend": "Visits over time",
+    "visitsCount": "{{value}} visits",
+    "productsDiscussed": "Products discussed",
+    "feedbackByCategory": "Feedback by category",
+    "perRepPerDay": "Visits per rep per day",
+    "byTown": "By town",
+    "bySpecialty": "By specialty",
+    "notVisited": "Doctors not visited in this period",
+    "allVisited": "Every doctor on the lists was visited.",
+    "ranking": "Rep ranking",
+    "rankBy": "Rank by",
+    "comparison": "Rep comparison",
+    "metrics": {
+      "orderValue": "Order value",
+      "orders": "Orders",
+      "visits": "Visits",
+      "doctorsCovered": "Doctors visited",
+      "trackingHours": "Tracking hours",
+      "activeDays": "Active days"
+    },
+    "productsPerLine": "Products per line",
+    "lowStock": "Low stock ({{value}} or fewer)",
+    "activeUsersByRole": "Active users per role",
+    "activeUsers": "Active users"
   }
 }

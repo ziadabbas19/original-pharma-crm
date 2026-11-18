@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Orders;
 using OriginalPharma.Domain.Tracking;
 using OriginalPharma.Domain.Visits;
@@ -38,6 +40,13 @@ public interface IAppDbContext
 
     DbSet<Visit> Visits { get; }
     DbSet<VisitPhoto> VisitPhotos { get; }
+    DbSet<VisitFeedback> VisitFeedback { get; }
+    DbSet<VisitFeedbackSeen> VisitFeedbackSeen { get; }
+    DbSet<VisitFeedbackReply> VisitFeedbackReplies { get; }
+    DbSet<VisitProduct> VisitProducts { get; }
+
+    DbSet<Notification> Notifications { get; }
+    DbSet<AuditEntry> AuditEntries { get; }
 
     DbSet<Shift> Shifts { get; }
     DbSet<LocationPoint> LocationPoints { get; }

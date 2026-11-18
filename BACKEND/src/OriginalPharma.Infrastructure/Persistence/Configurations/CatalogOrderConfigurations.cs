@@ -36,7 +36,13 @@ internal sealed class ProductLineConfiguration : IEntityTypeConfiguration<Produc
         builder.Property(l => l.NameAr).HasMaxLength(ProductLine.NameMaxLength).IsRequired();
         builder.Property(l => l.NameEn).HasMaxLength(ProductLine.NameMaxLength).IsRequired();
         builder.Property(l => l.Description).HasMaxLength(ProductLine.DescriptionMaxLength);
-        builder.HasMany(l => l.Products).WithOne(p => p.ProductLine).HasForeignKey(p => p.ProductLineId).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(l => l.DefaultDiscountPercent).HasPrecision(5, 2);
+        builder.Property(l => l.MaxDiscountPercent).HasPrecision(5, 2);
+
+        // Never cascade: deleting a line first clears it on its products (CatalogService), so the
+        // products stay in the catalog as unassigned. Restrict guards against any other path.
+        builder.HasMany(l => l.Products).WithOne(p => p.ProductLine).HasForeignKey(p => p.ProductLineId)
+            .IsRequired(false).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -49,6 +55,8 @@ internal sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.NameEn).HasMaxLength(Product.NameMaxLength).IsRequired();
         builder.Property(p => p.Description).HasMaxLength(Product.DescriptionMaxLength);
         builder.Property(p => p.Price).HasPrecision(12, 2);
+        builder.Property(p => p.DefaultDiscountPercent).HasPrecision(5, 2);
+        builder.Property(p => p.MaxDiscountPercent).HasPrecision(5, 2);
         builder.Property(p => p.ImageKey).HasMaxLength(32);
         builder.HasIndex(p => new { p.ProductLineId, p.NameEn });
     }
@@ -86,7 +94,10 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.PlaceName).HasMaxLength(Order.PlaceNameMaxLength).IsRequired();
         builder.Property(o => o.CollectionMethodOther).HasMaxLength(Order.OtherTextMaxLength);
         builder.Property(o => o.Notes).HasMaxLength(Order.NotesMaxLength);
-        builder.Property(o => o.StatusReason).HasMaxLength(500);
+        builder.Property(o => o.StatusReason).HasMaxLength(Order.ReasonMaxLength);
+        builder.Property(o => o.DecidedByName).HasMaxLength(200);
+        builder.Property(o => o.DeliveredByName).HasMaxLength(200);
+        builder.Property(o => o.DeliveryNote).HasMaxLength(Order.ReasonMaxLength);
         builder.Property(o => o.Subtotal).HasPrecision(12, 2);
         builder.Property(o => o.DiscountTotal).HasPrecision(12, 2);
         builder.Property(o => o.Total).HasPrecision(12, 2);
@@ -130,7 +141,8 @@ internal sealed class OrderHistoryConfiguration : IEntityTypeConfiguration<Order
     {
         builder.ToTable("order_history");
         builder.Property(h => h.ActorName).HasMaxLength(200).IsRequired();
-        builder.Property(h => h.Reason).HasMaxLength(500);
+        builder.Property(h => h.Reason).HasMaxLength(Order.ReasonMaxLength);
+        builder.Property(h => h.InternalNote).HasMaxLength(Order.ReasonMaxLength);
         builder.HasIndex(h => new { h.OrderId, h.CreatedAt });
     }
 }

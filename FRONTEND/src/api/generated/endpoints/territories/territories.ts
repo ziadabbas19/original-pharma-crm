@@ -19,8 +19,12 @@ import type {
 } from '@tanstack/react-query'
 
 import type {
+  BulkDeleteRequest,
+  BulkIdsRequest,
+  BulkResult,
   CreateTerritoryRequest,
   ProblemDetails,
+  TerritoriesListParams,
   TerritoryDto,
   UpdateTerritoryRequest,
 } from '../../model'
@@ -68,34 +72,50 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result
 }
 
-export const getTerritoriesListUrl = () => {
-  return `/api/territories`
+export const getTerritoriesListUrl = (params?: TerritoriesListParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0 ? `/api/territories?${stringifiedParams}` : `/api/territories`
 }
 
-export const territoriesList = async (options?: Parameters<typeof apiFetch>[1]): Promise<TerritoryDto[]> => {
-  return apiFetch<TerritoryDto[]>(getTerritoriesListUrl(), {
+export const territoriesList = async (
+  params?: TerritoriesListParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TerritoryDto[]> => {
+  return apiFetch<TerritoryDto[]>(getTerritoriesListUrl(params), {
     ...options,
     method: 'GET',
   })
 }
 
-export const getTerritoriesListQueryKey = () => {
-  return [`/api/territories`] as const
+export const getTerritoriesListQueryKey = (params?: TerritoriesListParams) => {
+  return [`/api/territories`, ...(params ? [params] : [])] as const
 }
 
 export const getTerritoriesListQueryOptions = <
   TData = Awaited<ReturnType<typeof territoriesList>>,
   TError = unknown,
->(options?: {
-  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesList>>, TError, TData>>
-  request?: SecondParameter<typeof apiFetch>
-}) => {
+>(
+  params?: TerritoriesListParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesList>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {}
 
-  const queryKey = queryOptions?.queryKey ?? getTerritoriesListQueryKey()
+  const queryKey = queryOptions?.queryKey ?? getTerritoriesListQueryKey(params)
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof territoriesList>>> = ({ signal }) =>
-    territoriesList({ signal, ...requestOptions })
+    territoriesList(params, { signal, ...requestOptions })
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof territoriesList>>,
@@ -108,6 +128,7 @@ export type TerritoriesListQueryResult = NonNullable<Awaited<ReturnType<typeof t
 export type TerritoriesListQueryError = unknown
 
 export function useTerritoriesList<TData = Awaited<ReturnType<typeof territoriesList>>, TError = unknown>(
+  params: undefined | TerritoriesListParams,
   options: {
     query: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesList>>, TError, TData>> &
       Pick<
@@ -123,6 +144,7 @@ export function useTerritoriesList<TData = Awaited<ReturnType<typeof territories
   queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useTerritoriesList<TData = Awaited<ReturnType<typeof territoriesList>>, TError = unknown>(
+  params?: TerritoriesListParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesList>>, TError, TData>> &
       Pick<
@@ -138,6 +160,7 @@ export function useTerritoriesList<TData = Awaited<ReturnType<typeof territories
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useTerritoriesList<TData = Awaited<ReturnType<typeof territoriesList>>, TError = unknown>(
+  params?: TerritoriesListParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesList>>, TError, TData>>
     request?: SecondParameter<typeof apiFetch>
@@ -145,13 +168,14 @@ export function useTerritoriesList<TData = Awaited<ReturnType<typeof territories
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useTerritoriesList<TData = Awaited<ReturnType<typeof territoriesList>>, TError = unknown>(
+  params?: TerritoriesListParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesList>>, TError, TData>>
     request?: SecondParameter<typeof apiFetch>
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-  const queryOptions = getTerritoriesListQueryOptions(options)
+  const queryOptions = getTerritoriesListQueryOptions(params, options)
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>
@@ -234,6 +258,160 @@ export const useTerritoriesCreate = <TError = unknown, TContext = unknown>(
   TContext
 > => {
   return useMutation(getTerritoriesCreateMutationOptions(options), queryClient)
+}
+export const getTerritoriesBulkDeleteUrl = () => {
+  return `/api/territories/bulk-delete`
+}
+
+export const territoriesBulkDelete = async (
+  bulkDeleteRequest: BulkDeleteRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getTerritoriesBulkDeleteUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkDeleteRequest),
+  })
+}
+
+export const getTerritoriesBulkDeleteMutationKey = () => ['territoriesBulkDelete'] as const
+
+export const getTerritoriesBulkDeleteMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof territoriesBulkDelete>>,
+    TError,
+    TerritoriesBulkDeleteMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof territoriesBulkDelete>>,
+  TError,
+  TerritoriesBulkDeleteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getTerritoriesBulkDeleteMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof territoriesBulkDelete>>,
+    TerritoriesBulkDeleteMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return territoriesBulkDelete(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type TerritoriesBulkDeleteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof territoriesBulkDelete>>
+>
+export type TerritoriesBulkDeleteMutationBody = BulkDeleteRequest
+export type TerritoriesBulkDeleteMutationError = unknown
+export type TerritoriesBulkDeleteMutationVariables = { data: BulkDeleteRequest }
+
+export const useTerritoriesBulkDelete = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof territoriesBulkDelete>>,
+      TError,
+      TerritoriesBulkDeleteMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof territoriesBulkDelete>>,
+  TError,
+  TerritoriesBulkDeleteMutationVariables,
+  TContext
+> => {
+  return useMutation(getTerritoriesBulkDeleteMutationOptions(options), queryClient)
+}
+export const getTerritoriesBulkRestoreUrl = () => {
+  return `/api/territories/bulk-restore`
+}
+
+export const territoriesBulkRestore = async (
+  bulkIdsRequest: BulkIdsRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getTerritoriesBulkRestoreUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkIdsRequest),
+  })
+}
+
+export const getTerritoriesBulkRestoreMutationKey = () => ['territoriesBulkRestore'] as const
+
+export const getTerritoriesBulkRestoreMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof territoriesBulkRestore>>,
+    TError,
+    TerritoriesBulkRestoreMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof territoriesBulkRestore>>,
+  TError,
+  TerritoriesBulkRestoreMutationVariables,
+  TContext
+> => {
+  const mutationKey = getTerritoriesBulkRestoreMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof territoriesBulkRestore>>,
+    TerritoriesBulkRestoreMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return territoriesBulkRestore(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type TerritoriesBulkRestoreMutationResult = NonNullable<
+  Awaited<ReturnType<typeof territoriesBulkRestore>>
+>
+export type TerritoriesBulkRestoreMutationBody = BulkIdsRequest
+export type TerritoriesBulkRestoreMutationError = unknown
+export type TerritoriesBulkRestoreMutationVariables = { data: BulkIdsRequest }
+
+export const useTerritoriesBulkRestore = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof territoriesBulkRestore>>,
+      TError,
+      TerritoriesBulkRestoreMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof territoriesBulkRestore>>,
+  TError,
+  TerritoriesBulkRestoreMutationVariables,
+  TContext
+> => {
+  return useMutation(getTerritoriesBulkRestoreMutationOptions(options), queryClient)
 }
 export const getTerritoriesUpdateUrl = (id: string) => {
   return `/api/territories/${id}`

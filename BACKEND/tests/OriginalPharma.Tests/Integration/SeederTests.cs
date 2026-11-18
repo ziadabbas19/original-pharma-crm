@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Domain.Identity;
 
 namespace OriginalPharma.Tests.Integration;
 
@@ -32,6 +33,39 @@ public sealed class SeederTests(PostgresFixture postgres)
 
         // Admin still holds every permission, including the new ones.
         Assert.Equal(Permissions.All.Count, (await db.RoleAsync(DefaultRoles.Admin)).Permissions.Count);
+    }
+
+    [Fact]
+    public async Task A_key_split_from_an_old_one_reaches_every_role_holding_it_once()
+    {
+        await using var db = await postgres.CreateDatabaseAsync();
+        var p = await DemoPeople.LoadAsync(db);
+
+        // A custom role with territories:manage, as built before territories:delete existed.
+        var custom = await db.RolesAsync(p.Admin, s => s.CreateRoleAsync(new CreateRoleRequest("منسق مناطق", "Territory coordinator", Level: 35), Ct));
+        await db.GrantAsync(p.Admin, custom.Key, (Permissions.Territories.Manage, PermissionScope.Territory));
+
+        // Make the key new again: drop it from the catalog (its grants go with it), then seed.
+        await db.DbAsync(c => c.Permissions.Where(x => x.Key == Permissions.Territories.Delete).ExecuteDeleteAsync(Ct));
+        await db.SeedAgainAsync();
+
+        Assert.Contains((await db.RoleAsync(custom.Key)).Permissions, g => g is { Key: Permissions.Territories.Delete, Scope: PermissionScope.Territory });
+        Assert.DoesNotContain((await db.RoleAsync(DefaultRoles.Supervisor)).Permissions, g => g.Key == Permissions.Territories.Delete);
+        Assert.Contains((await db.RoleAsync(DefaultRoles.Admin)).Permissions, g => g is { Key: Permissions.Territories.Delete, Scope: PermissionScope.All });
+
+        // Taken away from the matrix afterwards: seeding again keeps it away.
+        var role = await db.RoleAsync(custom.Key);
+        await db.RolesAsync(p.Admin, s => s.SetPermissionsAsync(role.Id, new SetRolePermissionsRequest(
+            role.Permissions.Where(g => g.Key != Permissions.Territories.Delete).ToList()), Ct));
+        await db.SeedAgainAsync();
+        Assert.DoesNotContain((await db.RoleAsync(custom.Key)).Permissions, g => g.Key == Permissions.Territories.Delete);
+
+        // Defaults for the new features on the seeded roles.
+        Assert.Contains((await db.RoleAsync(DefaultRoles.Rep)).Permissions, g => g is { Key: Permissions.Visits.Feedback, Scope: PermissionScope.Own });
+        Assert.Contains((await db.RoleAsync(DefaultRoles.Rep)).Permissions, g => g is { Key: Permissions.Stats.Read, Scope: PermissionScope.Own });
+        Assert.Contains((await db.RoleAsync(DefaultRoles.Supervisor)).Permissions, g => g is { Key: Permissions.Orders.Deliver, Scope: PermissionScope.Team });
+        Assert.Contains((await db.RoleAsync(DefaultRoles.AreaManager)).Permissions, g => g is { Key: Permissions.Stats.Read, Scope: PermissionScope.Territory });
+        Assert.DoesNotContain((await db.RoleAsync(DefaultRoles.Supervisor)).Permissions, g => g.Key == Permissions.Users.Delete);
     }
 
     private sealed record Counts(int Territories, int Specialties, int Methods, int Lines, int Products, int Doctors, int Assignments, int Orders, int Users);

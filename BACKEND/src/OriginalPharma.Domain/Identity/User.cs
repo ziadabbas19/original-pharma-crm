@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace OriginalPharma.Domain.Identity;
 
-public class User : IdentityUser<Guid>
+public class User : IdentityUser<Guid>, Common.IArchivable
 {
     public User()
     {
@@ -49,4 +49,8 @@ public class User : IdentityUser<Guid>
     public int PermissionsVersion { get; set; } = 1;
 
     public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>Deleted after taking part in orders, visits or tracking: deactivated and hidden, kept for history.</summary>
+    public DateTimeOffset? ArchivedAt { get; set; }
+    public Guid? ArchivedById { get; set; }
 }

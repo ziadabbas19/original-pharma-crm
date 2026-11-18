@@ -11,4 +11,7 @@ export const OrderHistoryAction = {
   approved: 'approved',
   rejected: 'rejected',
   cancelled: 'cancelled',
+  delivered: 'delivered',
+  archived: 'archived',
+  restored: 'restored',
 } as const

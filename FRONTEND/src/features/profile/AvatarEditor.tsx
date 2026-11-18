@@ -2,6 +2,7 @@ import { CameraIcon, Loader2Icon, Trash2Icon } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAccountRemoveAvatar, useAccountSetAvatar } from '@/api/generated/endpoints'
+import { ConfirmDialog } from '@/components/bulk/ConfirmDialog'
 import { FormError } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,6 +32,7 @@ export function AvatarEditor() {
   const [error, setError] = useState<unknown>(null)
   const upload = useAccountSetAvatar()
   const remove = useAccountRemoveAvatar()
+  const [confirmRemove, setConfirmRemove] = useState(false)
   const onReady = useCallback((fn: (() => Promise<Blob>) | null) => setCrop(() => fn), [])
 
   if (!user) return null
@@ -81,7 +83,7 @@ export function AvatarEditor() {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => void clear()}
+              onClick={() => setConfirmRemove(true)}
               disabled={remove.isPending}
             >
               {remove.isPending ? <Loader2Icon className="animate-spin" /> : <Trash2Icon />}
@@ -101,6 +103,15 @@ export function AvatarEditor() {
         />
       </div>
       {!file && <FormError error={error} />}
+      {confirmRemove && (
+        <ConfirmDialog
+          title={t('profile.removePictureTitle')}
+          description={t('profile.removePictureHint')}
+          confirmLabel={t('profile.removePicture')}
+          onClose={() => setConfirmRemove(false)}
+          onConfirm={clear}
+        />
+      )}
 
       <Dialog open={file !== null} onOpenChange={(open) => !open && setFile(null)}>
         <DialogContent className="sm:max-w-sm">

@@ -2,18 +2,22 @@ import { useQueryClient } from '@tanstack/react-query'
 import { CornerDownLeftIcon, MapPinnedIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useTerritoriesDelete, useTerritoriesList } from '@/api/generated/endpoints'
+import { territoriesBulkDelete, territoriesBulkRestore, useTerritoriesList } from '@/api/generated/endpoints'
 import type { TerritoryDto, TerritoryLevel } from '@/api/generated/model'
+import { ArchivedBadge, ArchivedToggle, RestoreSelectedButton } from '@/components/bulk/ArchiveControls'
+import { BulkDeleteDialog } from '@/components/bulk/BulkDeleteDialog'
+import { useBulkRunner, useDeleteTarget } from '@/components/bulk/use-bulk-delete'
+import { useSelection } from '@/components/bulk/use-selection'
 import { DataTable } from '@/components/data-table/DataTable'
 import { dataTableColumns } from '@/components/data-table/features'
-import { FilterField, SearchInput } from '@/components/data-table/toolbar'
+import { FilterField, SearchInput, ToolbarSpacer } from '@/components/data-table/toolbar'
 import { PageHeader } from '@/components/PageHeader'
-import { FormError } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import { usePermission, usePermissionScope } from '@/features/auth/usePermission'
 import { formatNumber, localizedName } from '@/lib/format'
+import { invalidateApi } from '@/lib/invalidate-api'
 import { P } from '@/lib/permissions'
 import { TerritoryDialog } from './TerritoryDialog'
 import { flattenTerritories, type TerritoryNode } from './territory-tree'
@@ -27,6 +31,8 @@ const LEVEL_BADGE: Record<TerritoryLevel, 'default' | 'secondary' | 'outline'> =
 }
 const CHILD_LEVEL: Partial<Record<TerritoryLevel, TerritoryLevel>> = { region: 'area', area: 'town' }
 
+const nodeId = (n: TerritoryNode) => n.id
+
 interface Editing {
   territory: TerritoryDto | null
   level: TerritoryLevel
@@ -36,33 +42,26 @@ interface Editing {
 export function TerritoriesPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const territories = useTerritoriesList()
+  const [archived, setArchived] = useState(false)
+  const territories = useTerritoriesList({ archived })
   const canManage = usePermission(P.territories.manage)
+  const canDelete = usePermission(P.territories.delete)
+  const canRestore = usePermission(P.territories.restore)
   const manageAll = usePermissionScope(P.territories.manage) === 'all'
-  const remove = useTerritoriesDelete()
   const [search, setSearch] = useState('')
   const [level, setLevel] = useState<'' | TerritoryLevel>('')
   const [editing, setEditing] = useState<Editing | null>(null)
-  const [deleteError, setDeleteError] = useState<unknown>(null)
-
-  const deleteNode = async (node: TerritoryDto) => {
-    setDeleteError(null)
-    if (!window.confirm(t('territories.deleteConfirm', { name: localizedName(node.name, node.nameAr) })))
-      return
-    try {
-      await remove.mutateAsync({ id: node.id })
-      await queryClient.invalidateQueries({ queryKey: ['/api/territories'] })
-      await queryClient.invalidateQueries({ queryKey: ['/api/lookups/towns'] })
-    } catch (e) {
-      setDeleteError(e)
-    }
-  }
+  const target = useDeleteTarget()
 
   const nodes = useMemo(
     () => (territories.data ? flattenTerritories(territories.data) : undefined),
     [territories.data],
   )
   const byId = useMemo(() => new Map((nodes ?? []).map((n) => [n.id, n])), [nodes])
+  const nameOf = (id: string) => {
+    const node = byId.get(id)
+    return node ? localizedName(node.name, node.nameAr) : id
+  }
 
   const filtered = useMemo(() => {
     if (!nodes) return undefined
@@ -76,6 +75,13 @@ export function TerritoriesPage() {
           n.code.toLowerCase().includes(q)),
     )
   }, [nodes, search, level])
+
+  const selection = useSelection(filtered, nodeId)
+  const bulk = useBulkRunner(
+    territoriesBulkDelete,
+    ['/api/territories', '/api/lookups', '/api/doctors'],
+    selection,
+  )
 
   const columns = useMemo(
     () =>
@@ -110,12 +116,14 @@ export function TerritoriesPage() {
               {info.getValue()}
             </span>
           ),
+          meta: { className: 'hidden @[51rem]:table-cell' },
         }),
         column.accessor('level', {
           header: () => t('territories.level'),
           cell: (info) => (
             <Badge variant={LEVEL_BADGE[info.getValue()]}>{t(`territories.levels.${info.getValue()}`)}</Badge>
           ),
+          meta: { className: 'hidden @[32rem]:table-cell' },
         }),
         column.accessor(
           (n) => (n.parentId ? localizedName(byId.get(n.parentId)?.name, byId.get(n.parentId)?.nameAr) : ''),
@@ -123,18 +131,25 @@ export function TerritoriesPage() {
             id: 'parent',
             header: () => t('territories.parent'),
             cell: (info) => info.getValue() || <span className="text-muted-foreground">—</span>,
-            meta: { className: 'hidden md:table-cell' },
+            meta: { className: 'hidden @[60rem]:table-cell' },
           },
         ),
         column.accessor('userCount', {
           header: () => t('territories.users'),
           cell: (info) => <span className="tabular-nums">{formatNumber(info.getValue())}</span>,
+          meta: { className: 'hidden @[39rem]:table-cell' },
         }),
         column.accessor('customerCount', {
           header: () => t('territories.customers'),
-          cell: (info) => <span className="tabular-nums">{formatNumber(info.getValue())}</span>,
+          cell: ({ row }) =>
+            row.original.archivedAt ? (
+              <ArchivedBadge />
+            ) : (
+              <span className="tabular-nums">{formatNumber(row.original.customerCount)}</span>
+            ),
+          meta: { className: 'hidden @[44.5rem]:table-cell' },
         }),
-        ...(canManage
+        ...((canManage || canDelete) && !archived
           ? [
               column.display({
                 id: 'actions',
@@ -142,10 +157,9 @@ export function TerritoriesPage() {
                 cell: ({ row }) => {
                   const node = row.original
                   const child = CHILD_LEVEL[node.level]
-                  const empty = node.childCount + node.userCount + node.customerCount === 0
                   return (
                     <div className="flex justify-end gap-1">
-                      {child && (
+                      {canManage && child && (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -154,27 +168,31 @@ export function TerritoriesPage() {
                           onClick={() => setEditing({ territory: null, level: child, parentId: node.id })}
                         >
                           <PlusIcon />
-                          <span className="hidden 2xl:inline">{t(`territories.add.${child}`)}</span>
+                          <span className="hidden @[68rem]:inline">{t(`territories.add.${child}`)}</span>
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        aria-label={t('territories.edit')}
-                        onClick={() => setEditing({ territory: node, level: node.level })}
-                      >
-                        <PencilIcon />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={!empty || remove.isPending}
-                        title={empty ? t('territories.delete') : t('territories.notEmpty')}
-                        aria-label={t('territories.delete')}
-                        onClick={() => void deleteNode(node)}
-                      >
-                        <Trash2Icon />
-                      </Button>
+                      {canManage && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={t('territories.edit')}
+                          onClick={() => setEditing({ territory: node, level: node.level })}
+                        >
+                          <PencilIcon />
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          title={t('territories.delete')}
+                          aria-label={t('territories.delete')}
+                          onClick={() => target.open([node.id])}
+                        >
+                          <Trash2Icon />
+                        </Button>
+                      )}
                     </div>
                   )
                 },
@@ -182,8 +200,7 @@ export function TerritoriesPage() {
             ]
           : []),
       ]),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, byId, canManage, remove.isPending],
+    [t, byId, canManage, canDelete, archived, target],
   )
 
   return (
@@ -192,7 +209,8 @@ export function TerritoriesPage() {
         title={t('territories.title')}
         description={t('territories.hint')}
         actions={
-          canManage && (
+          canManage &&
+          !archived && (
             <div className="flex flex-wrap gap-2">
               {manageAll && (
                 <Button variant="outline" onClick={() => setEditing({ territory: null, level: 'region' })}>
@@ -212,7 +230,6 @@ export function TerritoriesPage() {
           )
         }
       />
-      <FormError error={deleteError} />
       <DataTable
         columns={columns}
         data={filtered}
@@ -226,7 +243,24 @@ export function TerritoriesPage() {
           setSearch('')
           setLevel('')
         }}
-        empty={{ icon: MapPinnedIcon, title: t('territories.empty') }}
+        empty={{ icon: MapPinnedIcon, title: archived ? t('archive.empty') : t('territories.empty') }}
+        selection={(archived ? canRestore : canDelete) ? selection : undefined}
+        rowLabel={(n) => localizedName(n.name, n.nameAr)}
+        bulkActions={
+          archived ? (
+            <RestoreSelectedButton
+              selection={selection}
+              nameOf={nameOf}
+              run={(ids) => territoriesBulkRestore({ ids })}
+              onDone={() => void invalidateApi(queryClient, '/api/territories', '/api/lookups')}
+            />
+          ) : (
+            <Button size="sm" variant="destructive" onClick={() => target.open(selection.ids)}>
+              <Trash2Icon />
+              {t('bulk.deleteSelected')}
+            </Button>
+          )
+        }
         toolbar={
           <>
             <SearchInput
@@ -251,9 +285,29 @@ export function TerritoriesPage() {
                 </NativeSelect>
               )}
             </FilterField>
+            <ToolbarSpacer />
+            {(canDelete || canRestore) && (
+              <ArchivedToggle
+                archived={archived}
+                onChange={(value) => {
+                  selection.clear()
+                  setArchived(value)
+                }}
+              />
+            )}
           </>
         }
       />
+      {target.ids && (
+        <BulkDeleteDialog
+          ids={target.ids}
+          nameOf={nameOf}
+          consequence={t('territories.deleteConsequence')}
+          run={bulk.run}
+          onDone={bulk.onDone}
+          onClose={target.close}
+        />
+      )}
       {editing && territories.data && (
         <TerritoryDialog
           key={editing.territory?.id ?? `${editing.level}-${editing.parentId ?? ''}`}

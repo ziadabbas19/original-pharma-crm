@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Crm;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Domain.Crm;
@@ -6,20 +7,39 @@ using OriginalPharma.Infrastructure.Identity;
 
 namespace OriginalPharma.Api.Modules.Crm;
 
-/// <summary>Doctors and pharmacies. Read-only for now.</summary>
+/// <summary>Doctors and pharmacies: list, pharmacy details, delete (archived when used) and restore.</summary>
 [ApiController]
 [Route("api/customers")]
 [Tags("Customers")]
 public sealed class CustomersController(CustomerService customers) : ControllerBase
 {
     /// <summary>Customers in the caller's territory scope, by name (at most 1000 rows).</summary>
+    /// <param name="archived">Only archived customers (true), otherwise only customers that are not archived.</param>
     [HttpGet]
     [HasPermission(Permissions.Customers.Read)]
     public Task<IReadOnlyList<CustomerDto>> List(
         [FromQuery] CustomerType? type,
         [FromQuery] string? search,
-        CancellationToken cancellationToken) =>
-        customers.ListAsync(type, search, cancellationToken);
+        CancellationToken cancellationToken,
+        [FromQuery] bool archived = false) =>
+        customers.ListAsync(type, search, archived, cancellationToken);
+
+    /// <summary>Edit a pharmacy (doctors are edited through /api/doctors).</summary>
+    [HttpPut("{id:guid}")]
+    [HasPermission(Permissions.Customers.Manage)]
+    public Task<CustomerDto> Update(Guid id, UpdateCustomerRequest request, CancellationToken cancellationToken) =>
+        customers.UpdateAsync(id, request, cancellationToken);
+
+    /// <summary>Delete doctors and pharmacies: archived when visits or orders point at them, otherwise removed.</summary>
+    [HttpPost("bulk-delete")]
+    [HasPermission(Permissions.Customers.Delete)]
+    public Task<BulkResult> BulkDelete(BulkDeleteRequest request, CancellationToken cancellationToken) =>
+        customers.DeleteManyAsync(request, cancellationToken);
+
+    [HttpPost("bulk-restore")]
+    [HasPermission(Permissions.Customers.Restore)]
+    public Task<BulkResult> BulkRestore(BulkIdsRequest request, CancellationToken cancellationToken) =>
+        customers.RestoreManyAsync(request, cancellationToken);
 }
 
 /// <summary>
@@ -80,6 +100,12 @@ public sealed class DoctorsController(DoctorService doctors) : ControllerBase
         await doctors.RemoveFromMyListAsync(id, cancellationToken);
         return NoContent();
     }
+
+    /// <summary>Take doctors off your own list (they stay in the directory and on other reps' lists).</summary>
+    [HttpPost("my-list/bulk-remove")]
+    [HasPermission(Permissions.Customers.Create)]
+    public Task<BulkResult> RemoveManyFromMyList(BulkIdsRequest request, CancellationToken cancellationToken) =>
+        doctors.RemoveManyFromMyListAsync(request, cancellationToken);
 
     /// <summary>Copy or move doctors to a rep's list. Both reps must be in your customers:assign scope.</summary>
     [HttpPost("assign")]

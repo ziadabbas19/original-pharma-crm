@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { useMyRoleLevel } from '@/features/auth/usePermission'
@@ -42,6 +43,8 @@ export function DeleteRoleDialog({
   const queryClient = useQueryClient()
   const myLevel = useMyRoleLevel()
   const [targetId, setTargetId] = useState('')
+  const [typed, setTyped] = useState('')
+  const wordOk = ['delete', 'حذف'].includes(typed.trim().toLowerCase())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)
 
@@ -51,6 +54,7 @@ export function DeleteRoleDialog({
   const close = (value: boolean) => {
     if (!value) {
       setTargetId('')
+      setTyped('')
       setError(null)
     }
     onOpenChange(value)
@@ -121,6 +125,18 @@ export function DeleteRoleDialog({
           </div>
         )}
 
+        <div className="grid gap-2">
+          <Label htmlFor="delete-role-word">{t('confirm.typeToConfirm', { word: t('confirm.word') })}</Label>
+          <Input
+            id="delete-role-word"
+            autoComplete="off"
+            value={typed}
+            disabled={busy}
+            onChange={(e) => setTyped(e.target.value)}
+            aria-invalid={typed !== '' && !wordOk}
+          />
+        </div>
+
         <FormError error={error} />
 
         <DialogFooter>
@@ -129,7 +145,7 @@ export function DeleteRoleDialog({
           </Button>
           <Button
             variant="destructive"
-            disabled={busy || (needsMove && !targetId)}
+            disabled={busy || (needsMove && !targetId) || !wordOk}
             onClick={() => void confirm()}
           >
             {busy

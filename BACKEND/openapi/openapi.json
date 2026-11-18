@@ -49,6 +49,44 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "mine",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "productId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "feedbackCategory",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/VisitFeedbackCategory"
+            }
+          },
+          {
+            "name": "hasFeedback",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -274,17 +312,280 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/VisitDto"
+                  "$ref": "#/components/schemas/VisitDetailDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/VisitDto"
+                  "$ref": "#/components/schemas/VisitDetailDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/VisitDto"
+                  "$ref": "#/components/schemas/VisitDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/visits/{visitId}/content": {
+      "put": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsUpdateContent",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVisitContentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVisitContentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVisitContentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetailDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetailDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/visits/{visitId}/feedback/replies": {
+      "post": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsReply",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitReplyRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitReplyRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitReplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetailDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetailDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/visits/{visitId}/feedback/seen": {
+      "post": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsMarkFeedbackSeen",
+        "parameters": [
+          {
+            "name": "visitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetailDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetailDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/visits/bulk-delete": {
+      "post": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsBulkDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/visits/bulk-restore": {
+      "post": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsBulkRestore",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
                 }
               }
             }
@@ -939,6 +1240,56 @@
         }
       }
     },
+    "/api/tracking/monitor/devices/bulk-delete": {
+      "post": {
+        "tags": [
+          "TrackingMonitor"
+        ],
+        "operationId": "trackingMonitorDeleteDevices",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tracking/monitor/history/{userId}": {
       "get": {
         "tags": [
@@ -998,6 +1349,497 @@
                   "items": {
                     "$ref": "#/components/schemas/HistoryPointDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats/orders": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "operationId": "statsOrders",
+        "parameters": [
+          {
+            "name": "From",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "To",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "RepId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "AreaId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "LineId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ProductId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderStatsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderStatsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderStatsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats/visits": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "operationId": "statsVisits",
+        "parameters": [
+          {
+            "name": "From",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "To",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "RepId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "AreaId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "LineId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ProductId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitStatsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitStatsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitStatsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats/doctors": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "operationId": "statsDoctors",
+        "parameters": [
+          {
+            "name": "From",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "To",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "RepId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "AreaId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "LineId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ProductId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorStatsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorStatsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorStatsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats/reps": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "operationId": "statsReps",
+        "parameters": [
+          {
+            "name": "From",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "To",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "RepId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "AreaId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "LineId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ProductId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepStatsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepStatsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepStatsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats/catalog": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "operationId": "statsCatalog",
+        "parameters": [
+          {
+            "name": "From",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "To",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "RepId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "AreaId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "LineId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ProductId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogStatsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogStatsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogStatsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats/export": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "operationId": "statsExport",
+        "parameters": [
+          {
+            "name": "section",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/StatsSection"
+            }
+          },
+          {
+            "name": "table",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "From",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "To",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "RepId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "AreaId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "LineId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ProductId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
                 }
               }
             }
@@ -1085,6 +1927,20 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "Delivery",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/DeliveryStatus"
+            }
+          },
+          {
+            "name": "Archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -1249,6 +2105,20 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "Delivery",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/DeliveryStatus"
+            }
+          },
+          {
+            "name": "Archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -1543,6 +2413,167 @@
         }
       }
     },
+    "/api/orders/{id}/deliver": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "ordersDeliver",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderStatusRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderStatusRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders/bulk-delete": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "ordersBulkDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders/bulk-restore": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "ordersBulkRestore",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orders/{id}/cancel": {
       "post": {
         "tags": [
@@ -1604,6 +2635,223 @@
         }
       }
     },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "notificationsList",
+        "parameters": [
+          {
+            "name": "unreadOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/unread-count": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "notificationsUnreadCount",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationCountDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationCountDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationCountDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/read": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "notificationsMarkRead",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/read-all": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "notificationsMarkAllRead",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationCountDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationCountDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationCountDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/bulk-delete": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "operationId": "notificationsBulkDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/lookups/towns": {
       "get": {
         "tags": [
@@ -1655,6 +2903,14 @@
             "in": "query",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -1800,6 +3056,106 @@
         }
       }
     },
+    "/api/lookups/specialties/bulk-delete": {
+      "post": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "lookupsDeleteSpecialties",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lookups/specialties/bulk-restore": {
+      "post": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "lookupsRestoreSpecialties",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/lookups/collection-methods": {
       "get": {
         "tags": [
@@ -1812,6 +3168,14 @@
             "in": "query",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -1889,6 +3253,106 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LookupDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lookups/collection-methods/bulk-delete": {
+      "post": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "lookupsDeleteCollectionMethods",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lookups/collection-methods/bulk-restore": {
+      "post": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "lookupsRestoreCollectionMethods",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
                 }
               }
             }
@@ -2346,6 +3810,56 @@
         }
       }
     },
+    "/api/roles/bulk-delete": {
+      "post": {
+        "tags": [
+          "Roles"
+        ],
+        "operationId": "rolesBulkDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/roles/{roleId}/reassign": {
       "post": {
         "tags": [
@@ -2472,6 +3986,16 @@
           "Users"
         ],
         "operationId": "usersList",
+        "parameters": [
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -2546,6 +4070,106 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CreatedUserDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/bulk-delete": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "usersBulkDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/bulk-restore": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "usersBulkRestore",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
                 }
               }
             }
@@ -2976,6 +4600,16 @@
           "Territories"
         ],
         "operationId": "territoriesList",
+        "parameters": [
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -3050,6 +4684,106 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TerritoryDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/territories/bulk-delete": {
+      "post": {
+        "tags": [
+          "Territories"
+        ],
+        "operationId": "territoriesBulkDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/territories/bulk-restore": {
+      "post": {
+        "tags": [
+          "Territories"
+        ],
+        "operationId": "territoriesBulkRestore",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
                 }
               }
             }
@@ -3486,6 +5220,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -3514,6 +5256,167 @@
                   "items": {
                     "$ref": "#/components/schemas/CustomerDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/customers/{id}": {
+      "put": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customersUpdate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomerRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomerRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/customers/bulk-delete": {
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customersBulkDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/customers/bulk-restore": {
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customersBulkRestore",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
                 }
               }
             }
@@ -3583,6 +5486,13 @@
           },
           {
             "name": "IncludeInactive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "Archived",
             "in": "query",
             "schema": {
               "type": "boolean"
@@ -3897,6 +5807,56 @@
         }
       }
     },
+    "/api/doctors/my-list/bulk-remove": {
+      "post": {
+        "tags": [
+          "Doctors"
+        ],
+        "operationId": "doctorsRemoveManyFromMyList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/doctors/assign": {
       "post": {
         "tags": [
@@ -4104,6 +6064,56 @@
         }
       }
     },
+    "/api/product-lines/bulk-delete": {
+      "post": {
+        "tags": [
+          "ProductLines"
+        ],
+        "operationId": "productLinesBulkDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/products": {
       "get": {
         "tags": [
@@ -4131,6 +6141,22 @@
             "in": "query",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "unassigned",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -4208,6 +6234,156 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/move-to-line": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productsMoveToLine",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveProductsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveProductsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveProductsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/bulk-delete": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productsBulkDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/bulk-restore": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productsBulkRestore",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkIdsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResult"
                 }
               }
             }
@@ -4370,6 +6546,77 @@
           }
         }
       }
+    },
+    "/api/audit": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "operationId": "auditList",
+        "parameters": [
+          {
+            "name": "EntityType",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "EntityId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Action",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AuditAction"
+            }
+          },
+          {
+            "name": "Limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEntryDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEntryDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEntryDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4437,6 +6684,72 @@
           "copy",
           "move"
         ]
+      },
+      "AuditAction": {
+        "enum": [
+          "created",
+          "updated",
+          "deleted",
+          "archived",
+          "restored",
+          "moved",
+          "bulkDelete",
+          "bulkRestore"
+        ]
+      },
+      "AuditEntryDto": {
+        "required": [
+          "id",
+          "entityType",
+          "entityId",
+          "action",
+          "actorId",
+          "actorName",
+          "count",
+          "details",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "action": {
+            "$ref": "#/components/schemas/AuditAction"
+          },
+          "actorId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "actorName": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "details": {
+            "$ref": "#/components/schemas/JsonElement"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "AuthResponse": {
         "required": [
@@ -4507,6 +6820,156 @@
         "properties": {
           "deviceId": {
             "type": "string"
+          }
+        }
+      },
+      "BulkDeleteRequest": {
+        "required": [
+          "ids"
+        ],
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "BulkIdsRequest": {
+        "required": [
+          "ids"
+        ],
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "BulkItemResult": {
+        "required": [
+          "id",
+          "outcome"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/BulkOutcome"
+          },
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "usageCount": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          }
+        }
+      },
+      "BulkOutcome": {
+        "enum": [
+          "deleted",
+          "archived",
+          "restored",
+          "updated",
+          "blocked"
+        ]
+      },
+      "BulkResult": {
+        "required": [
+          "deleted",
+          "archived",
+          "restored",
+          "updated",
+          "blocked",
+          "dryRun",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "archived": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "restored": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "updated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "blocked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dryRun": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkItemResult"
+            }
+          }
+        }
+      },
+      "CatalogStatsDto": {
+        "required": [
+          "range",
+          "lowStockThreshold",
+          "productsPerLine",
+          "lowStock",
+          "activeUsersByRole"
+        ],
+        "type": "object",
+        "properties": {
+          "range": {
+            "$ref": "#/components/schemas/StatsRange"
+          },
+          "lowStockThreshold": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "productsPerLine": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "lowStock": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "activeUsersByRole": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
           }
         }
       },
@@ -5001,6 +7464,30 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "phone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "usageCount": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -5008,6 +7495,13 @@
         "enum": [
           "doctor",
           "pharmacy"
+        ]
+      },
+      "DeliveryStatus": {
+        "enum": [
+          "notDelivered",
+          "delivered",
+          null
         ]
       },
       "DeviceDto": {
@@ -5375,6 +7869,13 @@
           },
           "outsideMyArea": {
             "type": "boolean"
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -5395,6 +7896,60 @@
           },
           "outsideArea": {
             "type": "boolean"
+          }
+        }
+      },
+      "DoctorStatsDto": {
+        "required": [
+          "range",
+          "onLists",
+          "covered",
+          "notCovered",
+          "byRep",
+          "byTown",
+          "bySpecialty",
+          "notVisited"
+        ],
+        "type": "object",
+        "properties": {
+          "range": {
+            "$ref": "#/components/schemas/StatsRange"
+          },
+          "onLists": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "covered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notCovered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "byRep": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "byTown": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "bySpecialty": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "notVisited": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
           }
         }
       },
@@ -5775,6 +8330,18 @@
           "sortOrder": {
             "type": "integer",
             "format": "int32"
+          },
+          "usageCount": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -5808,6 +8375,82 @@
           }
         }
       },
+      "MoveProductsRequest": {
+        "required": [
+          "productIds",
+          "productLineId"
+        ],
+        "type": "object",
+        "properties": {
+          "productIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "productLineId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "NotificationCountDto": {
+        "required": [
+          "unread"
+        ],
+        "type": "object",
+        "properties": {
+          "unread": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "NotificationDto": {
+        "required": [
+          "id",
+          "type",
+          "entityId",
+          "data",
+          "createdAt",
+          "readAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/NotificationType"
+          },
+          "entityId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "data": {
+            "$ref": "#/components/schemas/JsonElement"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "NotificationPermissionState": {
         "enum": [
           "unknown",
@@ -5815,6 +8458,16 @@
           "denied",
           "prompt",
           "notRequired"
+        ]
+      },
+      "NotificationType": {
+        "enum": [
+          "orderApproved",
+          "orderRejected",
+          "orderCancelled",
+          "orderDelivered",
+          "visitFeedback",
+          "visitFeedbackReply"
         ]
       },
       "OrderDto": {
@@ -5992,6 +8645,59 @@
           },
           "canReview": {
             "type": "boolean"
+          },
+          "canDeliver": {
+            "type": "boolean",
+            "default": false
+          },
+          "decidedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "decidedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "delivery": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeliveryStatus"
+              }
+            ]
+          },
+          "deliveredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "deliveredByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deliveryNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -6001,7 +8707,10 @@
           "edited",
           "approved",
           "rejected",
-          "cancelled"
+          "cancelled",
+          "delivered",
+          "archived",
+          "restored"
         ]
       },
       "OrderHistoryDto": {
@@ -6043,6 +8752,12 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "internalNote": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -6234,6 +8949,156 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "discountTotal": {
+            "type": "number",
+            "format": "double",
+            "default": 0
+          },
+          "delivery": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeliveryStatus"
+              }
+            ]
+          },
+          "decidedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "decidedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "statusReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deliveredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "OrderStatsDto": {
+        "required": [
+          "range",
+          "orderCount",
+          "orderValue",
+          "averageOrderValue",
+          "discountTotal",
+          "delivered",
+          "notDelivered",
+          "deliveredValue",
+          "byStatus",
+          "trend",
+          "topProducts",
+          "topLines",
+          "byRep",
+          "byArea",
+          "byPlaceType",
+          "byCollectionMethod"
+        ],
+        "type": "object",
+        "properties": {
+          "range": {
+            "$ref": "#/components/schemas/StatsRange"
+          },
+          "orderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "orderValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "averageOrderValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "discountTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "delivered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notDelivered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "deliveredValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "byStatus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendPoint"
+            }
+          },
+          "topProducts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "topLines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "byRep": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "byArea": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "byPlaceType": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "byCollectionMethod": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
           }
         }
       },
@@ -6249,6 +9114,12 @@
         "type": "object",
         "properties": {
           "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "internalNote": {
             "type": [
               "null",
               "string"
@@ -6441,14 +9312,23 @@
             "format": "uuid"
           },
           "productLineId": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "lineNameAr": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "lineNameEn": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "nameAr": {
             "type": "string"
@@ -6491,6 +9371,60 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "defaultDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "maxDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "lineDefaultDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "lineMaxDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "effectiveDefaultDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "effectiveMaxDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "usageCount": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -6527,6 +9461,25 @@
           "productCount": {
             "type": "integer",
             "format": "int32"
+          },
+          "defaultDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "maxDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "repCount": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
           }
         }
       },
@@ -6604,6 +9557,32 @@
           }
         }
       },
+      "RepDayRow": {
+        "required": [
+          "repId",
+          "repName",
+          "date",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "repId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repName": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "RepPresenceDto": {
         "required": [
           "userId",
@@ -6678,6 +9657,70 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "RepRankRow": {
+        "required": [
+          "repId",
+          "name",
+          "orders",
+          "orderValue",
+          "visits",
+          "doctorsCovered",
+          "trackingHours",
+          "activeDays"
+        ],
+        "type": "object",
+        "properties": {
+          "repId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "orders": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "orderValue": {
+            "type": "number",
+            "format": "double"
+          },
+          "visits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "doctorsCovered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "trackingHours": {
+            "type": "number",
+            "format": "double"
+          },
+          "activeDays": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RepStatsDto": {
+        "required": [
+          "range",
+          "reps"
+        ],
+        "type": "object",
+        "properties": {
+          "range": {
+            "$ref": "#/components/schemas/StatsRange"
+          },
+          "reps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepRankRow"
+            }
           }
         }
       },
@@ -6931,6 +9974,20 @@
           "isActive": {
             "type": "boolean",
             "default": true
+          },
+          "defaultDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "maxDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
           }
         }
       },
@@ -6946,7 +10003,10 @@
         "type": "object",
         "properties": {
           "productLineId": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "nameAr": {
@@ -6972,6 +10032,20 @@
           "isActive": {
             "type": "boolean",
             "default": true
+          },
+          "defaultDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "maxDiscountPercent": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
           }
         }
       },
@@ -7150,6 +10224,73 @@
           }
         }
       },
+      "StatRow": {
+        "required": [
+          "key",
+          "name",
+          "nameAr",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "value": {
+            "type": "number",
+            "format": "double",
+            "default": 0
+          },
+          "quantity": {
+            "type": "number",
+            "format": "double",
+            "default": 0
+          }
+        }
+      },
+      "StatsRange": {
+        "required": [
+          "from",
+          "to",
+          "scope"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/PermissionScope"
+          }
+        }
+      },
+      "StatsSection": {
+        "enum": [
+          "orders",
+          "visits",
+          "doctors",
+          "reps",
+          "catalog"
+        ]
+      },
       "StockWarningDto": {
         "required": [
           "productId",
@@ -7238,6 +10379,18 @@
           "childCount": {
             "type": "integer",
             "format": "int32"
+          },
+          "usageCount": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -7468,6 +10621,96 @@
           "visitOutsideGeofence"
         ]
       },
+      "TrendPoint": {
+        "required": [
+          "date",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "value": {
+            "type": "number",
+            "format": "double",
+            "default": 0
+          }
+        }
+      },
+      "UpdateCustomerRequest": {
+        "required": [
+          "name",
+          "nameAr",
+          "address",
+          "territoryId"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "territoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "phone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "lng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "geofenceRadiusMeters": {
+            "type": "integer",
+            "format": "int32",
+            "default": 150
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
       "UpdateDoctorRequest": {
         "required": [
           "name",
@@ -7662,12 +10905,49 @@
           }
         }
       },
+      "UpdateVisitContentRequest": {
+        "required": [
+          "feedback",
+          "products"
+        ],
+        "type": "object",
+        "properties": {
+          "feedback": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VisitFeedbackInput"
+              }
+            ]
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitProductInput"
+            }
+          },
+          "clientUpdatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "UserAuditAction": {
         "enum": [
           "created",
           "passwordChanged",
           "passwordReset",
-          "productLinesChanged"
+          "productLinesChanged",
+          "updated",
+          "archived",
+          "restored",
+          "deleted",
+          "rolesChanged"
         ]
       },
       "UserAuditEntryDto": {
@@ -7785,6 +11065,13 @@
           "mustChangePassword": {
             "type": "boolean",
             "default": false
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -7848,6 +11135,161 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "VisitDetailDto": {
+        "required": [
+          "id",
+          "userId",
+          "repName",
+          "customerId",
+          "customerName",
+          "customerNameAr",
+          "customerType",
+          "status",
+          "checkInAt",
+          "checkOutAt",
+          "checkInDistanceMeters",
+          "checkInWithinGeofence",
+          "checkOutDistanceMeters",
+          "checkOutWithinGeofence",
+          "qrVerified",
+          "needsReview",
+          "notes",
+          "photoCount",
+          "feedback",
+          "replies",
+          "products",
+          "canEditContent",
+          "contentEditableUntil",
+          "canReply",
+          "canMarkSeen",
+          "archivedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repName": {
+            "type": "string"
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "customerNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "customerType": {
+            "$ref": "#/components/schemas/CustomerType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/VisitStatus"
+          },
+          "checkInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checkOutAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "checkInDistanceMeters": {
+            "type": "number",
+            "format": "double"
+          },
+          "checkInWithinGeofence": {
+            "type": "boolean"
+          },
+          "checkOutDistanceMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "checkOutWithinGeofence": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "qrVerified": {
+            "type": "boolean"
+          },
+          "needsReview": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "photoCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "feedback": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VisitFeedbackDto"
+              }
+            ]
+          },
+          "replies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitReplyDto"
+            }
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitProductDto"
+            }
+          },
+          "canEditContent": {
+            "type": "boolean"
+          },
+          "contentEditableUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "canReply": {
+            "type": "boolean"
+          },
+          "canMarkSeen": {
+            "type": "boolean"
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -7933,6 +11375,96 @@
             "items": {
               "$ref": "#/components/schemas/VisitPhotoDto"
             }
+          }
+        }
+      },
+      "VisitFeedbackCategory": {
+        "enum": [
+          "positive",
+          "needsFollowUp",
+          "complaint",
+          "request",
+          null
+        ]
+      },
+      "VisitFeedbackDto": {
+        "required": [
+          "text",
+          "category",
+          "createdAt",
+          "updatedAt",
+          "seenBy"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "category": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VisitFeedbackCategory"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "seenBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitFeedbackSeenDto"
+            }
+          }
+        }
+      },
+      "VisitFeedbackInput": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "category": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VisitFeedbackCategory"
+              }
+            ]
+          }
+        }
+      },
+      "VisitFeedbackSeenDto": {
+        "required": [
+          "userId",
+          "userName",
+          "seenAt"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "seenAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -8028,6 +11560,37 @@
           "photoCount": {
             "type": "integer",
             "format": "int32"
+          },
+          "hasFeedback": {
+            "type": "boolean",
+            "default": false
+          },
+          "feedbackCategory": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VisitFeedbackCategory"
+              }
+            ]
+          },
+          "productCount": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "replyCount": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "archivedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -8054,6 +11617,188 @@
           "uploadedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "VisitProductDto": {
+        "required": [
+          "productId",
+          "nameAr",
+          "nameEn",
+          "thumbnailUrl",
+          "productLineId",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nameAr": {
+            "type": "string"
+          },
+          "nameEn": {
+            "type": "string"
+          },
+          "thumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "productLineId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "VisitProductInput": {
+        "required": [
+          "productId"
+        ],
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "VisitReplyDto": {
+        "required": [
+          "id",
+          "authorId",
+          "authorName",
+          "text",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VisitReplyRequest": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "VisitStatsDto": {
+        "required": [
+          "range",
+          "visitCount",
+          "verified",
+          "unverified",
+          "completed",
+          "averagePerRepDay",
+          "doctorsOnList",
+          "doctorsCovered",
+          "trend",
+          "perRepPerDay",
+          "byRep",
+          "productsDiscussed",
+          "feedbackByCategory"
+        ],
+        "type": "object",
+        "properties": {
+          "range": {
+            "$ref": "#/components/schemas/StatsRange"
+          },
+          "visitCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "verified": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unverified": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "averagePerRepDay": {
+            "type": "number",
+            "format": "double"
+          },
+          "doctorsOnList": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "doctorsCovered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendPoint"
+            }
+          },
+          "perRepPerDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepDayRow"
+            }
+          },
+          "byRep": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "productsDiscussed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
+          },
+          "feedbackByCategory": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatRow"
+            }
           }
         }
       },
@@ -8090,7 +11835,13 @@
       "name": "TrackingMonitor"
     },
     {
+      "name": "Stats"
+    },
+    {
       "name": "Orders"
+    },
+    {
+      "name": "Notifications"
     },
     {
       "name": "Lookups"
@@ -8124,6 +11875,9 @@
     },
     {
       "name": "Products"
+    },
+    {
+      "name": "Audit"
     }
   ]
 }

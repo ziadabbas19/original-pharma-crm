@@ -6,6 +6,7 @@ using OriginalPharma.Application;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Orders;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Infrastructure.Files;
@@ -169,8 +170,24 @@ public sealed class PostgresFixture : IAsyncLifetime
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IImageProcessor, SkiaImageProcessor>();
         services.AddScoped<IOrderNumberGenerator, OrderNumberGenerator>();
+        services.AddSingleton<RecordingNotificationPublisher>();
+        services.AddSingleton<INotificationPublisher>(sp => sp.GetRequiredService<RecordingNotificationPublisher>());
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    }
+}
+
+/// <summary>Collects what would have been pushed to connected apps, per recipient.</summary>
+public sealed class RecordingNotificationPublisher : INotificationPublisher
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(Guid UserId, NotificationDto Notification)> _sent = new();
+
+    public IReadOnlyList<(Guid UserId, NotificationDto Notification)> Sent => [.. _sent];
+
+    public Task PublishAsync(Guid userId, NotificationDto notification, CancellationToken cancellationToken = default)
+    {
+        _sent.Enqueue((userId, notification));
+        return Task.CompletedTask;
     }
 }
 
@@ -276,6 +293,9 @@ public sealed class TestDatabase : IAsyncDisposable
         await using var scope = _services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<IPermissionService>().GetEffectivePermissionsAsync(userId, Ct);
     }
+
+    /// <summary>Notifications pushed live during this test (the in-app rows are in the database).</summary>
+    public RecordingNotificationPublisher Published => _services.GetRequiredService<RecordingNotificationPublisher>();
 
     public async Task SeedAgainAsync()
     {

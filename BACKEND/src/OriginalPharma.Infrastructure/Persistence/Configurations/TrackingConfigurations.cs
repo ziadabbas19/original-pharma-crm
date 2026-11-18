@@ -21,6 +21,7 @@ internal sealed class ShiftConfiguration : IEntityTypeConfiguration<Shift>
         builder.Property(s => s.IntegrityVerdict).HasMaxLength(256);
         builder.HasIndex(s => new { s.UserId, s.Status });
         builder.HasIndex(s => new { s.Status, s.LastPointAt });
+        builder.HasIndex(s => new { s.UserId, s.StartedAt });
     }
 }
 

@@ -1,8 +1,18 @@
-import { AlertTriangleIcon, ArrowRightLeftIcon, PencilIcon, StethoscopeIcon } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { AlertTriangleIcon, ArrowRightLeftIcon, PencilIcon, StethoscopeIcon, Trash2Icon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useDoctorsList, useUsersList } from '@/api/generated/endpoints'
+import {
+  customersBulkDelete,
+  customersBulkRestore,
+  useDoctorsList,
+  useUsersList,
+} from '@/api/generated/endpoints'
 import type { DoctorDto } from '@/api/generated/model'
+import { ArchivedBadge, ArchivedToggle, RestoreSelectedButton } from '@/components/bulk/ArchiveControls'
+import { BulkDeleteDialog } from '@/components/bulk/BulkDeleteDialog'
+import { useBulkRunner, useDeleteTarget } from '@/components/bulk/use-bulk-delete'
+import { useSelection } from '@/components/bulk/use-selection'
 import { DataTable } from '@/components/data-table/DataTable'
 import { dataTableColumns } from '@/components/data-table/features'
 import { FilterField, SearchInput, ToolbarSpacer } from '@/components/data-table/toolbar'
@@ -21,7 +31,7 @@ import { SpecialtySelect, TownSelect } from './doctor-fields'
 import { DoctorEditDialog } from './DoctorEditDialog'
 
 const column = dataTableColumns<DoctorDto>()
-const NONE: string[] = []
+const doctorId = (d: DoctorDto) => d.id
 
 /** Dashboard doctor lists: who covers which doctor, with filters and assign / transfer. */
 export function DoctorsPage() {
@@ -29,13 +39,16 @@ export function DoctorsPage() {
   const canAssign = usePermission(P.customers.assign)
   const canEdit = usePermission(P.customers.manage)
   const canReadUsers = usePermission(P.users.read)
+  const canDelete = usePermission(P.customers.delete)
+  const canRestore = usePermission(P.customers.restore)
+  const queryClient = useQueryClient()
+  const [archived, setArchived] = useState(false)
   const [search, setSearch] = useState('')
   const [repId, setRepId] = useState('')
   const [areaId, setAreaId] = useState('')
   const [townId, setTownId] = useState('')
   const [specialtyId, setSpecialtyId] = useState('')
   const [unassigned, setUnassigned] = useState(false)
-  const [selected, setSelected] = useState<string[]>(NONE)
   const [assigning, setAssigning] = useState(false)
   const [editing, setEditing] = useState<DoctorDto | null>(null)
   const term = useDebouncedValue(search.trim(), 300)
@@ -48,9 +61,10 @@ export function DoctorsPage() {
     Search: term || undefined,
     Unassigned: unassigned || undefined,
     IncludeInactive: true,
+    Archived: archived || undefined,
   }
   const doctors = useDoctorsList(params)
-  const users = useUsersList({ query: { enabled: canReadUsers } })
+  const users = useUsersList(undefined, { query: { enabled: canReadUsers } })
   const { towns, specialties } = useDoctorReferenceData()
 
   const areas = useMemo(() => {
@@ -70,10 +84,13 @@ export function DoctorsPage() {
     return [...seen.values()].toSorted((a, b) => a.name.localeCompare(b.name))
   }, [users.data, doctors.data])
 
-  const visibleIds = useMemo(() => new Set((doctors.data ?? []).map((d) => d.id)), [doctors.data])
-  const selection = selected.filter((id) => visibleIds.has(id))
-  const toggle = (id: string, on: boolean) =>
-    setSelected((current) => (on ? [...new Set([...current, id])] : current.filter((x) => x !== id)))
+  const selection = useSelection(doctors.data, doctorId)
+  const target = useDeleteTarget()
+  const bulk = useBulkRunner(customersBulkDelete, ['/api/doctors', '/api/customers'], selection)
+  const nameOf = (id: string) => {
+    const d = doctors.data?.find((x) => x.id === id)
+    return d ? localizedName(d.name, d.nameAr) : id
+  }
 
   const isFiltered =
     search !== '' || repId !== '' || areaId !== '' || townId !== '' || specialtyId !== '' || unassigned
@@ -89,37 +106,22 @@ export function DoctorsPage() {
   const columns = useMemo(
     () =>
       column.columns([
-        ...(canAssign
-          ? [
-              column.display({
-                id: 'select',
-                header: () => (
-                  <Checkbox
-                    aria-label={t('doctors.selectAll')}
-                    checked={visibleIds.size > 0 && selection.length === visibleIds.size}
-                    onCheckedChange={(v) => setSelected(v === true ? [...visibleIds] : NONE)}
-                  />
-                ),
-                cell: ({ row }) => (
-                  <Checkbox
-                    aria-label={t('doctors.select', { name: row.original.name })}
-                    checked={selection.includes(row.original.id)}
-                    onCheckedChange={(v) => toggle(row.original.id, v === true)}
-                  />
-                ),
-              }),
-            ]
-          : []),
         column.accessor((d) => localizedName(d.name, d.nameAr), {
           id: 'name',
           header: () => t('doctors.name'),
           cell: ({ row }) => (
             <div>
               <span className="font-medium">{localizedName(row.original.name, row.original.nameAr)}</span>
-              {!row.original.isActive && (
-                <Badge variant="outline" className="ms-2">
-                  {t('users.inactive')}
-                </Badge>
+              {row.original.archivedAt ? (
+                <span className="ms-2">
+                  <ArchivedBadge />
+                </span>
+              ) : (
+                !row.original.isActive && (
+                  <Badge variant="outline" className="ms-2">
+                    {t('users.inactive')}
+                  </Badge>
+                )
               )}
               {row.original.phone && (
                 <div className="text-xs text-muted-foreground" dir="ltr">
@@ -132,11 +134,12 @@ export function DoctorsPage() {
         column.accessor((d) => localizedName(d.specialtyNameEn, d.specialtyNameAr), {
           id: 'specialty',
           header: () => t('doctors.specialty'),
-          meta: { className: 'hidden md:table-cell' },
+          meta: { className: 'hidden @[53rem]:table-cell' },
         }),
         column.accessor((d) => localizedName(d.townName, d.townNameAr), {
           id: 'town',
           header: () => t('doctors.town'),
+          meta: { className: 'hidden @[41rem]:table-cell' },
         }),
         column.accessor((d) => d.reps.length, {
           id: 'reps',
@@ -158,45 +161,49 @@ export function DoctorsPage() {
                 ))}
               </div>
             ),
+          meta: { className: 'hidden @[33rem]:table-cell' },
         }),
-        ...(canEdit
+        ...((canEdit || canDelete) && !archived
           ? [
               column.display({
                 id: 'actions',
                 header: () => <span className="sr-only">{t('table.actions')}</span>,
                 cell: ({ row }) => (
-                  <div className="flex justify-end">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={t('doctors.edit')}
-                      onClick={() => setEditing(row.original)}
-                    >
-                      <PencilIcon />
-                    </Button>
+                  <div className="flex justify-end gap-1">
+                    {canEdit && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={t('doctors.edit')}
+                        onClick={() => setEditing(row.original)}
+                      >
+                        <PencilIcon />
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        aria-label={t('common.delete')}
+                        title={t('common.delete')}
+                        onClick={() => target.open([row.original.id])}
+                      >
+                        <Trash2Icon />
+                      </Button>
+                    )}
                   </div>
                 ),
               }),
             ]
           : []),
       ]),
-    [t, canAssign, canEdit, selection, visibleIds],
+    [t, canEdit, canDelete, archived, target],
   )
 
   return (
     <>
-      <PageHeader
-        title={t('doctors.title')}
-        description={t('doctors.hint')}
-        actions={
-          canAssign && (
-            <Button onClick={() => setAssigning(true)} disabled={selection.length === 0}>
-              <ArrowRightLeftIcon />
-              {t('doctors.assign.action', { value: formatNumber(selection.length) })}
-            </Button>
-          )
-        }
-      />
+      <PageHeader title={t('doctors.title')} description={t('doctors.hint')} />
       <DataTable
         columns={columns}
         data={doctors.data}
@@ -207,7 +214,37 @@ export function DoctorsPage() {
         initialSorting={[{ id: 'name', desc: false }]}
         filtered={isFiltered}
         onClearFilters={clear}
-        empty={{ icon: StethoscopeIcon, title: t('doctors.empty') }}
+        empty={{ icon: StethoscopeIcon, title: archived ? t('archive.empty') : t('doctors.empty') }}
+        selection={(archived ? canRestore : canAssign || canDelete) ? selection : undefined}
+        rowLabel={(d) => localizedName(d.name, d.nameAr)}
+        bulkActions={
+          archived ? (
+            <RestoreSelectedButton
+              selection={selection}
+              nameOf={nameOf}
+              run={(ids) => customersBulkRestore({ ids })}
+              onDone={() => {
+                void queryClient.invalidateQueries({ queryKey: ['/api/doctors'] })
+                void queryClient.invalidateQueries({ queryKey: ['/api/customers'] })
+              }}
+            />
+          ) : (
+            <>
+              {canAssign && (
+                <Button size="sm" variant="outline" onClick={() => setAssigning(true)}>
+                  <ArrowRightLeftIcon />
+                  {t('doctors.assign.action', { value: formatNumber(selection.count) })}
+                </Button>
+              )}
+              {canDelete && (
+                <Button size="sm" variant="destructive" onClick={() => target.open(selection.ids)}>
+                  <Trash2Icon />
+                  {t('bulk.deleteSelected')}
+                </Button>
+              )}
+            </>
+          )
+        }
         footer={doctors.data && doctors.data.length >= 1000 ? t('doctors.capped') : undefined}
         toolbar={
           <>
@@ -275,16 +312,35 @@ export function DoctorsPage() {
               {t('doctors.onlyUnassigned')}
             </label>
             <ToolbarSpacer />
+            {(canDelete || canRestore) && (
+              <ArchivedToggle
+                archived={archived}
+                onChange={(value) => {
+                  selection.clear()
+                  setArchived(value)
+                }}
+              />
+            )}
           </>
         }
       />
       {assigning && (
         <AssignDoctorsDialog
-          doctorIds={selection}
+          doctorIds={selection.ids}
           reps={reps}
           fromRepId={repId || undefined}
           onClose={() => setAssigning(false)}
-          onDone={() => setSelected(NONE)}
+          onDone={selection.clear}
+        />
+      )}
+      {target.ids && (
+        <BulkDeleteDialog
+          ids={target.ids}
+          nameOf={nameOf}
+          consequence={t('customers.deleteConsequence')}
+          run={bulk.run}
+          onDone={bulk.onDone}
+          onClose={target.close}
         />
       )}
       {editing && <DoctorEditDialog key={editing.id} doctor={editing} onClose={() => setEditing(null)} />}

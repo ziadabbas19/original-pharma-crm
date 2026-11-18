@@ -9,6 +9,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { UserAvatar } from '@/components/UserAvatar'
+import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { ProfileDialog } from '@/features/profile/ProfileDialog'
 import { roleName } from '@/features/roles/role-rules'
 import { useLiveTracking } from '@/features/tracking/useLiveTracking'
@@ -122,6 +123,7 @@ export function AdminLayout() {
           </Button>
           <div className="hidden flex-1 md:block" />
           <LiveConnectionIndicator />
+          <NotificationBell to="/admin/notifications" />
           <ThemeSwitcher compact className="hidden sm:inline-flex" />
           <LanguageSwitcher />
           <UserChip />

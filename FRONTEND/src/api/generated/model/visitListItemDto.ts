@@ -3,6 +3,7 @@
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
 import type { CustomerType } from './customerType'
+import type { VisitFeedbackCategory } from './visitFeedbackCategory'
 import type { VisitStatus } from './visitStatus'
 
 export interface VisitListItemDto {
@@ -27,4 +28,10 @@ export interface VisitListItemDto {
   qrVerified: boolean
   needsReview: boolean
   photoCount: number
+  hasFeedback?: boolean
+  feedbackCategory?: null | VisitFeedbackCategory
+  productCount?: number
+  replyCount?: number
+  /** @nullable */
+  archivedAt?: string | null
 }

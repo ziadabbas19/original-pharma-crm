@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Common.Auditing;
+using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Tracking;
 
 namespace OriginalPharma.Application.Tracking;
@@ -14,6 +17,7 @@ public sealed class TrackingQueryService(
     IDataScopeResolver scopeResolver,
     ILatestPositionStore latestPositions,
     IOptions<TrackingOptions> options,
+    AuditTrail audit,
     TimeProvider time)
 {
     private const int MaxHistoryPoints = 5000;
@@ -132,6 +136,52 @@ public sealed class TrackingQueryService(
                 d.LastReportedAt,
                 db.TrackingFlags.Count(f => f.UserId == d.UserId && f.Status == TrackingFlagStatus.Open)))
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Removes device records (devices:delete within scope), e.g. a lost or replaced phone, with their
+    /// health history. Shifts, points and visits keep the device id as plain text, so nothing else changes.
+    /// The phone registers again by itself if it is still in use.
+    /// </summary>
+    public async Task<BulkResult> DeleteDevicesAsync(BulkDeleteRequest request, CancellationToken cancellationToken = default)
+    {
+        var scope = await scopeResolver.ResolveAsync(Permissions.Devices.Delete, cancellationToken);
+        var ids = request.Ids.Distinct().ToArray();
+        var devices = await db.Devices.Where(d => ids.Contains(d.Id)).ToDictionaryAsync(d => d.Id, cancellationToken);
+        var results = new List<BulkItemResult>();
+        foreach (var id in ids)
+        {
+            if (!devices.TryGetValue(id, out var device))
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.NotFound));
+                continue;
+            }
+
+            if (!scope.Includes(device.UserId, device.TerritoryId))
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.OutOfScope));
+                continue;
+            }
+
+            results.Add(new BulkItemResult(id, BulkOutcome.Deleted));
+            if (request.DryRun)
+            {
+                continue;
+            }
+
+            db.Devices.Remove(device);
+            await audit.AddAsync(AuditEntities.Device, id, AuditAction.Deleted,
+                new { device.UserId, device.DeviceId, device.Platform, device.Health.Manufacturer, device.Health.Model }, cancellationToken: cancellationToken);
+        }
+
+        var result = BulkResult.From(results, request.DryRun);
+        if (!request.DryRun && result.Done > 0)
+        {
+            await audit.AddBulkAsync(AuditEntities.Device, AuditAction.BulkDelete, result, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return result;
     }
 
     public async Task<TrackingFlagDto> ReviewFlagAsync(Guid flagId, ReviewFlagRequest request, CancellationToken cancellationToken = default)

@@ -31,4 +31,6 @@ export interface DoctorDto {
   reps: DoctorRepDto[]
   onMyList: boolean
   outsideMyArea: boolean
+  /** @nullable */
+  archivedAt?: string | null
 }

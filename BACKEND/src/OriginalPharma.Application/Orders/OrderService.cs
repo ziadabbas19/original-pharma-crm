@@ -1,11 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using OriginalPharma.Application.Catalog;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Common.Auditing;
+using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Notifications;
+using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Catalog;
+using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Orders;
 
 namespace OriginalPharma.Application.Orders;
@@ -13,7 +18,9 @@ namespace OriginalPharma.Application.Orders;
 /// <summary>
 /// Sales orders. Reps take orders (orders:create) and may edit or cancel their own while they
 /// are submitted; orders:manage approves, rejects, cancels and edits other people's orders
-/// inside its scope. Reading follows the orders:read scope like visits. Totals are computed here.
+/// inside its scope, orders:deliver marks approved orders delivered. Reading follows the
+/// orders:read scope like visits. Totals are computed here. Every decision and the delivery
+/// notify the rep (in-app, and live when the rep's app is connected).
 /// </summary>
 public sealed class OrderService(
     IAppDbContext db,
@@ -22,6 +29,8 @@ public sealed class OrderService(
     IPermissionService permissions,
     ProductAccess productAccess,
     IOrderNumberGenerator numbers,
+    NotificationService notifications,
+    AuditTrail audit,
     TimeProvider time)
 {
     public const int MaxListRows = 1000;
@@ -92,6 +101,11 @@ public sealed class OrderService(
 
         if (!rights.CanEdit)
         {
+            if (order.ArchivedAt is not null)
+            {
+                throw ArchivedError();
+            }
+
             throw order.Status != OrderStatus.Submitted ? StatusInvalid(order.Status) : new ForbiddenException("You cannot edit this order.");
         }
 
@@ -115,7 +129,7 @@ public sealed class OrderService(
     }
 
     public Task<OrderDto> ApproveAsync(Guid id, OrderStatusRequest request, CancellationToken cancellationToken = default) =>
-        ChangeStatusAsync(id, OrderHistoryAction.Approved, OrderStatus.Approved, request.Reason, cancellationToken);
+        ChangeStatusAsync(id, OrderHistoryAction.Approved, OrderStatus.Approved, request, cancellationToken);
 
     public Task<OrderDto> RejectAsync(Guid id, OrderStatusRequest request, CancellationToken cancellationToken = default)
     {
@@ -124,11 +138,133 @@ public sealed class OrderService(
             throw new BusinessRuleException("reason_required", "Give a reason for rejecting the order.");
         }
 
-        return ChangeStatusAsync(id, OrderHistoryAction.Rejected, OrderStatus.Rejected, request.Reason, cancellationToken);
+        return ChangeStatusAsync(id, OrderHistoryAction.Rejected, OrderStatus.Rejected, request, cancellationToken);
     }
 
     public Task<OrderDto> CancelAsync(Guid id, OrderStatusRequest request, CancellationToken cancellationToken = default) =>
-        ChangeStatusAsync(id, OrderHistoryAction.Cancelled, OrderStatus.Cancelled, request.Reason, cancellationToken);
+        ChangeStatusAsync(id, OrderHistoryAction.Cancelled, OrderStatus.Cancelled, request, cancellationToken);
+
+    /// <summary>Marks an approved order delivered (orders:deliver within scope). The note is optional and shown to the rep.</summary>
+    public async Task<OrderDto> DeliverAsync(Guid id, OrderStatusRequest request, CancellationToken cancellationToken = default)
+    {
+        var me = currentUser.RequireUserId();
+        var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == id, cancellationToken) ?? throw new NotFoundException("Order", id);
+        var actor = await LoadActorAsync(me, cancellationToken);
+        var rights = await RightsAsync(order, actor, cancellationToken);
+        if (!rights.CanRead)
+        {
+            throw new NotFoundException("Order", id);
+        }
+
+        if (!rights.CanDeliver)
+        {
+            if (order.ArchivedAt is not null)
+            {
+                throw ArchivedError();
+            }
+
+            throw order.Status != OrderStatus.Approved || order.Delivery == DeliveryStatus.Delivered
+                ? StatusInvalid(order.Status, order.Delivery)
+                : new ForbiddenException("You cannot mark this order delivered.");
+        }
+
+        var now = time.GetUtcNow();
+        var note = Clean(request.Reason);
+        order.Delivery = DeliveryStatus.Delivered;
+        order.DeliveredAt = now;
+        order.DeliveredById = me;
+        order.DeliveredByName = actor.FullName;
+        order.DeliveryNote = note;
+        order.UpdatedAt = now;
+        order.UpdatedById = me;
+        db.OrderHistory.Add(History(order.Id, OrderHistoryAction.Delivered, order.Status, order.Status, actor, note, now, Clean(request.InternalNote)));
+        Notify(order, actor, NotificationType.OrderDelivered, note);
+        await db.SaveChangesAsync(cancellationToken);
+        await notifications.PublishQueuedAsync(cancellationToken);
+        return await BuildDtoAsync(order.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Deletes orders (orders:delete within scope). Orders are history, so they are always archived:
+    /// hidden from lists and statistics, kept for audit, restorable with orders:restore.
+    /// </summary>
+    public async Task<BulkResult> DeleteManyAsync(BulkDeleteRequest request, CancellationToken cancellationToken = default)
+    {
+        var scope = await scopeResolver.ResolveAsync(Permissions.Orders.Delete, cancellationToken);
+        return await ArchiveOrRestoreAsync(request.Ids, scope, archive: true, request.DryRun, cancellationToken);
+    }
+
+    public async Task<BulkResult> RestoreManyAsync(BulkIdsRequest request, CancellationToken cancellationToken = default)
+    {
+        var scope = await scopeResolver.ResolveAsync(Permissions.Orders.Restore, cancellationToken);
+        return await ArchiveOrRestoreAsync(request.Ids, scope, archive: false, false, cancellationToken);
+    }
+
+    private async Task<BulkResult> ArchiveOrRestoreAsync(
+        IReadOnlyList<Guid> requested,
+        DataScope scope,
+        bool archive,
+        bool dryRun,
+        CancellationToken cancellationToken)
+    {
+        var me = currentUser.RequireUserId();
+        var ids = requested.Distinct().ToArray();
+        var orders = await db.Orders.Where(o => ids.Contains(o.Id)).ToDictionaryAsync(o => o.Id, cancellationToken);
+        var actor = await LoadActorAsync(me, cancellationToken);
+        var now = time.GetUtcNow();
+        var results = new List<BulkItemResult>();
+        foreach (var id in ids)
+        {
+            if (!orders.TryGetValue(id, out var order))
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.NotFound));
+                continue;
+            }
+
+            if (!scope.Includes(order.UserId, order.TerritoryId))
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.OutOfScope));
+                continue;
+            }
+
+            if (!archive && order.ArchivedAt is null)
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.NotArchived));
+                continue;
+            }
+
+            results.Add(new BulkItemResult(id, archive ? BulkOutcome.Archived : BulkOutcome.Restored));
+            if (dryRun)
+            {
+                continue;
+            }
+
+            if (archive)
+            {
+                order.ArchivedAt ??= now;
+                order.ArchivedById ??= me;
+            }
+            else
+            {
+                order.ArchivedAt = null;
+                order.ArchivedById = null;
+            }
+
+            db.OrderHistory.Add(History(order.Id, archive ? OrderHistoryAction.Archived : OrderHistoryAction.Restored,
+                order.Status, order.Status, actor, null, now));
+            await audit.AddAsync(AuditEntities.Order, id, archive ? AuditAction.Archived : AuditAction.Restored,
+                new { order.Number, order.UserId, order.Status, order.Total }, cancellationToken: cancellationToken);
+        }
+
+        var result = BulkResult.From(results, dryRun);
+        if (!dryRun && result.Done > 0)
+        {
+            await audit.AddBulkAsync(AuditEntities.Order, archive ? AuditAction.BulkDelete : AuditAction.BulkRestore, result, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return result;
+    }
 
     public async Task<OrderDto> GetAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -194,7 +330,7 @@ public sealed class OrderService(
         Guid id,
         OrderHistoryAction action,
         OrderStatus to,
-        string? reason,
+        OrderStatusRequest request,
         CancellationToken cancellationToken)
     {
         var me = currentUser.RequireUserId();
@@ -209,33 +345,75 @@ public sealed class OrderService(
         var allowed = action == OrderHistoryAction.Cancelled ? rights.CanCancel : rights.CanReview;
         if (!allowed)
         {
+            if (order.ArchivedAt is not null)
+            {
+                throw ArchivedError();
+            }
+
             if (action != OrderHistoryAction.Cancelled && order.UserId == me && rights.IsManager)
             {
                 throw new ForbiddenException(OrderErrorCodes.SelfReview, "Someone else has to approve or reject your own orders.");
             }
 
-            OrderStatus[] validFrom = action == OrderHistoryAction.Cancelled && rights.IsManager
-                ? [OrderStatus.Submitted, OrderStatus.Approved]
-                : [OrderStatus.Submitted];
-            throw validFrom.Contains(order.Status) ? new ForbiddenException("You cannot change the status of this order.") : StatusInvalid(order.Status);
+            var open = action == OrderHistoryAction.Cancelled && rights.IsManager
+                ? order.Status == OrderStatus.Submitted || (order.Status == OrderStatus.Approved && order.Delivery != DeliveryStatus.Delivered)
+                : order.Status == OrderStatus.Submitted;
+            throw open ? new ForbiddenException("You cannot change the status of this order.") : StatusInvalid(order.Status, order.Delivery);
         }
 
         var now = time.GetUtcNow();
         var from = order.Status;
+        var reason = Clean(request.Reason);
         order.Status = to;
-        order.StatusReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        order.StatusReason = reason;
+        order.DecidedAt = now;
+        order.DecidedById = me;
+        order.DecidedByName = actor.FullName;
+        order.Delivery = to == OrderStatus.Approved ? DeliveryStatus.NotDelivered : null;
         order.UpdatedAt = now;
         order.UpdatedById = me;
-        db.OrderHistory.Add(History(order.Id, action, from, to, actor, order.StatusReason, now));
+        db.OrderHistory.Add(History(order.Id, action, from, to, actor, reason, now, Clean(request.InternalNote)));
+        Notify(order, actor, to switch
+        {
+            OrderStatus.Approved => NotificationType.OrderApproved,
+            OrderStatus.Rejected => NotificationType.OrderRejected,
+            _ => NotificationType.OrderCancelled,
+        }, reason);
         await db.SaveChangesAsync(cancellationToken);
+        await notifications.PublishQueuedAsync(cancellationToken);
         return await BuildDtoAsync(order.Id, cancellationToken);
+    }
+
+    /// <summary>Tells the rep about a decision on their order (not when they act on it themselves).</summary>
+    private void Notify(Order order, OrderActor actor, NotificationType type, string? note)
+    {
+        if (order.UserId == actor.Id)
+        {
+            return;
+        }
+
+        notifications.Queue(order.UserId, type, order.Id, new
+        {
+            orderId = order.Id,
+            orderNumber = order.Number,
+            placeName = order.PlaceName,
+            total = order.Total,
+            actorName = actor.FullName,
+            note,
+        });
     }
 
     private async Task<IQueryable<Order>> FilterAsync(OrderQuery query, CancellationToken cancellationToken)
     {
         var me = currentUser.RequireUserId();
         var scope = await scopeResolver.ResolveAsync(Permissions.Orders.Read, cancellationToken);
-        var orders = db.Orders.AsNoTracking().WhereInScope(scope);
+        var orders = db.Orders.AsNoTracking().WhereInScope(scope)
+            .Where(o => query.Archived ? o.ArchivedAt != null : o.ArchivedAt == null);
+
+        if (query.Delivery is { } delivery)
+        {
+            orders = orders.Where(o => o.Delivery == delivery);
+        }
 
         if (query.Mine)
         {
@@ -313,7 +491,14 @@ public sealed class OrderService(
             o.Status,
             o.Lines.Count,
             o.Total,
-            o.CreatedAt));
+            o.CreatedAt,
+            o.DiscountTotal,
+            o.Delivery,
+            o.DecidedAt,
+            o.DecidedByName,
+            o.StatusReason,
+            o.DeliveredAt,
+            o.ArchivedAt));
 
     private async Task<OrderDto> BuildDtoAsync(Guid id, CancellationToken cancellationToken, IReadOnlyList<StockWarningDto>? warnings = null)
     {
@@ -341,7 +526,11 @@ public sealed class OrderService(
                 .ToList()
             : [];
 
-        var rights = await RightsAsync(order, await LoadActorAsync(me, cancellationToken), cancellationToken);
+        var actor = await LoadActorAsync(me, cancellationToken);
+        var rights = await RightsAsync(order, actor, cancellationToken);
+
+        // Managers' internal notes stay away from the rep who owns the order.
+        var seesInternal = order.UserId != me || rights.IsManager;
 
         return new OrderDto(
             order.Id, order.Number, order.ClientRequestId, order.UserId, rep ?? string.Empty, order.TerritoryId,
@@ -356,12 +545,21 @@ public sealed class OrderService(
                     l.Quantity, l.UnitPrice, l.DiscountPercent, l.DiscountAmount, l.LineTotal, l.ExceededStock))
                 .ToList(),
             order.History.OrderBy(h => h.CreatedAt)
-                .Select(h => new OrderHistoryDto(h.Action, h.FromStatus, h.ToStatus, h.ActorName, h.Reason, h.CreatedAt))
+                .Select(h => new OrderHistoryDto(h.Action, h.FromStatus, h.ToStatus, h.ActorName, h.Reason, h.CreatedAt,
+                    seesInternal ? h.InternalNote : null))
                 .ToList(),
             warnings,
             rights.CanEdit,
             rights.CanCancel,
-            rights.CanReview);
+            rights.CanReview,
+            rights.CanDeliver,
+            order.DecidedAt,
+            order.DecidedByName,
+            order.Delivery,
+            order.DeliveredAt,
+            order.DeliveredByName,
+            order.DeliveryNote,
+            order.ArchivedAt);
     }
 
     private async Task<OrderRights> RightsAsync(Order order, OrderActor actor, CancellationToken cancellationToken)
@@ -375,13 +573,23 @@ public sealed class OrderService(
             manager = manageScope.Includes(order.UserId, order.TerritoryId);
         }
 
-        var open = order.Status == OrderStatus.Submitted;
+        var deliverer = false;
+        if (actor.Permissions.Has(Permissions.Orders.Deliver))
+        {
+            var deliverScope = await scopeResolver.ResolveAsync(Permissions.Orders.Deliver, cancellationToken);
+            deliverer = deliverScope.Includes(order.UserId, order.TerritoryId);
+        }
+
+        var live = order.ArchivedAt is null;
+        var open = live && order.Status == OrderStatus.Submitted;
+        var approvedNotDelivered = live && order.Status == OrderStatus.Approved && order.Delivery != DeliveryStatus.Delivered;
         return new OrderRights(
             CanRead: readScope.Includes(order.UserId, order.TerritoryId) || order.UserId == actor.Id || manager,
             CanEdit: open && (owner || manager),
-            CanCancel: (open && (owner || manager)) || (manager && order.Status == OrderStatus.Approved),
+            CanCancel: (open && (owner || manager)) || (manager && approvedNotDelivered),
             CanReview: open && manager && order.UserId != actor.Id,
-            IsManager: manager);
+            IsManager: manager,
+            CanDeliver: deliverer && approvedNotDelivered);
     }
 
     private async Task<OrderActor> LoadActorAsync(Guid userId, CancellationToken cancellationToken)
@@ -409,18 +617,6 @@ public sealed class OrderService(
         IReadOnlyDictionary<Guid, decimal>? snapshot,
         CancellationToken cancellationToken)
     {
-        if (actor.DiscountCap is { } cap && input.Lines.FirstOrDefault(l => l.DiscountPercent > cap) is { } above)
-        {
-            throw new BusinessRuleException(OrderErrorCodes.DiscountAboveCap, $"The highest discount you can give is {cap:0.##}%.")
-            {
-                Details = new Dictionary<string, object?>
-                {
-                    ["maxDiscountPercent"] = cap,
-                    ["productId"] = above.ProductId,
-                },
-            };
-        }
-
         var ids = input.Lines.Select(l => l.ProductId).Distinct().ToArray();
         var products = await db.Products.AsNoTracking()
             .Include(p => p.ProductLine)
@@ -432,16 +628,18 @@ public sealed class OrderService(
         var warnings = new List<StockWarningDto>();
         foreach (var line in input.Lines)
         {
+            // Lines kept from the previous version keep working even if the product was since archived,
+            // left its line or the line was deleted (their price snapshot stays).
             var kept = snapshot is not null && snapshot.ContainsKey(line.ProductId);
-            if (!products.TryGetValue(line.ProductId, out var product) ||
-                (!kept && (!product.IsActive || !product.ProductLine!.IsActive ||
-                           (visibleLines is not null && !visibleLines.Contains(product.ProductLineId)))))
+            if (!products.TryGetValue(line.ProductId, out var product) || (!kept && !IsOrderable(product, visibleLines)))
             {
                 throw new BusinessRuleException(OrderErrorCodes.ProductUnavailable, "One of the products is not available to you.")
                 {
                     Details = new Dictionary<string, object?> { ["productId"] = line.ProductId },
                 };
             }
+
+            EnsureDiscountAllowed(line, product, actor.DiscountCap);
 
             var price = kept ? snapshot![line.ProductId] : product.Price;
             lines.Add(OrderPricing.PriceLine(product.Id, line.Quantity, price, line.DiscountPercent));
@@ -454,6 +652,38 @@ public sealed class OrderService(
         return (lines, products, warnings);
     }
 
+    /// <summary>Active, not archived, and in a line the actor may sell (unassigned products only for managers).</summary>
+    private static bool IsOrderable(Product product, HashSet<Guid>? visibleLines) =>
+        product.IsActive &&
+        product.ArchivedAt is null &&
+        (product.ProductLine is null || product.ProductLine.IsActive) &&
+        (visibleLines is null || (product.ProductLineId is { } lineId && visibleLines.Contains(lineId)));
+
+    /// <summary>
+    /// The highest discount on a line is the lowest of the product's maximum, its line's maximum and
+    /// the actor's role cap (whichever are set).
+    /// </summary>
+    internal static void EnsureDiscountAllowed(OrderLineInput line, Product product, decimal? roleCap)
+    {
+        var productCap = product.MaxDiscountPercent;
+        var lineCap = product.ProductLine?.MaxDiscountPercent;
+        if (DiscountRules.LowestCap(productCap, lineCap, roleCap) is not { } cap || line.DiscountPercent <= cap)
+        {
+            return;
+        }
+
+        var limit = cap == productCap ? "product" : cap == lineCap ? "line" : "role";
+        throw new BusinessRuleException(OrderErrorCodes.DiscountAboveCap, $"The highest discount for this product is {cap:0.##}%.")
+        {
+            Details = new Dictionary<string, object?>
+            {
+                ["maxDiscountPercent"] = cap,
+                ["productId"] = line.ProductId,
+                ["limit"] = limit,
+            },
+        };
+    }
+
     private async Task EnsureReferencesAsync(IOrderInput input, Order? current, CancellationToken cancellationToken)
     {
         if (!OrderInputRules.HasExactlyOneCollectionMethod(input))
@@ -462,13 +692,13 @@ public sealed class OrderService(
         }
 
         if (input.CollectionMethodId is { } methodId && methodId != current?.CollectionMethodId &&
-            !await db.CollectionMethods.AnyAsync(m => m.Id == methodId && m.IsActive, cancellationToken))
+            !await db.CollectionMethods.AnyAsync(m => m.Id == methodId && m.IsActive && m.ArchivedAt == null, cancellationToken))
         {
             throw new BusinessRuleException(OrderErrorCodes.CollectionMethodInvalid, "This collection method is no longer available.");
         }
 
         if (input.CustomerId is { } customerId && customerId != current?.CustomerId &&
-            !await db.Customers.AnyAsync(c => c.Id == customerId && c.IsActive, cancellationToken))
+            !await db.Customers.AnyAsync(c => c.Id == customerId && c.IsActive && c.ArchivedAt == null, cancellationToken))
         {
             throw new BusinessRuleException(OrderErrorCodes.CustomerInvalid, "The linked customer does not exist.");
         }
@@ -517,7 +747,8 @@ public sealed class OrderService(
         OrderStatus to,
         OrderActor actor,
         string? reason,
-        DateTimeOffset at) => new()
+        DateTimeOffset at,
+        string? internalNote = null) => new()
     {
         OrderId = orderId,
         Action = action,
@@ -526,8 +757,14 @@ public sealed class OrderService(
         ActorId = actor.Id,
         ActorName = actor.FullName,
         Reason = reason,
+        InternalNote = internalNote,
         CreatedAt = at,
     };
+
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static ConflictException ArchivedError() =>
+        new(OrderErrorCodes.Archived, "This order was deleted. Restore it first.");
 
     private Task<Guid?> FindByClientRequestAsync(Guid userId, Guid clientRequestId, CancellationToken cancellationToken) =>
         db.Orders.AsNoTracking()
@@ -535,13 +772,15 @@ public sealed class OrderService(
             .Select(o => (Guid?)o.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-    private static ConflictException StatusInvalid(OrderStatus status) =>
-        new(OrderErrorCodes.StatusInvalid, $"This order is {status.ToString().ToLowerInvariant()} and can no longer be changed.")
+    private static ConflictException StatusInvalid(OrderStatus status, DeliveryStatus? delivery = null) =>
+        new(OrderErrorCodes.StatusInvalid, delivery == DeliveryStatus.Delivered
+            ? "This order was delivered and can no longer be changed."
+            : $"This order is {status.ToString().ToLowerInvariant()} and can no longer be changed.")
         {
-            Details = new Dictionary<string, object?> { ["status"] = status },
+            Details = new Dictionary<string, object?> { ["status"] = status, ["delivery"] = delivery },
         };
 
     private sealed record OrderActor(Guid Id, string FullName, Guid? TerritoryId, EffectivePermissions Permissions, decimal? DiscountCap);
 
-    private sealed record OrderRights(bool CanRead, bool CanEdit, bool CanCancel, bool CanReview, bool IsManager);
+    private sealed record OrderRights(bool CanRead, bool CanEdit, bool CanCancel, bool CanReview, bool IsManager, bool CanDeliver);
 }

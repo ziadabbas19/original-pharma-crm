@@ -19,6 +19,8 @@ import type {
 } from '@tanstack/react-query'
 
 import type {
+  BulkDeleteRequest,
+  BulkResult,
   DeviceDto,
   HistoryPointDto,
   LiveViewResponse,
@@ -671,6 +673,86 @@ export function useTrackingMonitorGetDevices<
   return withQueryKey(query, queryOptions.queryKey)
 }
 
+export const getTrackingMonitorDeleteDevicesUrl = () => {
+  return `/api/tracking/monitor/devices/bulk-delete`
+}
+
+export const trackingMonitorDeleteDevices = async (
+  bulkDeleteRequest: BulkDeleteRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getTrackingMonitorDeleteDevicesUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkDeleteRequest),
+  })
+}
+
+export const getTrackingMonitorDeleteDevicesMutationKey = () => ['trackingMonitorDeleteDevices'] as const
+
+export const getTrackingMonitorDeleteDevicesMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof trackingMonitorDeleteDevices>>,
+    TError,
+    TrackingMonitorDeleteDevicesMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof trackingMonitorDeleteDevices>>,
+  TError,
+  TrackingMonitorDeleteDevicesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getTrackingMonitorDeleteDevicesMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof trackingMonitorDeleteDevices>>,
+    TrackingMonitorDeleteDevicesMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return trackingMonitorDeleteDevices(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type TrackingMonitorDeleteDevicesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof trackingMonitorDeleteDevices>>
+>
+export type TrackingMonitorDeleteDevicesMutationBody = BulkDeleteRequest
+export type TrackingMonitorDeleteDevicesMutationError = unknown
+export type TrackingMonitorDeleteDevicesMutationVariables = { data: BulkDeleteRequest }
+
+export const useTrackingMonitorDeleteDevices = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof trackingMonitorDeleteDevices>>,
+      TError,
+      TrackingMonitorDeleteDevicesMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof trackingMonitorDeleteDevices>>,
+  TError,
+  TrackingMonitorDeleteDevicesMutationVariables,
+  TContext
+> => {
+  return useMutation(getTrackingMonitorDeleteDevicesMutationOptions(options), queryClient)
+}
 export const getTrackingMonitorGetHistoryUrl = (userId: string, params?: TrackingMonitorGetHistoryParams) => {
   const normalizedParams = new URLSearchParams()
 

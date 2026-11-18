@@ -19,6 +19,8 @@ import type {
 } from '@tanstack/react-query'
 
 import type {
+  BulkDeleteRequest,
+  BulkResult,
   CreateRoleRequest,
   PermissionDto,
   ProblemDetails,
@@ -571,6 +573,81 @@ export const useRolesSetPermissions = <TError = unknown, TContext = unknown>(
   TContext
 > => {
   return useMutation(getRolesSetPermissionsMutationOptions(options), queryClient)
+}
+export const getRolesBulkDeleteUrl = () => {
+  return `/api/roles/bulk-delete`
+}
+
+export const rolesBulkDelete = async (
+  bulkDeleteRequest: BulkDeleteRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getRolesBulkDeleteUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkDeleteRequest),
+  })
+}
+
+export const getRolesBulkDeleteMutationKey = () => ['rolesBulkDelete'] as const
+
+export const getRolesBulkDeleteMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rolesBulkDelete>>,
+    TError,
+    RolesBulkDeleteMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rolesBulkDelete>>,
+  TError,
+  RolesBulkDeleteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRolesBulkDeleteMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rolesBulkDelete>>,
+    RolesBulkDeleteMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return rolesBulkDelete(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type RolesBulkDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof rolesBulkDelete>>>
+export type RolesBulkDeleteMutationBody = BulkDeleteRequest
+export type RolesBulkDeleteMutationError = unknown
+export type RolesBulkDeleteMutationVariables = { data: BulkDeleteRequest }
+
+export const useRolesBulkDelete = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof rolesBulkDelete>>,
+      TError,
+      RolesBulkDeleteMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof rolesBulkDelete>>,
+  TError,
+  RolesBulkDeleteMutationVariables,
+  TContext
+> => {
+  return useMutation(getRolesBulkDeleteMutationOptions(options), queryClient)
 }
 export const getRolesReassignUsersUrl = (roleId: string) => {
   return `/api/roles/${roleId}/reassign`

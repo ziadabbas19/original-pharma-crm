@@ -20,6 +20,13 @@ public enum PlaceType
     Other = 4,
 }
 
+/// <summary>Delivery of an approved order. Null until the order is approved.</summary>
+public enum DeliveryStatus
+{
+    NotDelivered = 1,
+    Delivered = 2,
+}
+
 public enum OrderHistoryAction
 {
     Created = 1,
@@ -27,10 +34,13 @@ public enum OrderHistoryAction
     Approved = 3,
     Rejected = 4,
     Cancelled = 5,
+    Delivered = 6,
+    Archived = 7,
+    Restored = 8,
 }
 
 /// <summary>How the customer pays. Managed from the dashboard (lookups).</summary>
-public class CollectionMethod : Entity
+public class CollectionMethod : Entity, ILookupItem
 {
     public const int NameMaxLength = 100;
 
@@ -38,18 +48,22 @@ public class CollectionMethod : Entity
     public string NameEn { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public int SortOrder { get; set; }
+
+    /// <summary>Deleted while past orders still use it: hidden from pickers, old orders keep the name.</summary>
+    public DateTimeOffset? ArchivedAt { get; set; }
 }
 
 /// <summary>
 /// A sales order taken by a rep. Totals are always computed on the server from the lines.
 /// Scoped like visits: it belongs to the rep and to the rep's territory at the time.
 /// </summary>
-public class Order : Entity, IScopedEntity
+public class Order : Entity, IScopedEntity, IArchivable
 {
     public const int NumberMaxLength = 32;
     public const int PlaceNameMaxLength = 200;
     public const int OtherTextMaxLength = 200;
     public const int NotesMaxLength = 2000;
+    public const int ReasonMaxLength = 500;
 
     /// <summary>Server-generated, e.g. ORD-2026-000123.</summary>
     public string Number { get; set; } = string.Empty;
@@ -81,8 +95,22 @@ public class Order : Entity, IScopedEntity
 
     public OrderStatus Status { get; set; } = OrderStatus.Submitted;
 
-    /// <summary>Reason given when rejecting or cancelling.</summary>
+    /// <summary>Reason (reject) or note (approve, cancel) shown to the rep.</summary>
     public string? StatusReason { get; set; }
+
+    /// <summary>When the order was approved, rejected or cancelled, and by whom (name kept as it was then).</summary>
+    public DateTimeOffset? DecidedAt { get; set; }
+    public Guid? DecidedById { get; set; }
+    public string? DecidedByName { get; set; }
+
+    /// <summary>Set to NotDelivered when the order is approved.</summary>
+    public DeliveryStatus? Delivery { get; set; }
+    public DateTimeOffset? DeliveredAt { get; set; }
+    public Guid? DeliveredById { get; set; }
+    public string? DeliveredByName { get; set; }
+
+    /// <summary>Optional note given when marking the order delivered (shown to the rep).</summary>
+    public string? DeliveryNote { get; set; }
 
     /// <summary>Sum of quantity x unit price before discounts.</summary>
     public decimal Subtotal { get; set; }
@@ -94,6 +122,9 @@ public class Order : Entity, IScopedEntity
     public Guid CreatedById { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public Guid UpdatedById { get; set; }
+
+    public DateTimeOffset? ArchivedAt { get; set; }
+    public Guid? ArchivedById { get; set; }
 
     public ICollection<OrderLine> Lines { get; set; } = new List<OrderLine>();
     public ICollection<OrderHistoryEntry> History { get; set; } = new List<OrderHistoryEntry>();
@@ -136,6 +167,12 @@ public class OrderHistoryEntry
     public OrderStatus ToStatus { get; set; }
     public Guid? ActorId { get; set; }
     public string ActorName { get; set; } = string.Empty;
+
+    /// <summary>Reason or note shown to the rep.</summary>
     public string? Reason { get; set; }
+
+    /// <summary>Note for managers only; never shown to the rep who owns the order.</summary>
+    public string? InternalNote { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 }

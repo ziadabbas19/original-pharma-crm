@@ -10,9 +10,12 @@ import {
 } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { SelectionBar } from '@/components/bulk/SelectionBar'
+import type { Selection } from '@/components/bulk/use-selection'
 import { EmptyState, ErrorState, LoadingState } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatNumber } from '@/lib/format'
@@ -21,6 +24,19 @@ import { dataTableFeatures, type DataTableFeatures } from './features'
 
 const PAGE_SIZES = [10, 25, 50, 100]
 const NO_ROWS: never[] = []
+
+/**
+ * The row actions stay in view when a table is wider than its card. The backgrounds are opaque
+ * versions of the row colours, so scrolled cells do not show through.
+ */
+const ACTIONS_HEAD =
+  'sticky end-0 z-[1] bg-[color-mix(in_oklab,var(--muted)_40%,var(--card))] @max-3xl:border-s'
+const ACTIONS_CELL = cn(
+  'sticky end-0 z-[1] bg-card @max-3xl:border-s',
+  '[tr:hover>&]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--card))]',
+  '[tr[data-state=selected]>&]:bg-[color-mix(in_oklab,var(--primary)_5%,var(--card))]',
+  '@max-md:[&>div]:max-w-[5.5rem] @max-md:[&>div]:flex-wrap',
+)
 
 export interface DataTableProps<TData extends RowData> {
   columns: ColumnDef<DataTableFeatures, TData, any>[] // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -43,6 +59,15 @@ export interface DataTableProps<TData extends RowData> {
   /** When filters are active an empty result reads "no matches" and offers to clear them. */
   filtered?: boolean
   onClearFilters?: () => void
+  /**
+   * Row selection: a checkbox per row and a "select all" in the header that selects every row
+   * matching the current filters (all pages). Needs `getRowId`.
+   */
+  selection?: Selection
+  /** Name of a row for its checkbox label (screen readers). */
+  rowLabel?: (row: TData) => string
+  /** Bulk actions shown in the bar that appears while rows are selected. */
+  bulkActions?: ReactNode
 }
 
 export function DataTable<TData extends RowData>({
@@ -61,6 +86,9 @@ export function DataTable<TData extends RowData>({
   empty,
   filtered,
   onClearFilters,
+  selection,
+  rowLabel,
+  bulkActions,
 }: DataTableProps<TData>) {
   const { t } = useTranslation()
   const rows: TData[] = data ?? NO_ROWS
@@ -129,6 +157,24 @@ export function DataTable<TData extends RowData>({
           <TableHeader className="bg-muted/40">
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id} className="hover:bg-transparent">
+                {selection && (
+                  <TableHead className="w-10 px-3">
+                    <Checkbox
+                      aria-label={t('bulk.selectAll', {
+                        count: selection.total,
+                        value: formatNumber(selection.total),
+                      })}
+                      title={t('bulk.selectAll', {
+                        count: selection.total,
+                        value: formatNumber(selection.total),
+                      })}
+                      checked={
+                        selection.allSelected ? true : selection.someSelected ? 'indeterminate' : false
+                      }
+                      onCheckedChange={(v) => selection.setAll(v === true)}
+                    />
+                  </TableHead>
+                )}
                 {group.headers.map((header) => {
                   const meta = header.column.columnDef.meta
                   const sorted = header.column.getIsSorted()
@@ -138,7 +184,11 @@ export function DataTable<TData extends RowData>({
                   return (
                     <TableHead
                       key={header.id}
-                      className={cn('px-3 text-muted-foreground', meta?.className)}
+                      className={cn(
+                        'px-3 text-muted-foreground',
+                        meta?.className,
+                        header.column.id === 'actions' && ACTIONS_HEAD,
+                      )}
                       aria-sort={
                         sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined
                       }
@@ -171,6 +221,7 @@ export function DataTable<TData extends RowData>({
             {pageRows.map((row) => (
               <TableRow
                 key={row.id}
+                data-state={selection?.has(row.id) ? 'selected' : undefined}
                 className={cn(onRowClick && 'cursor-pointer', rowClassName?.(row.original))}
                 tabIndex={onRowClick ? 0 : undefined}
                 onClick={onRowClick ? () => onRowClick(row.original) : undefined}
@@ -186,8 +237,25 @@ export function DataTable<TData extends RowData>({
                     : undefined
                 }
               >
+                {selection && (
+                  <TableCell className="w-10 px-3" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      aria-label={t('bulk.selectRow', { name: rowLabel?.(row.original) ?? row.id })}
+                      checked={selection.has(row.id)}
+                      onCheckedChange={(v) => selection.toggle(row.id, v === true)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  </TableCell>
+                )}
                 {row.getAllCells().map((cell) => (
-                  <TableCell key={cell.id} className={cn('px-3', cell.column.columnDef.meta?.className)}>
+                  <TableCell
+                    key={cell.id}
+                    className={cn(
+                      'px-3',
+                      cell.column.columnDef.meta?.className,
+                      cell.column.id === 'actions' && ACTIONS_CELL,
+                    )}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
@@ -249,6 +317,7 @@ export function DataTable<TData extends RowData>({
   return (
     <Card className="gap-0 overflow-hidden py-0">
       {toolbar && <div className="flex flex-wrap items-end gap-2 border-b p-3">{toolbar}</div>}
+      {selection && <SelectionBar selection={selection}>{bulkActions}</SelectionBar>}
       {body}
       {footer && <div className="border-t px-3 py-2 text-xs text-muted-foreground">{footer}</div>}
     </Card>

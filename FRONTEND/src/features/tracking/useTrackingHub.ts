@@ -8,6 +8,7 @@ import {
 } from '@/api/generated/endpoints'
 import type { LivePositionDto, TrackingFlagDto } from '@/api/generated/model'
 import { API_BASE_URL } from '@/lib/api-client'
+import { invalidateApi } from '@/lib/invalidate-api'
 import { refreshSession } from '@/lib/session'
 import { store, useAppDispatch, useAppSelector } from '@/store'
 import {
@@ -20,10 +21,10 @@ import {
 import type { DeviceHealthChangeDto, PresenceChangeDto } from './hub-events'
 
 /**
- * Dashboard-only realtime connection to /hubs/tracking. The server places the
- * connection in groups matching the user's tracking:view-live scope when it
- * connects, so the connection is rebuilt whenever the permissions version
- * changes. Phones never open this socket (battery).
+ * Realtime connection to /hubs/tracking. The server places the connection in the user's own inbox
+ * group (notifications) and in groups matching their tracking:view-live scope when it connects, so
+ * the connection is rebuilt whenever the permissions version changes. Dashboards keep it open; the
+ * rep app only while it is in the foreground (battery).
  */
 export function useTrackingHub(enabled = true): void {
   const dispatch = useAppDispatch()
@@ -66,11 +67,16 @@ export function useTrackingHub(enabled = true): void {
       void queryClient.invalidateQueries({ queryKey: flagsKey })
       void queryClient.invalidateQueries({ queryKey: devicesKey })
     })
+    connection.on('NotificationReceived', () => {
+      // A decision on an order or an answer on a visit: the screens showing them follow at once.
+      void invalidateApi(queryClient, '/api/notifications', '/api/orders', '/api/visits')
+    })
     connection.onreconnecting(() => dispatch(hubConnectionChanged(false)))
     connection.onreconnected(() => {
       dispatch(hubConnectionChanged(true))
       // Events may have been missed while offline: resync the snapshot.
       void queryClient.invalidateQueries({ queryKey: getTrackingMonitorGetPresenceQueryKey() })
+      void invalidateApi(queryClient, '/api/notifications')
     })
     connection.onclose(() => dispatch(hubConnectionChanged(false)))
 

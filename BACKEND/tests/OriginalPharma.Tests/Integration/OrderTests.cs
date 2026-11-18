@@ -66,6 +66,10 @@ public sealed class OrderTests(PostgresFixture postgres)
         var cash = await DemoPeople.MethodAsync(db, "Cash");
         var repRole = await db.RoleAsync(DefaultRoles.Rep);
 
+        // The role cap on its own: take away the demo line limit of the product.
+        await db.DbAsync(c => c.ProductLines.Where(l => l.NameEn == "Cardio line")
+            .ExecuteUpdateAsync(s => s.SetProperty(l => l.MaxDiscountPercent, (decimal?)null).SetProperty(l => l.DefaultDiscountPercent, (decimal?)null), Ct));
+
         // No cap by default.
         await CreateAsync(db, p.Rep, NewOrder(cash, L(product, 1, 40m)));
 
@@ -76,6 +80,7 @@ public sealed class OrderTests(PostgresFixture postgres)
         var error = await Assert.ThrowsAsync<BusinessRuleException>(() => CreateAsync(db, p.Rep, NewOrder(cash, L(product, 1, 12.5m))));
         Assert.Equal(OrderErrorCodes.DiscountAboveCap, error.Code);
         Assert.Equal(10m, error.Details!["maxDiscountPercent"]);
+        Assert.Equal("role", error.Details!["limit"]);
 
         await CreateAsync(db, p.Rep, NewOrder(cash, L(product, 1, 10m)));
     }
@@ -119,13 +124,13 @@ public sealed class OrderTests(PostgresFixture postgres)
         var cash = await DemoPeople.MethodAsync(db, "Cash");
         var derma = await DemoPeople.ProductAsync(db, "Dermacalm cream 50 g");
 
-        var repProducts = await db.As<CatalogService, IReadOnlyList<ProductDto>>(p.Rep, s => s.ListProductsAsync(null, null, false, Ct));
+        var repProducts = await db.As<CatalogService, IReadOnlyList<ProductDto>>(p.Rep, s => s.ListProductsAsync(new ProductQuery(), Ct));
         Assert.NotEmpty(repProducts);
         Assert.All(repProducts, x => Assert.Contains(x.LineNameEn, new[] { "Cardio line", "Pediatric line" }));
         var repLines = await db.As<CatalogService, IReadOnlyList<ProductLineDto>>(p.Rep, s => s.ListLinesAsync(false, Ct));
         Assert.Equal(["Cardio line", "Pediatric line"], repLines.Select(l => l.NameEn).Order());
 
-        var eastProducts = await db.As<CatalogService, IReadOnlyList<ProductDto>>(p.RepEast, s => s.ListProductsAsync(null, null, false, Ct));
+        var eastProducts = await db.As<CatalogService, IReadOnlyList<ProductDto>>(p.RepEast, s => s.ListProductsAsync(new ProductQuery(), Ct));
         Assert.Contains(eastProducts, x => x.Id == derma);
         Assert.DoesNotContain(eastProducts, x => x.LineNameEn == "Cardio line");
 
@@ -133,12 +138,12 @@ public sealed class OrderTests(PostgresFixture postgres)
         Assert.Equal(OrderErrorCodes.ProductUnavailable, error.Code);
 
         // orders:manage sees every line.
-        var managerProducts = await db.As<CatalogService, IReadOnlyList<ProductDto>>(p.Sales, s => s.ListProductsAsync(null, null, false, Ct));
+        var managerProducts = await db.As<CatalogService, IReadOnlyList<ProductDto>>(p.Sales, s => s.ListProductsAsync(new ProductQuery(), Ct));
         Assert.Contains(managerProducts, x => x.Id == derma);
 
         // Inactive products disappear for reps.
         await db.DbAsync(c => c.Products.Where(x => x.NameEn == "Kidofen syrup 100 ml").ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, false), Ct));
-        var afterDeactivate = await db.As<CatalogService, IReadOnlyList<ProductDto>>(p.Rep, s => s.ListProductsAsync(null, null, true, Ct));
+        var afterDeactivate = await db.As<CatalogService, IReadOnlyList<ProductDto>>(p.Rep, s => s.ListProductsAsync(new ProductQuery(IncludeInactive: true), Ct));
         Assert.DoesNotContain(afterDeactivate, x => x.NameEn == "Kidofen syrup 100 ml");
     }
 

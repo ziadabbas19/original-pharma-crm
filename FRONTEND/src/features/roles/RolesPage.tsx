@@ -1,8 +1,11 @@
 import { ListTreeIcon, PlusIcon, ShieldCheckIcon, TableIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useRolesList, useRolesListPermissions } from '@/api/generated/endpoints'
+import { rolesBulkDelete, useRolesList, useRolesListPermissions } from '@/api/generated/endpoints'
 import type { RoleDto } from '@/api/generated/model'
+import { BulkDeleteDialog } from '@/components/bulk/BulkDeleteDialog'
+import { useBulkRunner, useDeleteTarget } from '@/components/bulk/use-bulk-delete'
+import { useSelection } from '@/components/bulk/use-selection'
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/components/states'
 import { Button } from '@/components/ui/button'
@@ -18,7 +21,7 @@ import { PermissionMatrix } from './PermissionMatrix'
 import { RecentChanges } from './RecentChanges'
 import { RoleDetailsPanel } from './RoleDetailsPanel'
 import { RoleList } from './RoleList'
-import { roleLock } from './role-rules'
+import { roleLock, roleName } from './role-rules'
 import { usePermissionDraft } from './usePermissionDraft'
 
 type View = 'roles' | 'hierarchy'
@@ -34,6 +37,13 @@ export function RolesPage() {
   const [view, setView] = useState<View>('roles')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const selection = useSelection(roles.data, roleId)
+  const target = useDeleteTarget()
+  const bulk = useBulkRunner(rolesBulkDelete, ['/api/roles', '/api/users', '/api/auth/me'], selection)
+  const nameOf = (id: string) => {
+    const role = roles.data?.find((r) => r.id === id)
+    return role ? roleName(role) : id
+  }
 
   const loading = roles.isLoading || permissions.isLoading
   const error = roles.error ?? permissions.error
@@ -113,6 +123,8 @@ export function RolesPage() {
               isDirty={draft.isDirty}
               myLevel={myLevel}
               canManage={canManage}
+              selection={canManage ? selection : undefined}
+              onDeleteSelected={() => target.open(selection.ids)}
             />
             <div className="grid min-w-0 content-start gap-4 2xl:grid-cols-[minmax(0,1fr)_22rem]">
               <RoleDetailsPanel
@@ -143,6 +155,17 @@ export function RolesPage() {
         </div>
       )}
 
+      {target.ids && (
+        <BulkDeleteDialog
+          ids={target.ids}
+          nameOf={nameOf}
+          dangerous
+          consequence={t('roles.delete.bulkConsequence')}
+          run={bulk.run}
+          onDone={bulk.onDone}
+          onClose={target.close}
+        />
+      )}
       {canManage && roles.data && (
         <CreateRoleDialog
           open={creating}
@@ -154,6 +177,8 @@ export function RolesPage() {
     </>
   )
 }
+
+const roleId = (role: RoleDto) => role.id
 
 function ViewButton({
   active,

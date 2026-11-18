@@ -9,6 +9,19 @@ public enum UserAuditAction
     PasswordReset = 3,
 
     ProductLinesChanged = 4,
+
+    /// <summary>Name, language, territory or manager edited.</summary>
+    Updated = 5,
+
+    /// <summary>Deleted after activity: deactivated and hidden from lists.</summary>
+    Archived = 6,
+
+    Restored = 7,
+
+    /// <summary>Removed for good (no activity). The audit rows stay.</summary>
+    Deleted = 8,
+
+    RolesChanged = 9,
 }
 
 /// <summary>

@@ -115,11 +115,25 @@ Latin digits in both languages; money is always formatted as EGP by `formatMoney
 
 Other scripts: `npm run build`, `npm run preview`, `npm run lint`, `npm run format`, `npm run typecheck`.
 
+### Deleting, archiving and restoring
+
+Every list can select rows (all rows matching the filters) and every delete goes through one
+confirmation dialog that says what will happen. Records other data depends on are archived instead
+of removed and come back from the **Archived** view of their list. Details are in
+[docs/architecture.md](docs/architecture.md#deleting-archiving-and-restoring).
+
 ### Tests
 
 ```bash
 cd BACKEND && dotnet test        # xUnit v3 on Microsoft.Testing.Platform
-cd FRONTEND && npm run lint && npm run format:check && npm run build
+cd FRONTEND && npm run lint && npm run format:check && npm run test:unit && npm run build
+```
+
+The delete confirmation has a browser check. It drives a headless Chromium (`CHROME_PATH`, or a
+Playwright browser in `~/.cache/ms-playwright`) against a running API and dev server with the demo data:
+
+```bash
+cd FRONTEND && UI_TEST_PASSWORD=<demo password> UI_TEST_URL=http://localhost:5173 npm run test:ui
 ```
 
 The integration tests (`tests/OriginalPharma.Tests/Integration`) run against the local
@@ -192,6 +206,8 @@ Before a release build:
 | Tracking profiles, tracking-lost window, consent version, anomaly thresholds | `BACKEND/src/OriginalPharma.Api/appsettings.json` → `Tracking` |
 | Visit geofence / accuracy rules | `appsettings.json` → `Visits` |
 | Upload size and pixel limits | `appsettings.json` → `Images` |
+| Statistics time zone, low stock threshold, cache time | `appsettings.json` → `Stats` |
+| Hours after check-out a rep may still edit visit feedback and products | `appsettings.json` → `Visits:ContentEditHours` |
 | Upload folder | `FileStorage:RootPath` (empty = per-user data folder) |
 | CORS origins | `appsettings*.json` → `Cors:AllowedOrigins` |
 | SignalR Redis backplane (multi-instance) | `SignalR:UseRedisBackplane` |
@@ -202,11 +218,9 @@ Before a release build:
 - Play Integrity: server verifier and device token are stubs (interfaces in place).
 - FCM sending: the server logs push messages instead of sending them.
 - IP geolocation for the GPS-vs-IP check (needs a GeoIP database).
-- Pharmacy editing, doctor classification and QR printing (doctors are edited from the
-  doctor lists; the "Doctors & pharmacies" page stays read-only).
+- Doctor classification and QR printing.
 - Orders do not deduct stock yet (quantities above stock are only a warning).
-- User deactivation, visit detail and review screens, an account-history screen
-  (`GET /api/users/{id}/audit` exists, no UI yet).
+- An account-history screen (`GET /api/users/{id}/audit` exists, no UI yet).
 - `must_change_password` is enforced by the apps (redirect to `/change-password`), not by the
   API on every request.
 - Image URLs are capability URLs (random keys, cached publicly), not signed per user.
@@ -214,7 +228,10 @@ Before a release build:
   edge-to-edge the colour may be ignored by the system (icons still switch).
 - Server-side paging: dashboard lists load at most 1000 rows (customers, visits) or the newest
   200 (flags) and page in the browser.
-- Visit screens in the rep app, reports.
+- Visit check-in and check-out screens in the rep app (visits, their feedback and products are
+  there; `visit-checkin.ts` holds the calls), reports.
+- Push notifications to phones stay off (`VITE_FCM_ENABLED`, and the FCM sender above); notifications
+  are in-app, and live while the app is open.
 - Live map tiles come straight from tile.openstreetmap.org; production traffic needs a tile
   provider or an own tile server (OpenStreetMap tile usage policy).
 - Production file storage for uploads (local disk or a mounted volume today).

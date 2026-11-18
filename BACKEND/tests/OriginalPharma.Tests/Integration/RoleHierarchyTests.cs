@@ -255,7 +255,7 @@ public sealed class RoleHierarchyTests(PostgresFixture postgres)
 
     private static async Task<Guid> TerritoryOfAsync(TestDatabase db, Guid userId)
     {
-        var users = await db.UsersAsync(await db.UserIdAsync(PostgresFixture.AdminEmail), s => s.ListAsync(Ct));
+        var users = await db.UsersAsync(await db.UserIdAsync(PostgresFixture.AdminEmail), s => s.ListAsync(cancellationToken: Ct));
         return users.Single(u => u.Id == userId).TerritoryId!.Value;
     }
 }

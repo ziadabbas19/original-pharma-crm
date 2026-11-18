@@ -2,9 +2,11 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Orders;
 using OriginalPharma.Domain.Tracking;
 using OriginalPharma.Domain.Visits;
@@ -40,6 +42,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
 
     public DbSet<Visit> Visits => Set<Visit>();
     public DbSet<VisitPhoto> VisitPhotos => Set<VisitPhoto>();
+    public DbSet<VisitFeedback> VisitFeedback => Set<VisitFeedback>();
+    public DbSet<VisitFeedbackSeen> VisitFeedbackSeen => Set<VisitFeedbackSeen>();
+    public DbSet<VisitFeedbackReply> VisitFeedbackReplies => Set<VisitFeedbackReply>();
+    public DbSet<VisitProduct> VisitProducts => Set<VisitProduct>();
+
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     public DbSet<Shift> Shifts => Set<Shift>();
     public DbSet<LocationPoint> LocationPoints => Set<LocationPoint>();

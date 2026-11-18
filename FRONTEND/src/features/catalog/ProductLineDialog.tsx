@@ -18,6 +18,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { DiscountFields } from './discount-fields'
+import { parsePercent, percentError } from './discount-rules'
 
 /** Create (line = null) or edit a product line. */
 export function ProductLineDialog({ line, onClose }: { line: ProductLineDto | null; onClose: () => void }) {
@@ -29,6 +31,16 @@ export function ProductLineDialog({ line, onClose }: { line: ProductLineDto | nu
   const [nameEn, setNameEn] = useState(line?.nameEn ?? '')
   const [description, setDescription] = useState(line?.description ?? '')
   const [active, setActive] = useState(line?.isActive ?? true)
+  const [defaultDiscount, setDefaultDiscount] = useState(line?.defaultDiscountPercent?.toString() ?? '')
+  const [maxDiscount, setMaxDiscount] = useState(line?.maxDiscountPercent?.toString() ?? '')
+  const defaultValue = parsePercent(defaultDiscount)
+  const maxValue = parsePercent(maxDiscount)
+  const defaultProblem =
+    percentError(defaultValue) ??
+    (defaultValue !== null && maxValue !== null && !Number.isNaN(maxValue) && defaultValue > maxValue
+      ? 'catalog.defaultAboveOwnMax'
+      : undefined)
+  const maxProblem = percentError(maxValue)
   const [touched, setTouched] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const busy = create.isPending || update.isPending
@@ -37,12 +49,14 @@ export function ProductLineDialog({ line, onClose }: { line: ProductLineDto | nu
     e.preventDefault()
     setTouched(true)
     setError(null)
-    if (!nameAr.trim() || !nameEn.trim()) return
+    if (!nameAr.trim() || !nameEn.trim() || defaultProblem || maxProblem) return
     const data = {
       nameAr: nameAr.trim(),
       nameEn: nameEn.trim(),
       description: description.trim() || null,
       isActive: active,
+      defaultDiscountPercent: defaultValue,
+      maxDiscountPercent: maxValue,
     }
     try {
       if (line) await update.mutateAsync({ id: line.id, data })
@@ -100,6 +114,17 @@ export function ProductLineDialog({ line, onClose }: { line: ProductLineDto | nu
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
+          <DiscountFields
+            idPrefix="line-discount"
+            defaultValue={defaultDiscount}
+            maxValue={maxDiscount}
+            onDefaultChange={setDefaultDiscount}
+            onMaxChange={setMaxDiscount}
+            touched={touched}
+            defaultError={defaultProblem && t(defaultProblem)}
+            maxError={maxProblem && t(maxProblem)}
+            hint={t('catalog.lineDiscountFormHint')}
+          />
           <Label className="flex items-center gap-2 font-normal">
             <Checkbox checked={active} onCheckedChange={(v) => setActive(v === true)} />
             {t('catalog.active')}

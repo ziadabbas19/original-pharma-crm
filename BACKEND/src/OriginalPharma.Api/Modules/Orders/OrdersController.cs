@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Orders;
 using OriginalPharma.Infrastructure.Identity;
@@ -69,7 +70,24 @@ public sealed class OrdersController(OrderService orders) : ControllerBase
     public Task<OrderDto> Reject(Guid id, OrderStatusRequest request, CancellationToken cancellationToken) =>
         orders.RejectAsync(id, request, cancellationToken);
 
-    /// <summary>Cancel: your own submitted order, or (orders:manage) a submitted or approved one in scope.</summary>
+    /// <summary>Mark an approved order delivered (orders:deliver within scope). <c>reason</c> is an optional note shown to the rep.</summary>
+    [HttpPost("{id:guid}/deliver")]
+    [HasPermission(Permissions.Orders.Deliver)]
+    public Task<OrderDto> Deliver(Guid id, OrderStatusRequest request, CancellationToken cancellationToken) =>
+        orders.DeliverAsync(id, request, cancellationToken);
+
+    /// <summary>Delete orders (always archived: hidden from lists and statistics, kept for audit).</summary>
+    [HttpPost("bulk-delete")]
+    [HasPermission(Permissions.Orders.Delete)]
+    public Task<BulkResult> BulkDelete(BulkDeleteRequest request, CancellationToken cancellationToken) =>
+        orders.DeleteManyAsync(request, cancellationToken);
+
+    [HttpPost("bulk-restore")]
+    [HasPermission(Permissions.Orders.Restore)]
+    public Task<BulkResult> BulkRestore(BulkIdsRequest request, CancellationToken cancellationToken) =>
+        orders.RestoreManyAsync(request, cancellationToken);
+
+    /// <summary>Cancel: your own submitted order, or (orders:manage) a submitted or approved (not delivered) one in scope.</summary>
     [HttpPost("{id:guid}/cancel")]
     [Microsoft.AspNetCore.Authorization.Authorize]
     public Task<OrderDto> Cancel(Guid id, OrderStatusRequest request, CancellationToken cancellationToken) =>

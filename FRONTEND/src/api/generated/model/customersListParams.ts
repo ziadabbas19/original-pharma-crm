@@ -7,4 +7,5 @@ import type { CustomerType } from './customerType'
 export type CustomersListParams = {
   type?: CustomerType
   search?: string
+  archived?: boolean
 }

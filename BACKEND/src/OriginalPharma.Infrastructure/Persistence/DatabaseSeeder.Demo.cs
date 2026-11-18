@@ -8,7 +8,10 @@ using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Orders;
+using OriginalPharma.Domain.Tracking;
+using OriginalPharma.Domain.Visits;
 using OriginalPharma.Infrastructure.Orders;
 using SkiaSharp;
 
@@ -33,6 +36,8 @@ internal sealed partial class DatabaseSeeder
         await RunOnceAsync("demo-reps-v1", SeedRepsAsync, cancellationToken);
         await RunOnceAsync("demo-doctors-v1", SeedDoctorsAsync, cancellationToken);
         await RunOnceAsync("demo-orders-v1", SeedOrdersAsync, cancellationToken);
+        await RunOnceAsync("demo-discounts-v1", SeedDiscountsAsync, cancellationToken);
+        await RunOnceAsync("demo-activity-v1", SeedActivityAsync, cancellationToken);
     }
 
     private async Task RunOnceAsync(string key, Func<CancellationToken, Task> step, CancellationToken cancellationToken)
@@ -471,6 +476,383 @@ internal sealed partial class DatabaseSeeder
 
         await db.SaveChangesAsync(cancellationToken);
     }
+
+    /// <summary>Default and maximum discounts on two lines and a few products (product values win for the default; the lowest maximum applies).</summary>
+    private async Task SeedDiscountsAsync(CancellationToken cancellationToken)
+    {
+        var lines = await db.ProductLines.ToDictionaryAsync(l => l.NameEn, cancellationToken);
+        if (lines.TryGetValue("Cardio line", out var cardio))
+        {
+            cardio.DefaultDiscountPercent ??= 5m;
+            cardio.MaxDiscountPercent ??= 15m;
+        }
+
+        if (lines.TryGetValue("Pediatric line", out var pediatric))
+        {
+            pediatric.MaxDiscountPercent ??= 10m;
+        }
+
+        var products = await db.Products.ToDictionaryAsync(p => p.NameEn, cancellationToken);
+        if (products.TryGetValue("Lipostat 20 mg, 28 tablets", out var lipostat))
+        {
+            lipostat.DefaultDiscountPercent ??= 7.5m;
+            lipostat.MaxDiscountPercent ??= 12m;
+        }
+
+        if (products.TryGetValue("Kidofen syrup 100 ml", out var kidofen))
+        {
+            kidofen.DefaultDiscountPercent ??= 2.5m;
+        }
+
+        if (products.TryGetValue("Sunshield SPF 50, 60 ml", out var sunshield))
+        {
+            sunshield.MaxDiscountPercent ??= 5m;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private sealed record VisitSeed(
+        bool FirstRep, int DaysAgo, string Doctor, VisitFeedbackCategory? Category, string? Feedback, string[] Products, string? Reply);
+
+    private static readonly VisitSeed[] VisitSeeds =
+    [
+        new(true, 0, "Dr. Ahmed Fathy", VisitFeedbackCategory.Positive,
+            "Liked the new Cardiolin pack size and will start two new patients this week.", ["Cardiolin 5 mg, 30 tablets", "Cardiolin 10 mg, 30 tablets"], null),
+        new(true, 1, "Dr. Mona Saeed", VisitFeedbackCategory.Request,
+            "Asked for samples of Vitakid drops and the dosing leaflet in Arabic.", ["Vitakid drops 15 ml", "Kidofen syrup 100 ml"],
+            "Samples go out with Thursday's delivery."),
+        new(true, 2, "Dr. Karim Adel", VisitFeedbackCategory.NeedsFollowUp,
+            "Wants the cholesterol study results before switching patients to Lipostat.", ["Lipostat 20 mg, 28 tablets"], null),
+        new(true, 4, "Dr. Tamer Nabil", VisitFeedbackCategory.Complaint,
+            "Two pharmacies near the clinic were out of Pressanorm last week.", ["Pressanorm 80 mg, 14 capsules"],
+            "Checked with the warehouse, stock arrives on Sunday."),
+        new(true, 6, "Dr. Youssef Samir", null, null, ["Cardiolin 5 mg, 30 tablets"], null),
+        new(false, 0, "Dr. Rania Hassan", VisitFeedbackCategory.Positive,
+            "Happy with Dermacalm results on eczema patients.", ["Dermacalm cream 50 g", "Acnoclear gel 30 g"], null),
+        new(false, 2, "Dr. Heba Mostafa", VisitFeedbackCategory.Request,
+            "Requested a short talk about Probiokid at the clinic's monthly meeting.", ["Probiokid sachets, 10"], null),
+        new(false, 3, "Dr. Mona Saeed", null, null, ["Coughex junior syrup 120 ml"], null),
+    ];
+
+    /// <summary>
+    /// A week of field activity for both demo reps: working days (shifts), visits with feedback, products
+    /// discussed and replies, orders that were decided and delivered, and the notifications those created.
+    /// </summary>
+    private async Task SeedActivityAsync(CancellationToken cancellationToken)
+    {
+        var rep = await userManager.FindByEmailAsync(RepEmail);
+        var second = await userManager.FindByEmailAsync(SecondRepEmail);
+        var supervisor = await userManager.FindByEmailAsync(SupervisorEmail);
+        var areaManager = await userManager.FindByEmailAsync("area.manager@demo.local");
+        if (rep is null || second is null || supervisor is null)
+        {
+            return;
+        }
+
+        var doctors = await db.Customers.Where(c => c.Type == CustomerType.Doctor).ToDictionaryAsync(c => c.Name, cancellationToken);
+        var products = await db.Products.ToDictionaryAsync(p => p.NameEn, cancellationToken);
+        var now = time.GetUtcNow();
+        var today = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero);
+
+        // Working days: 07:00 to 14:30 UTC (09:00 to 16:30 in Cairo), today's still running.
+        foreach (var user in new[] { rep, second })
+        {
+            for (var day = 6; day >= 0; day--)
+            {
+                var start = today.AddDays(-day).AddHours(7).AddMinutes(user == rep ? 0 : 20);
+                if (start > now)
+                {
+                    continue;
+                }
+
+                db.Shifts.Add(new Shift
+                {
+                    UserId = user.Id,
+                    TerritoryId = user.TerritoryId,
+                    DeviceId = $"demo-{(user == rep ? "rep" : "rep-east")}",
+                    Source = LocationSource.Pwa,
+                    Status = ShiftStatus.Ended,
+                    StartedAt = start,
+                    EndedAt = day == 0 ? (start.AddHours(7.5) < now ? start.AddHours(7.5) : now) : start.AddHours(7.5),
+                    LastPointAt = start.AddHours(7),
+                });
+            }
+        }
+
+        foreach (var seed in VisitSeeds)
+        {
+            var user = seed.FirstRep ? rep : second;
+            if (!doctors.TryGetValue(seed.Doctor, out var doctor))
+            {
+                continue;
+            }
+
+            // Never in the future: today's visits are moved back when the seed runs early in the day.
+            var checkIn = today.AddDays(-seed.DaysAgo).AddHours(seed.DaysAgo == 0 ? 7.5 : 9);
+            if (checkIn.AddHours(2) > now)
+            {
+                checkIn = now.AddHours(-2);
+            }
+
+            var visit = new Visit
+            {
+                UserId = user.Id,
+                TerritoryId = user.TerritoryId,
+                CustomerId = doctor.Id,
+                DeviceId = $"demo-{(seed.FirstRep ? "rep" : "rep-east")}",
+                Status = VisitStatus.Completed,
+                CheckInAt = checkIn,
+                CheckInReceivedAt = checkIn,
+                CheckInLocation = doctor.Location ?? GeoFactory.Point(30.06, 31.33),
+                CheckInAccuracy = 12,
+                CheckInDistanceMeters = 18,
+                CheckInWithinGeofence = true,
+                CheckOutAt = checkIn.AddMinutes(25),
+                CheckOutReceivedAt = checkIn.AddMinutes(25),
+                CheckOutLocation = doctor.Location ?? GeoFactory.Point(30.06, 31.33),
+                CheckOutAccuracy = 15,
+                CheckOutDistanceMeters = 22,
+                CheckOutWithinGeofence = true,
+                ContentUpdatedAt = checkIn.AddMinutes(30),
+            };
+
+            var order = 0;
+            foreach (var name in seed.Products)
+            {
+                if (products.TryGetValue(name, out var product))
+                {
+                    visit.Products.Add(new VisitProduct { VisitId = visit.Id, ProductId = product.Id, SortOrder = order++ });
+                }
+            }
+
+            if (seed.Feedback is not null)
+            {
+                visit.Feedback = new VisitFeedback
+                {
+                    VisitId = visit.Id,
+                    Text = seed.Feedback,
+                    Category = seed.Category,
+                    CreatedAt = checkIn.AddMinutes(30),
+                    UpdatedAt = checkIn.AddMinutes(30),
+                };
+
+                foreach (var recipient in new[] { supervisor, areaManager }.OfType<User>())
+                {
+                    var answered = seed.Reply is not null && recipient == supervisor;
+                    db.Notifications.Add(Notification(recipient.Id, NotificationType.VisitFeedback, visit.Id, new
+                    {
+                        visitId = visit.Id,
+                        repName = user.FullName,
+                        customerName = doctor.Name,
+                        customerNameAr = doctor.NameAr,
+                        category = seed.Category,
+                        excerpt = seed.Feedback,
+                    }, checkIn.AddMinutes(30), answered ? checkIn.AddHours(2) : null));
+                }
+
+                if (seed.Reply is not null)
+                {
+                    visit.Feedback.SeenBy.Add(new VisitFeedbackSeen
+                    {
+                        VisitId = visit.Id, UserId = supervisor.Id, UserName = supervisor.FullName, SeenAt = checkIn.AddHours(2),
+                    });
+                    visit.Replies.Add(new VisitFeedbackReply
+                    {
+                        VisitId = visit.Id, AuthorId = supervisor.Id, AuthorName = supervisor.FullName, Text = seed.Reply,
+                        CreatedAt = checkIn.AddHours(2),
+                    });
+                    db.Notifications.Add(Notification(user.Id, NotificationType.VisitFeedbackReply, visit.Id, new
+                    {
+                        visitId = visit.Id,
+                        authorName = supervisor.FullName,
+                        customerName = doctor.Name,
+                        customerNameAr = doctor.NameAr,
+                        excerpt = seed.Reply,
+                    }, checkIn.AddHours(2), null));
+                }
+            }
+
+            db.Visits.Add(visit);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await SeedDecisionsAsync(rep, second, supervisor, products, now, cancellationToken);
+    }
+
+    /// <summary>The approved demo order gets delivered; three more orders show a rejection, a cancellation and an open delivery.</summary>
+    private async Task SeedDecisionsAsync(
+        User rep,
+        User second,
+        User supervisor,
+        IReadOnlyDictionary<string, Product> products,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var approved = await db.Orders.Where(o => o.UserId == rep.Id && o.Status == OrderStatus.Approved)
+            .OrderBy(o => o.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+        if (approved is not null)
+        {
+            var decided = approved.UpdatedAt;
+            approved.DecidedAt = decided;
+            approved.DecidedById = supervisor.Id;
+            approved.DecidedByName = supervisor.FullName;
+            approved.Delivery = DeliveryStatus.Delivered;
+            approved.DeliveredAt = decided.AddDays(1);
+            approved.DeliveredById = supervisor.Id;
+            approved.DeliveredByName = supervisor.FullName;
+            approved.DeliveryNote = "Delivered to the warehouse gate, signed by the store keeper.";
+            db.OrderHistory.Add(new OrderHistoryEntry
+            {
+                OrderId = approved.Id, Action = OrderHistoryAction.Delivered, FromStatus = OrderStatus.Approved, ToStatus = OrderStatus.Approved,
+                ActorId = supervisor.Id, ActorName = supervisor.FullName, Reason = approved.DeliveryNote, CreatedAt = decided.AddDays(1),
+            });
+            db.Notifications.Add(OrderNotification(rep, approved, NotificationType.OrderApproved, supervisor, null, decided, decided.AddHours(1)));
+            db.Notifications.Add(OrderNotification(rep, approved, NotificationType.OrderDelivered, supervisor, approved.DeliveryNote, decided.AddDays(1), null));
+        }
+
+        var cash = await db.CollectionMethods.Where(m => m.NameEn == "Cash").Select(m => (Guid?)m.Id).FirstOrDefaultAsync(cancellationToken);
+        var transfer = await db.CollectionMethods.Where(m => m.NameEn == "Bank transfer").Select(m => (Guid?)m.Id).FirstOrDefaultAsync(cancellationToken);
+        var numbers = new OrderNumberGenerator(db);
+        var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
+
+        async Task AddAsync(User owner, int daysAgo, string place, PlaceType type, Guid? method, (string Product, int Quantity, decimal Discount)[] items,
+            OrderStatus status, string? reason, bool delivered)
+        {
+            var created = now.AddDays(-daysAgo).AddHours(-3);
+            var order = new Order
+            {
+                Number = OrderService.FormatNumber(await numbers.NextAsync(cancellationToken), created),
+                UserId = owner.Id,
+                TerritoryId = owner.TerritoryId,
+                ClientRequestId = Guid.NewGuid(),
+                OrderDate = today.AddDays(-daysAgo),
+                PlaceType = type,
+                PlaceName = place,
+                CollectionMethodId = method,
+                CollectionMethodOther = method is null ? "Cash on delivery" : null,
+                Status = OrderStatus.Submitted,
+                CreatedAt = created,
+                CreatedById = owner.Id,
+                UpdatedAt = created,
+                UpdatedById = owner.Id,
+            };
+
+            var sort = 0;
+            var priced = new List<PricedLine>();
+            foreach (var (name, quantity, discount) in items)
+            {
+                if (!products.TryGetValue(name, out var product))
+                {
+                    continue;
+                }
+
+                var line = OrderPricing.PriceLine(product.Id, quantity, product.Price, discount);
+                priced.Add(line);
+                order.Lines.Add(new OrderLine
+                {
+                    ProductId = product.Id, ProductNameAr = product.NameAr, ProductNameEn = product.NameEn, Quantity = quantity,
+                    UnitPrice = line.UnitPrice, DiscountPercent = discount, DiscountAmount = line.DiscountAmount, LineTotal = line.LineTotal,
+                    ExceededStock = quantity > product.StockQuantity, SortOrder = sort++,
+                });
+            }
+
+            if (priced.Count == 0)
+            {
+                return;
+            }
+
+            var totals = OrderPricing.Totals(priced);
+            (order.Subtotal, order.DiscountTotal, order.Total) = (totals.Subtotal, totals.DiscountTotal, totals.Total);
+            order.History.Add(new OrderHistoryEntry
+            {
+                OrderId = order.Id, Action = OrderHistoryAction.Created, ToStatus = OrderStatus.Submitted,
+                ActorId = owner.Id, ActorName = owner.FullName, CreatedAt = created,
+            });
+
+            if (status != OrderStatus.Submitted)
+            {
+                var decidedAt = created.AddHours(2);
+                order.Status = status;
+                order.StatusReason = reason;
+                order.DecidedAt = decidedAt;
+                order.DecidedById = supervisor.Id;
+                order.DecidedByName = supervisor.FullName;
+                order.UpdatedAt = decidedAt;
+                order.UpdatedById = supervisor.Id;
+                order.Delivery = status == OrderStatus.Approved ? DeliveryStatus.NotDelivered : null;
+                order.History.Add(new OrderHistoryEntry
+                {
+                    OrderId = order.Id,
+                    Action = status switch
+                    {
+                        OrderStatus.Approved => OrderHistoryAction.Approved,
+                        OrderStatus.Rejected => OrderHistoryAction.Rejected,
+                        _ => OrderHistoryAction.Cancelled,
+                    },
+                    FromStatus = OrderStatus.Submitted, ToStatus = status, ActorId = supervisor.Id, ActorName = supervisor.FullName,
+                    Reason = reason, CreatedAt = decidedAt,
+                });
+                db.Notifications.Add(OrderNotification(owner, order, status switch
+                {
+                    OrderStatus.Approved => NotificationType.OrderApproved,
+                    OrderStatus.Rejected => NotificationType.OrderRejected,
+                    _ => NotificationType.OrderCancelled,
+                }, supervisor, reason, decidedAt, null));
+
+                if (delivered)
+                {
+                    order.Delivery = DeliveryStatus.Delivered;
+                    order.DeliveredAt = decidedAt.AddHours(20);
+                    order.DeliveredById = supervisor.Id;
+                    order.DeliveredByName = supervisor.FullName;
+                    order.History.Add(new OrderHistoryEntry
+                    {
+                        OrderId = order.Id, Action = OrderHistoryAction.Delivered, FromStatus = status, ToStatus = status,
+                        ActorId = supervisor.Id, ActorName = supervisor.FullName, CreatedAt = decidedAt.AddHours(20),
+                    });
+                    db.Notifications.Add(OrderNotification(owner, order, NotificationType.OrderDelivered, supervisor, null, decidedAt.AddHours(20), null));
+                }
+            }
+
+            db.Orders.Add(order);
+        }
+
+        await AddAsync(rep, 5, "El Ezaby pharmacy, Abbas El Akkad", PlaceType.Pharmacy, cash,
+            [("Lipostat 20 mg, 28 tablets", 10, 7.5m), ("Cardiolin 10 mg, 30 tablets", 6, 5m)], OrderStatus.Rejected,
+            "The pharmacy has an unpaid balance; collect it before the next order.", false);
+        await AddAsync(rep, 2, "Seif pharmacy, Makram Ebeid", PlaceType.Pharmacy, transfer,
+            [("Cardiolin 5 mg, 30 tablets", 12, 5m), ("Kidofen syrup 100 ml", 20, 2.5m)], OrderStatus.Approved, null, false);
+        await AddAsync(second, 4, "Al Shorouk medical store", PlaceType.Warehouse, null,
+            [("Dermacalm cream 50 g", 15, 0m), ("Vitakid drops 15 ml", 10, 0m)], OrderStatus.Approved,
+            "Approved, split delivery is fine.", true);
+        await AddAsync(second, 1, "Roshdy pharmacy, Heliopolis", PlaceType.Pharmacy, cash,
+            [("Acnoclear gel 30 g", 4, 0m)], OrderStatus.Cancelled, "Duplicate of yesterday's order.", false);
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static Notification OrderNotification(
+        User recipient, Order order, NotificationType type, User actor, string? note, DateTimeOffset at, DateTimeOffset? readAt) =>
+        Notification(recipient.Id, type, order.Id, new
+        {
+            orderId = order.Id,
+            orderNumber = order.Number,
+            placeName = order.PlaceName,
+            total = order.Total,
+            actorName = actor.FullName,
+            note,
+        }, at, readAt);
+
+    private static Notification Notification(Guid userId, NotificationType type, Guid entityId, object data, DateTimeOffset at, DateTimeOffset? readAt) => new()
+    {
+        UserId = userId,
+        Type = type,
+        EntityId = entityId,
+        Data = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)),
+        CreatedAt = at,
+        ReadAt = readAt,
+    };
 
     /// <summary>
     /// Simple product picture (no text, no logos): a tinted background with a box, bottle,

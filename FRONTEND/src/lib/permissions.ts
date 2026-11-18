@@ -10,27 +10,57 @@ export const P = {
     manage: 'users:manage',
     create: 'users:create',
     resetPassword: 'users:reset-password',
+    delete: 'users:delete',
+    restore: 'users:restore',
   },
   roles: { read: 'roles:read', manage: 'roles:manage' },
-  territories: { read: 'territories:read', manage: 'territories:manage' },
+  territories: {
+    read: 'territories:read',
+    manage: 'territories:manage',
+    delete: 'territories:delete',
+    restore: 'territories:restore',
+  },
   customers: {
     read: 'customers:read',
     manage: 'customers:manage',
     create: 'customers:create',
     assign: 'customers:assign',
+    delete: 'customers:delete',
+    restore: 'customers:restore',
   },
-  lookups: { manage: 'lookups:manage' },
-  products: { read: 'products:read', manage: 'products:manage' },
-  orders: { create: 'orders:create', read: 'orders:read', manage: 'orders:manage' },
-  visits: { read: 'visits:read', create: 'visits:create', manage: 'visits:manage' },
+  lookups: { manage: 'lookups:manage', delete: 'lookups:delete', restore: 'lookups:restore' },
+  products: {
+    read: 'products:read',
+    manage: 'products:manage',
+    delete: 'products:delete',
+    restore: 'products:restore',
+  },
+  orders: {
+    create: 'orders:create',
+    read: 'orders:read',
+    manage: 'orders:manage',
+    deliver: 'orders:deliver',
+    delete: 'orders:delete',
+    restore: 'orders:restore',
+  },
+  visits: {
+    read: 'visits:read',
+    create: 'visits:create',
+    manage: 'visits:manage',
+    feedback: 'visits:feedback',
+    delete: 'visits:delete',
+    restore: 'visits:restore',
+  },
   tracking: {
     report: 'tracking:report',
     viewLive: 'tracking:view-live',
     history: 'tracking:history',
     reviewFlags: 'tracking:review-flags',
   },
-  devices: { read: 'devices:read' },
+  devices: { read: 'devices:read', delete: 'devices:delete' },
   reports: { read: 'reports:read' },
+  stats: { read: 'stats:read', export: 'stats:export' },
+  audit: { read: 'audit:read' },
 } as const
 
 type Leaves<T> = T extends string ? T : { [K in keyof T]: Leaves<T[K]> }[keyof T]
@@ -59,6 +89,8 @@ export function canUseDashboard(granted: Record<string, PermissionScope>): boole
     hasPermission(granted, P.orders.read, 'team') ||
     hasPermission(granted, P.customers.read, 'team') ||
     hasPermission(granted, P.products.manage) ||
-    hasPermission(granted, P.lookups.manage)
+    hasPermission(granted, P.lookups.manage) ||
+    hasPermission(granted, P.stats.read, 'team') ||
+    hasPermission(granted, P.audit.read)
   )
 }

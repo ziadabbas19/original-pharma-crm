@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Infrastructure.Identity;
 
@@ -52,6 +53,12 @@ public sealed class RolesController(RoleService roles) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Delete several custom roles; each is checked like a single delete (system role, level, users holding it).</summary>
+    [HttpPost("bulk-delete")]
+    [HasPermission(Permissions.Roles.Manage)]
+    public Task<BulkResult> BulkDelete(BulkDeleteRequest request, CancellationToken cancellationToken) =>
+        roles.DeleteManyAsync(request, cancellationToken);
+
     /// <summary>Move every user of this role to another role (used before deleting it).</summary>
     [HttpPost("{roleId:guid}/reassign")]
     [HasPermission(Permissions.Roles.Manage)]
@@ -78,10 +85,26 @@ public sealed class RolesController(RoleService roles) : ControllerBase
 [Tags("Users")]
 public sealed class UsersController(UserAdminService users, AccountService accounts) : ControllerBase
 {
+    /// <param name="archived">Only archived (deleted) users (true), otherwise only users that are not archived.</param>
     [HttpGet]
     [HasPermission(Permissions.Users.Read)]
-    public Task<IReadOnlyList<UserListItemDto>> List(CancellationToken cancellationToken) =>
-        users.ListAsync(cancellationToken);
+    public Task<IReadOnlyList<UserListItemDto>> List(CancellationToken cancellationToken, [FromQuery] bool archived = false) =>
+        users.ListAsync(archived, cancellationToken);
+
+    /// <summary>
+    /// Delete users: never yourself, the last active admin, someone at or above your level, outside your
+    /// scope, or someone people still report to. Users with activity are archived (deactivated, signed out).
+    /// </summary>
+    [HttpPost("bulk-delete")]
+    [HasPermission(Permissions.Users.Delete)]
+    public Task<BulkResult> BulkDelete(BulkDeleteRequest request, CancellationToken cancellationToken) =>
+        users.DeleteManyAsync(request, cancellationToken);
+
+    /// <summary>Restore archived users (they can sign in again).</summary>
+    [HttpPost("bulk-restore")]
+    [HasPermission(Permissions.Users.Restore)]
+    public Task<BulkResult> BulkRestore(BulkIdsRequest request, CancellationToken cancellationToken) =>
+        users.RestoreManyAsync(request, cancellationToken);
 
     /// <summary>
     /// Create an account (users:create). Leave <c>password</c> empty to have a temporary password
@@ -155,10 +178,22 @@ public sealed class UsersController(UserAdminService users, AccountService accou
 [Tags("Territories")]
 public sealed class TerritoriesController(TerritoryService territories) : ControllerBase
 {
+    /// <param name="archived">Only archived nodes (true), otherwise only nodes that are not archived.</param>
     [HttpGet]
     [HasPermission(Permissions.Territories.Read)]
-    public Task<IReadOnlyList<TerritoryDto>> List(CancellationToken cancellationToken) =>
-        territories.ListAsync(cancellationToken);
+    public Task<IReadOnlyList<TerritoryDto>> List(CancellationToken cancellationToken, [FromQuery] bool archived = false) =>
+        territories.ListAsync(archived, cancellationToken);
+
+    /// <summary>Delete nodes: removed when unused, archived while doctors, orders or visits use them; blocked with active children or users.</summary>
+    [HttpPost("bulk-delete")]
+    [HasPermission(Permissions.Territories.Delete)]
+    public Task<BulkResult> BulkDelete(BulkDeleteRequest request, CancellationToken cancellationToken) =>
+        territories.DeleteManyAsync(request, cancellationToken);
+
+    [HttpPost("bulk-restore")]
+    [HasPermission(Permissions.Territories.Restore)]
+    public Task<BulkResult> BulkRestore(BulkIdsRequest request, CancellationToken cancellationToken) =>
+        territories.RestoreManyAsync(request, cancellationToken);
 
     /// <summary>Add a region, an area (under a region) or a town (under an area).</summary>
     [HttpPost]
@@ -172,9 +207,9 @@ public sealed class TerritoriesController(TerritoryService territories) : Contro
     public Task<TerritoryDto> Update(Guid id, UpdateTerritoryRequest request, CancellationToken cancellationToken) =>
         territories.UpdateAsync(id, request, cancellationToken);
 
-    /// <summary>Delete an empty node. 409 <c>territory_in_use</c> while it has towns, users or doctors.</summary>
+    /// <summary>Delete one node (archived when used). 409 <c>territory_in_use</c> while it has active towns or users.</summary>
     [HttpDelete("{id:guid}")]
-    [HasPermission(Permissions.Territories.Manage)]
+    [HasPermission(Permissions.Territories.Delete)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)

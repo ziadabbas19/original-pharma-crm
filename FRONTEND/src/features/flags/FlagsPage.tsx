@@ -79,17 +79,19 @@ export function FlagsPage() {
         column.accessor('type', {
           header: () => t('flags.type'),
           cell: (info) => <FlagTypeBadge type={info.getValue()} />,
+          meta: { className: 'hidden @[44rem]:table-cell' },
         }),
         column.accessor('score', {
           header: () => t('flags.score'),
           sortDescFirst: true,
           cell: (info) => <ScoreBadge score={info.getValue()} />,
+          meta: { className: 'hidden @[36rem]:table-cell' },
         }),
         column.accessor('signals', {
           header: () => t('flags.signalsLabel'),
           enableSorting: false,
           cell: (info) => <SignalList signals={info.getValue()} />,
-          meta: { className: 'hidden lg:table-cell' },
+          meta: { className: 'hidden @[56rem]:table-cell' },
         }),
         column.accessor('details', {
           header: () => t('flags.details'),
@@ -102,7 +104,7 @@ export function FlagsPage() {
               {info.getValue() || '—'}
             </span>
           ),
-          meta: { className: 'hidden xl:table-cell' },
+          meta: { className: 'hidden @[72rem]:table-cell' },
         }),
         column.accessor('status', {
           header: () => t('flags.status'),

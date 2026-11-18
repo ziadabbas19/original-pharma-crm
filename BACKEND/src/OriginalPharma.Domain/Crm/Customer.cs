@@ -14,7 +14,7 @@ public enum CustomerType
 /// cover them (<see cref="RepDoctor"/>).
 /// TODO: classification (A/B/C), opening hours, QR sticker printing.
 /// </summary>
-public class Customer : Entity
+public class Customer : Entity, IArchivable
 {
     public const int NameMaxLength = 200;
     public const int PhoneMaxLength = 32;
@@ -48,6 +48,10 @@ public class Customer : Entity
     public DateTimeOffset CreatedAt { get; set; }
     public Guid? CreatedById { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
+
+    /// <summary>Deleted while visits or orders still point at it; hidden from lists, kept for history.</summary>
+    public DateTimeOffset? ArchivedAt { get; set; }
+    public Guid? ArchivedById { get; set; }
 
     public ICollection<RepDoctor> Reps { get; set; } = new List<RepDoctor>();
 }

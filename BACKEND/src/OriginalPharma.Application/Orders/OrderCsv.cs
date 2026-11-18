@@ -8,17 +8,23 @@ namespace OriginalPharma.Application.Orders;
 public static class OrderCsv
 {
     private static readonly string[] HeadersEn =
-        ["Number", "Date", "Rep", "Area", "Place type", "Place", "Collection method", "Status", "Lines", "Total (EGP)", "Created at (UTC)"];
+        ["Number", "Date", "Rep", "Area", "Place type", "Place", "Collection method", "Status", "Delivery", "Decided by", "Lines", "Discount (EGP)", "Total (EGP)", "Created at (UTC)"];
 
     private static readonly string[] HeadersAr =
-        ["رقم الطلب", "التاريخ", "المندوب", "المنطقة", "نوع المكان", "المكان", "طريقة التحصيل", "الحالة", "عدد الأصناف", "الإجمالي (ج.م)", "تاريخ الإنشاء (UTC)"];
+        ["رقم الطلب", "التاريخ", "المندوب", "المنطقة", "نوع المكان", "المكان", "طريقة التحصيل", "الحالة", "التسليم", "صاحب القرار", "عدد الأصناف", "الخصم (ج.م)", "الإجمالي (ج.م)", "تاريخ الإنشاء (UTC)"];
+
+    private static readonly Dictionary<DeliveryStatus, (string En, string Ar)> Deliveries = new()
+    {
+        [DeliveryStatus.NotDelivered] = ("Not delivered", "لم تُسلَّم"),
+        [DeliveryStatus.Delivered] = ("Delivered", "تم التسليم"),
+    };
 
     private static readonly Dictionary<OrderStatus, (string En, string Ar)> Statuses = new()
     {
-        [OrderStatus.Submitted] = ("Submitted", "مُرسل"),
-        [OrderStatus.Approved] = ("Approved", "معتمد"),
-        [OrderStatus.Rejected] = ("Rejected", "مرفوض"),
-        [OrderStatus.Cancelled] = ("Cancelled", "ملغي"),
+        [OrderStatus.Submitted] = ("Waiting for review", "بانتظار المراجعة"),
+        [OrderStatus.Approved] = ("Approved", "معتمدة"),
+        [OrderStatus.Rejected] = ("Rejected", "مرفوضة"),
+        [OrderStatus.Cancelled] = ("Cancelled", "ملغاة"),
     };
 
     private static readonly Dictionary<PlaceType, (string En, string Ar)> Places = new()
@@ -47,7 +53,10 @@ public static class OrderCsv
                 o.PlaceName,
                 (arabic ? o.CollectionMethodNameAr : o.CollectionMethodNameEn) ?? o.CollectionMethodOther ?? string.Empty,
                 arabic ? Statuses[o.Status].Ar : Statuses[o.Status].En,
+                o.Delivery is { } delivery ? (arabic ? Deliveries[delivery].Ar : Deliveries[delivery].En) : string.Empty,
+                o.DecidedByName ?? string.Empty,
                 o.LineCount.ToString(CultureInfo.InvariantCulture),
+                o.DiscountTotal.ToString("0.00", CultureInfo.InvariantCulture),
                 o.Total.ToString("0.00", CultureInfo.InvariantCulture),
                 o.CreatedAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
             ]);

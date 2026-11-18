@@ -6,4 +6,6 @@
 export interface OrderStatusRequest {
   /** @nullable */
   reason?: string | null
+  /** @nullable */
+  internalNote?: string | null
 }

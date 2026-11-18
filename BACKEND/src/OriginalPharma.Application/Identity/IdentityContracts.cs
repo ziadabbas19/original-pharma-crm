@@ -125,7 +125,8 @@ public sealed record UserListItemDto(
     string PreferredLanguage = "ar",
     string? AvatarUrl = null,
     IReadOnlyList<Guid>? ProductLineIds = null,
-    bool MustChangePassword = false);
+    bool MustChangePassword = false,
+    DateTimeOffset? ArchivedAt = null);
 
 /// <param name="Password">Temporary password. Leave empty to have one generated (returned once).</param>
 /// <param name="Roles">Role keys; at least one is required.</param>

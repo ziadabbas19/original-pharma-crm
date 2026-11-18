@@ -19,6 +19,9 @@ import type {
 } from '@tanstack/react-query'
 
 import type {
+  BulkDeleteRequest,
+  BulkIdsRequest,
+  BulkResult,
   LookupDto,
   LookupsListCollectionMethodsParams,
   LookupsListSpecialtiesParams,
@@ -444,6 +447,160 @@ export const useLookupsUpdateSpecialty = <TError = unknown, TContext = unknown>(
 > => {
   return useMutation(getLookupsUpdateSpecialtyMutationOptions(options), queryClient)
 }
+export const getLookupsDeleteSpecialtiesUrl = () => {
+  return `/api/lookups/specialties/bulk-delete`
+}
+
+export const lookupsDeleteSpecialties = async (
+  bulkDeleteRequest: BulkDeleteRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getLookupsDeleteSpecialtiesUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkDeleteRequest),
+  })
+}
+
+export const getLookupsDeleteSpecialtiesMutationKey = () => ['lookupsDeleteSpecialties'] as const
+
+export const getLookupsDeleteSpecialtiesMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupsDeleteSpecialties>>,
+    TError,
+    LookupsDeleteSpecialtiesMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof lookupsDeleteSpecialties>>,
+  TError,
+  LookupsDeleteSpecialtiesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getLookupsDeleteSpecialtiesMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof lookupsDeleteSpecialties>>,
+    LookupsDeleteSpecialtiesMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return lookupsDeleteSpecialties(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type LookupsDeleteSpecialtiesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof lookupsDeleteSpecialties>>
+>
+export type LookupsDeleteSpecialtiesMutationBody = BulkDeleteRequest
+export type LookupsDeleteSpecialtiesMutationError = unknown
+export type LookupsDeleteSpecialtiesMutationVariables = { data: BulkDeleteRequest }
+
+export const useLookupsDeleteSpecialties = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof lookupsDeleteSpecialties>>,
+      TError,
+      LookupsDeleteSpecialtiesMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof lookupsDeleteSpecialties>>,
+  TError,
+  LookupsDeleteSpecialtiesMutationVariables,
+  TContext
+> => {
+  return useMutation(getLookupsDeleteSpecialtiesMutationOptions(options), queryClient)
+}
+export const getLookupsRestoreSpecialtiesUrl = () => {
+  return `/api/lookups/specialties/bulk-restore`
+}
+
+export const lookupsRestoreSpecialties = async (
+  bulkIdsRequest: BulkIdsRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getLookupsRestoreSpecialtiesUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkIdsRequest),
+  })
+}
+
+export const getLookupsRestoreSpecialtiesMutationKey = () => ['lookupsRestoreSpecialties'] as const
+
+export const getLookupsRestoreSpecialtiesMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupsRestoreSpecialties>>,
+    TError,
+    LookupsRestoreSpecialtiesMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof lookupsRestoreSpecialties>>,
+  TError,
+  LookupsRestoreSpecialtiesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getLookupsRestoreSpecialtiesMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof lookupsRestoreSpecialties>>,
+    LookupsRestoreSpecialtiesMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return lookupsRestoreSpecialties(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type LookupsRestoreSpecialtiesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof lookupsRestoreSpecialties>>
+>
+export type LookupsRestoreSpecialtiesMutationBody = BulkIdsRequest
+export type LookupsRestoreSpecialtiesMutationError = unknown
+export type LookupsRestoreSpecialtiesMutationVariables = { data: BulkIdsRequest }
+
+export const useLookupsRestoreSpecialties = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof lookupsRestoreSpecialties>>,
+      TError,
+      LookupsRestoreSpecialtiesMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof lookupsRestoreSpecialties>>,
+  TError,
+  LookupsRestoreSpecialtiesMutationVariables,
+  TContext
+> => {
+  return useMutation(getLookupsRestoreSpecialtiesMutationOptions(options), queryClient)
+}
 export const getLookupsListCollectionMethodsUrl = (params?: LookupsListCollectionMethodsParams) => {
   const normalizedParams = new URLSearchParams()
 
@@ -653,6 +810,167 @@ export const useLookupsCreateCollectionMethod = <TError = unknown, TContext = un
   TContext
 > => {
   return useMutation(getLookupsCreateCollectionMethodMutationOptions(options), queryClient)
+}
+export const getLookupsDeleteCollectionMethodsUrl = () => {
+  return `/api/lookups/collection-methods/bulk-delete`
+}
+
+export const lookupsDeleteCollectionMethods = async (
+  bulkDeleteRequest: BulkDeleteRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getLookupsDeleteCollectionMethodsUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkDeleteRequest),
+  })
+}
+
+export const getLookupsDeleteCollectionMethodsMutationKey = () => ['lookupsDeleteCollectionMethods'] as const
+
+export const getLookupsDeleteCollectionMethodsMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupsDeleteCollectionMethods>>,
+    TError,
+    LookupsDeleteCollectionMethodsMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof lookupsDeleteCollectionMethods>>,
+  TError,
+  LookupsDeleteCollectionMethodsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getLookupsDeleteCollectionMethodsMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof lookupsDeleteCollectionMethods>>,
+    LookupsDeleteCollectionMethodsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return lookupsDeleteCollectionMethods(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type LookupsDeleteCollectionMethodsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof lookupsDeleteCollectionMethods>>
+>
+export type LookupsDeleteCollectionMethodsMutationBody = BulkDeleteRequest
+export type LookupsDeleteCollectionMethodsMutationError = unknown
+export type LookupsDeleteCollectionMethodsMutationVariables = { data: BulkDeleteRequest }
+
+export const useLookupsDeleteCollectionMethods = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof lookupsDeleteCollectionMethods>>,
+      TError,
+      LookupsDeleteCollectionMethodsMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof lookupsDeleteCollectionMethods>>,
+  TError,
+  LookupsDeleteCollectionMethodsMutationVariables,
+  TContext
+> => {
+  return useMutation(getLookupsDeleteCollectionMethodsMutationOptions(options), queryClient)
+}
+export const getLookupsRestoreCollectionMethodsUrl = () => {
+  return `/api/lookups/collection-methods/bulk-restore`
+}
+
+export const lookupsRestoreCollectionMethods = async (
+  bulkIdsRequest: BulkIdsRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getLookupsRestoreCollectionMethodsUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkIdsRequest),
+  })
+}
+
+export const getLookupsRestoreCollectionMethodsMutationKey = () =>
+  ['lookupsRestoreCollectionMethods'] as const
+
+export const getLookupsRestoreCollectionMethodsMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupsRestoreCollectionMethods>>,
+    TError,
+    LookupsRestoreCollectionMethodsMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof lookupsRestoreCollectionMethods>>,
+  TError,
+  LookupsRestoreCollectionMethodsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getLookupsRestoreCollectionMethodsMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof lookupsRestoreCollectionMethods>>,
+    LookupsRestoreCollectionMethodsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return lookupsRestoreCollectionMethods(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type LookupsRestoreCollectionMethodsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof lookupsRestoreCollectionMethods>>
+>
+export type LookupsRestoreCollectionMethodsMutationBody = BulkIdsRequest
+export type LookupsRestoreCollectionMethodsMutationError = unknown
+export type LookupsRestoreCollectionMethodsMutationVariables = { data: BulkIdsRequest }
+
+export const useLookupsRestoreCollectionMethods = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof lookupsRestoreCollectionMethods>>,
+      TError,
+      LookupsRestoreCollectionMethodsMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof lookupsRestoreCollectionMethods>>,
+  TError,
+  LookupsRestoreCollectionMethodsMutationVariables,
+  TContext
+> => {
+  return useMutation(getLookupsRestoreCollectionMethodsMutationOptions(options), queryClient)
 }
 export const getLookupsUpdateCollectionMethodUrl = (id: string) => {
   return `/api/lookups/collection-methods/${id}`

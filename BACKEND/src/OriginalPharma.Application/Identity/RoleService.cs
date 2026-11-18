@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Common.Auditing;
+using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Common.Scoping;
+using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Identity;
 
 namespace OriginalPharma.Application.Identity;
@@ -17,6 +20,7 @@ public sealed class RoleService(
     IPermissionService permissionService,
     HierarchyGuard guard,
     IDataScopeResolver scopeResolver,
+    AuditTrail audit,
     TimeProvider time)
 {
     private static readonly Dictionary<string, PermissionScope> NoGrants = [];
@@ -225,10 +229,75 @@ public sealed class RoleService(
             .. RoleAudit.DiffGrants(grants, NoGrants),
         ];
         db.RoleAuditEntries.Add(RoleAudit.Entry(role, actor, RoleAuditAction.Deleted, changes, time.GetUtcNow()));
+        await audit.AddAsync(AuditEntities.Role, roleId, AuditAction.Deleted, new { role.Key, role.NameAr, role.NameEn, role.Level }, cancellationToken: cancellationToken);
         db.Roles.Remove(role);
         await db.SaveChangesAsync(cancellationToken);
 
         // The role had no users, so no permissions version changes.
+    }
+
+    /// <summary>
+    /// Deletes several custom roles. Each one is checked like a single delete: below the caller's level,
+    /// not a system role, and no users holding it (<c>role_in_use</c>, the count is in
+    /// <see cref="BulkItemResult.UsageCount"/>).
+    /// </summary>
+    public async Task<BulkResult> DeleteManyAsync(BulkDeleteRequest request, CancellationToken cancellationToken = default)
+    {
+        var actor = await guard.GetActorAsync(cancellationToken);
+        var ids = request.Ids.Distinct().ToArray();
+        var roles = await db.Roles.Where(r => ids.Contains(r.Id)).ToDictionaryAsync(r => r.Id, cancellationToken);
+        var holders = await db.UserRoles.Where(ur => ids.Contains(ur.RoleId))
+            .GroupBy(ur => ur.RoleId).Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, cancellationToken);
+
+        var results = new List<BulkItemResult>();
+        var now = time.GetUtcNow();
+        foreach (var id in ids)
+        {
+            if (!roles.TryGetValue(id, out var role))
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.NotFound));
+                continue;
+            }
+
+            var users = holders.GetValueOrDefault(id);
+            var code = !actor.CanManageLevel(role.Level) ? BulkCodes.RoleLevelTooHigh
+                : role.IsSystem ? BulkCodes.SystemRole
+                : users > 0 ? BulkCodes.RoleInUse
+                : null;
+            if (code is not null)
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, code, users));
+                continue;
+            }
+
+            results.Add(new BulkItemResult(id, BulkOutcome.Deleted));
+            if (request.DryRun)
+            {
+                continue;
+            }
+
+            var grants = await LoadGrantsAsync(id, cancellationToken);
+            List<RoleAuditChangeDto> changes =
+            [
+                new("nameAr", role.NameAr, null),
+                new("nameEn", role.NameEn, null),
+                new("level", role.Level.ToString(), null),
+                .. RoleAudit.DiffGrants(grants, NoGrants),
+            ];
+            db.RoleAuditEntries.Add(RoleAudit.Entry(role, actor, RoleAuditAction.Deleted, changes, now));
+            await audit.AddAsync(AuditEntities.Role, id, AuditAction.Deleted, new { role.Key, role.NameAr, role.NameEn, role.Level }, cancellationToken: cancellationToken);
+            db.Roles.Remove(role);
+        }
+
+        var result = BulkResult.From(results, request.DryRun);
+        if (!request.DryRun && result.Done > 0)
+        {
+            await audit.AddBulkAsync(AuditEntities.Role, AuditAction.BulkDelete, result, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return result;
     }
 
     /// <summary>

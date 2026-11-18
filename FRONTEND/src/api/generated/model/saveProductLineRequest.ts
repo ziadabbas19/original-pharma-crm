@@ -9,4 +9,8 @@ export interface SaveProductLineRequest {
   /** @nullable */
   description: string | null
   isActive?: boolean
+  /** @nullable */
+  defaultDiscountPercent?: number | null
+  /** @nullable */
+  maxDiscountPercent?: number | null
 }

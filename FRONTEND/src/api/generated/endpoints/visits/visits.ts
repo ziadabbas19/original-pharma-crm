@@ -19,11 +19,17 @@ import type {
 } from '@tanstack/react-query'
 
 import type {
+  BulkDeleteRequest,
+  BulkIdsRequest,
+  BulkResult,
   CheckInRequest,
   CheckOutRequest,
+  UpdateVisitContentRequest,
+  VisitDetailDto,
   VisitDto,
   VisitListItemDto,
   VisitPhotoDto,
+  VisitReplyRequest,
   VisitsListParams,
   VisitsUploadPhotoBody,
 } from '../../model'
@@ -418,8 +424,8 @@ export const getVisitsGetUrl = (visitId: string) => {
 export const visitsGet = async (
   visitId: string,
   options?: Parameters<typeof apiFetch>[1],
-): Promise<VisitDto> => {
-  return apiFetch<VisitDto>(getVisitsGetUrl(visitId), {
+): Promise<VisitDetailDto> => {
+  return apiFetch<VisitDetailDto>(getVisitsGetUrl(visitId), {
     ...options,
     method: 'GET',
   })
@@ -511,4 +517,382 @@ export function useVisitsGet<TData = Awaited<ReturnType<typeof visitsGet>>, TErr
   }
 
   return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getVisitsUpdateContentUrl = (visitId: string) => {
+  return `/api/visits/${visitId}/content`
+}
+
+export const visitsUpdateContent = async (
+  visitId: string,
+  updateVisitContentRequest: UpdateVisitContentRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<VisitDetailDto> => {
+  return apiFetch<VisitDetailDto>(getVisitsUpdateContentUrl(visitId), {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(updateVisitContentRequest),
+  })
+}
+
+export const getVisitsUpdateContentMutationKey = () => ['visitsUpdateContent'] as const
+
+export const getVisitsUpdateContentMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof visitsUpdateContent>>,
+    TError,
+    VisitsUpdateContentMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof visitsUpdateContent>>,
+  TError,
+  VisitsUpdateContentMutationVariables,
+  TContext
+> => {
+  const mutationKey = getVisitsUpdateContentMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof visitsUpdateContent>>,
+    VisitsUpdateContentMutationVariables
+  > = (props) => {
+    const { visitId, data } = props ?? {}
+
+    return visitsUpdateContent(visitId, data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type VisitsUpdateContentMutationResult = NonNullable<Awaited<ReturnType<typeof visitsUpdateContent>>>
+export type VisitsUpdateContentMutationBody = UpdateVisitContentRequest
+export type VisitsUpdateContentMutationError = unknown
+export type VisitsUpdateContentMutationVariables = { visitId: string; data: UpdateVisitContentRequest }
+
+export const useVisitsUpdateContent = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof visitsUpdateContent>>,
+      TError,
+      VisitsUpdateContentMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof visitsUpdateContent>>,
+  TError,
+  VisitsUpdateContentMutationVariables,
+  TContext
+> => {
+  return useMutation(getVisitsUpdateContentMutationOptions(options), queryClient)
+}
+export const getVisitsReplyUrl = (visitId: string) => {
+  return `/api/visits/${visitId}/feedback/replies`
+}
+
+export const visitsReply = async (
+  visitId: string,
+  visitReplyRequest: VisitReplyRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<VisitDetailDto> => {
+  return apiFetch<VisitDetailDto>(getVisitsReplyUrl(visitId), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(visitReplyRequest),
+  })
+}
+
+export const getVisitsReplyMutationKey = () => ['visitsReply'] as const
+
+export const getVisitsReplyMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof visitsReply>>,
+    TError,
+    VisitsReplyMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof visitsReply>>,
+  TError,
+  VisitsReplyMutationVariables,
+  TContext
+> => {
+  const mutationKey = getVisitsReplyMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof visitsReply>>,
+    VisitsReplyMutationVariables
+  > = (props) => {
+    const { visitId, data } = props ?? {}
+
+    return visitsReply(visitId, data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type VisitsReplyMutationResult = NonNullable<Awaited<ReturnType<typeof visitsReply>>>
+export type VisitsReplyMutationBody = VisitReplyRequest
+export type VisitsReplyMutationError = unknown
+export type VisitsReplyMutationVariables = { visitId: string; data: VisitReplyRequest }
+
+export const useVisitsReply = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof visitsReply>>,
+      TError,
+      VisitsReplyMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof visitsReply>>,
+  TError,
+  VisitsReplyMutationVariables,
+  TContext
+> => {
+  return useMutation(getVisitsReplyMutationOptions(options), queryClient)
+}
+export const getVisitsMarkFeedbackSeenUrl = (visitId: string) => {
+  return `/api/visits/${visitId}/feedback/seen`
+}
+
+export const visitsMarkFeedbackSeen = async (
+  visitId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<VisitDetailDto> => {
+  return apiFetch<VisitDetailDto>(getVisitsMarkFeedbackSeenUrl(visitId), {
+    ...options,
+    method: 'POST',
+  })
+}
+
+export const getVisitsMarkFeedbackSeenMutationKey = () => ['visitsMarkFeedbackSeen'] as const
+
+export const getVisitsMarkFeedbackSeenMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof visitsMarkFeedbackSeen>>,
+    TError,
+    VisitsMarkFeedbackSeenMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof visitsMarkFeedbackSeen>>,
+  TError,
+  VisitsMarkFeedbackSeenMutationVariables,
+  TContext
+> => {
+  const mutationKey = getVisitsMarkFeedbackSeenMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof visitsMarkFeedbackSeen>>,
+    VisitsMarkFeedbackSeenMutationVariables
+  > = (props) => {
+    const { visitId } = props ?? {}
+
+    return visitsMarkFeedbackSeen(visitId, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type VisitsMarkFeedbackSeenMutationResult = NonNullable<
+  Awaited<ReturnType<typeof visitsMarkFeedbackSeen>>
+>
+
+export type VisitsMarkFeedbackSeenMutationError = unknown
+export type VisitsMarkFeedbackSeenMutationVariables = { visitId: string }
+
+export const useVisitsMarkFeedbackSeen = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof visitsMarkFeedbackSeen>>,
+      TError,
+      VisitsMarkFeedbackSeenMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof visitsMarkFeedbackSeen>>,
+  TError,
+  VisitsMarkFeedbackSeenMutationVariables,
+  TContext
+> => {
+  return useMutation(getVisitsMarkFeedbackSeenMutationOptions(options), queryClient)
+}
+export const getVisitsBulkDeleteUrl = () => {
+  return `/api/visits/bulk-delete`
+}
+
+export const visitsBulkDelete = async (
+  bulkDeleteRequest: BulkDeleteRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getVisitsBulkDeleteUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkDeleteRequest),
+  })
+}
+
+export const getVisitsBulkDeleteMutationKey = () => ['visitsBulkDelete'] as const
+
+export const getVisitsBulkDeleteMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof visitsBulkDelete>>,
+    TError,
+    VisitsBulkDeleteMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof visitsBulkDelete>>,
+  TError,
+  VisitsBulkDeleteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getVisitsBulkDeleteMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof visitsBulkDelete>>,
+    VisitsBulkDeleteMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return visitsBulkDelete(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type VisitsBulkDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof visitsBulkDelete>>>
+export type VisitsBulkDeleteMutationBody = BulkDeleteRequest
+export type VisitsBulkDeleteMutationError = unknown
+export type VisitsBulkDeleteMutationVariables = { data: BulkDeleteRequest }
+
+export const useVisitsBulkDelete = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof visitsBulkDelete>>,
+      TError,
+      VisitsBulkDeleteMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof visitsBulkDelete>>,
+  TError,
+  VisitsBulkDeleteMutationVariables,
+  TContext
+> => {
+  return useMutation(getVisitsBulkDeleteMutationOptions(options), queryClient)
+}
+export const getVisitsBulkRestoreUrl = () => {
+  return `/api/visits/bulk-restore`
+}
+
+export const visitsBulkRestore = async (
+  bulkIdsRequest: BulkIdsRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getVisitsBulkRestoreUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkIdsRequest),
+  })
+}
+
+export const getVisitsBulkRestoreMutationKey = () => ['visitsBulkRestore'] as const
+
+export const getVisitsBulkRestoreMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof visitsBulkRestore>>,
+    TError,
+    VisitsBulkRestoreMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof visitsBulkRestore>>,
+  TError,
+  VisitsBulkRestoreMutationVariables,
+  TContext
+> => {
+  const mutationKey = getVisitsBulkRestoreMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof visitsBulkRestore>>,
+    VisitsBulkRestoreMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return visitsBulkRestore(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type VisitsBulkRestoreMutationResult = NonNullable<Awaited<ReturnType<typeof visitsBulkRestore>>>
+export type VisitsBulkRestoreMutationBody = BulkIdsRequest
+export type VisitsBulkRestoreMutationError = unknown
+export type VisitsBulkRestoreMutationVariables = { data: BulkIdsRequest }
+
+export const useVisitsBulkRestore = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof visitsBulkRestore>>,
+      TError,
+      VisitsBulkRestoreMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof visitsBulkRestore>>,
+  TError,
+  VisitsBulkRestoreMutationVariables,
+  TContext
+> => {
+  return useMutation(getVisitsBulkRestoreMutationOptions(options), queryClient)
 }

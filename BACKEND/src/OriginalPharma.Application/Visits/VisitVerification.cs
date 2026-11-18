@@ -18,6 +18,12 @@ public sealed class VisitOptions
     public bool RejectOutsideGeofence { get; set; } = true;
 
     public long MaxPhotoBytes { get; set; } = 8 * 1024 * 1024;
+
+    /// <summary>
+    /// How long after check-out the rep may still change the feedback and products of a visit. While
+    /// the visit is in progress they can always be changed; cancelled visits never.
+    /// </summary>
+    public int ContentEditHours { get; set; } = 24;
 }
 
 public sealed record GeofenceResult(double DistanceMeters, double AllowedMeters, bool Inside);

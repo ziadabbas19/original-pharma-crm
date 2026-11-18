@@ -15,3 +15,24 @@ public interface IScopedEntity
     Guid UserId { get; }
     Guid? TerritoryId { get; }
 }
+
+/// <summary>
+/// Records kept for history and reports. Deleting one archives it instead: it disappears from
+/// lists and pickers, old records that point at it keep working, and it can be restored.
+/// </summary>
+public interface IArchivable
+{
+    DateTimeOffset? ArchivedAt { get; set; }
+    Guid? ArchivedById { get; set; }
+}
+
+/// <summary>A small admin-managed list entry (specialty, collection method).</summary>
+public interface ILookupItem
+{
+    Guid Id { get; }
+    string NameAr { get; set; }
+    string NameEn { get; set; }
+    bool IsActive { get; set; }
+    int SortOrder { get; set; }
+    DateTimeOffset? ArchivedAt { get; set; }
+}

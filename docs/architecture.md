@@ -141,6 +141,11 @@ Refusals carry a code in the ProblemDetails body (`role_level_too_high`, `user_l
 
 When a permission first appears in the catalog the seeder gives each seeded role the grant
 from its template, once (nobody can have edited it yet); existing grants are never touched.
+A key split out of an older one names it in the catalog (`DerivedFrom`): when it first appears, every
+role holding the old key, custom roles too, receives the new key with the same scope, so nobody loses
+an ability (`territories:delete` from `territories:manage`, `orders:deliver` from `orders:manage`).
+Editing uses the existing `:manage` keys; deleting and restoring have their own `:delete` and
+`:restore` keys, except roles (`roles:manage`).
 Defaults for the sales features: Rep `customers:create`, `orders:create`, `orders:read` (own),
 `products:read` (all, filtered by product lines); Supervisor `customers:assign`, `orders:read`,
 `orders:manage`, `users:reset-password` (team); AreaManager the same with territory scope;
@@ -206,7 +211,8 @@ POST /api/tracking/locations (batch)
 
 The rep's **audience** is computed from the org hierarchy: `tracking:all`, the rep's
 territory group and a group per manager up the chain. On connect, dashboard users join
-groups matching their `tracking:view-live` scope. Phones never connect to SignalR.
+groups matching their `tracking:view-live` scope. Every connection also joins the user's own inbox
+group for notifications. Phones connect only while the app is on screen, and never for tracking.
 
 **Presence**: online (last point within 12 min), idle, tracking lost, off shift.
 A Hangfire job runs every minute and marks active shifts with no point for 30 min as
@@ -304,6 +310,65 @@ The rep app re-checks on every open/resume and shows a banner when something bre
   index on (rep, clientRequestId) makes retries return the existing order. Orders refused by
   the server (4xx) move to a "needs attention" list to fix or discard.
 
+## Deleting, archiving and restoring
+
+Every delete is `POST .../bulk-delete` with the ids and an optional `dryRun`. Each item is checked on
+its own (permission scope, hierarchy, integrity) and comes back as deleted, archived or blocked with a
+reason code. The confirmation dialog calls the dry run first, so it can say what will happen; blocked
+rows stay selected afterwards. Typing the word "delete" is required for users, roles and more than
+10 items.
+
+One request changes at most 500 items; a `dryRun` may judge up to 2000, so a whole selection is forecast as one set. The apps send larger selections in consecutive batches and merge the results into one summary. Items refused only because a related item was in a later batch (a parent and its child, a manager and their report) are sent again once the others are done. If a batch fails part way, what already went through stays done and the remaining items are reported as not processed and stay selected.
+
+| Record | Deleted when | Archived when | Blocked when |
+| --- | --- | --- | --- |
+| Specialty, collection method | unused | doctors or orders use it | |
+| Town, area, region | unused | doctors, orders or visits point at it | active child nodes or users |
+| Doctor, pharmacy | no visits or orders | visits or orders point at it | outside the scope |
+| Product | not on orders or visits | on past orders or visits | |
+| Product line | always; its products stay, unassigned | | |
+| User | no activity | any activity | self, last admin, level, scope, people still reporting |
+| Role | custom and unused | | system role, level, users holding it |
+| Order, visit | never | always | scope; a visit in progress |
+| Device record | always, with its health history | | outside the scope |
+
+Archived rows leave lists, pickers and statistics, old records keep showing them, and users with the
+`:restore` permission bring them back. Edits, deletes, archives and restores are written to
+`audit_entries` (who, what, when, how many), shown in the activity log (`audit:read`).
+
+**Product lines**: a product has at most one line and may have none. Deleting a line clears it on its
+products first (the foreign key is restrictive, so a line can never take products with it). Unassigned
+products are visible only to `products:manage` and `orders:manage`; orders that already contain one
+keep working with their price snapshot.
+
+**Discounts**: products and lines may carry a default and a maximum percent. The default on a new order
+line is the product's, else the line's. The highest discount allowed is the lowest of the product
+maximum, the line maximum and the role cap, enforced in `OrderService` (`discount_above_cap`, with
+`limit` = product, line or role).
+
+## Notifications
+
+`notifications` holds one row per recipient; every query filters on the caller. Order decisions and
+deliveries notify the rep; visit feedback notifies the rep's supervisor and the manager above them,
+and a reply notifies the rep. Rows are saved with the change they announce, then pushed to the
+recipient's inbox group on the hub. Rejecting needs a reason. Reasons and notes reach the rep; an
+internal note on a decision never does.
+
+## Visit feedback and products
+
+The rep writes feedback (with an optional category) and the products discussed on their own visit
+while it is in progress and for `Visits:ContentEditHours` (24) after check-out. The app saves through
+the device outbox; each update carries the device time of the edit, and the server ignores anything
+older than what it already applied. Feedback is readable by the rep's reporting line and by anyone
+whose `visits:read` scope covers the rep.
+
+## Statistics
+
+`StatsService` aggregates in SQL inside the caller's `stats:read` scope, so the same code gives a rep
+their own numbers, a supervisor their team, a manager their territory and an admin everything. The
+client never totals raw rows. Results are cached for 60 seconds per user, permissions version and
+filters. Archived orders and visits are left out. CSV export of each table needs `stats:export`.
+
 ## Images
 
 `ImageService` (product and profile pictures): at most 5 MB, recognised by file signature
@@ -322,7 +387,8 @@ in metres). Notable tables: `users`, `roles`, `permissions`, `role_permissions`,
 `user_permission_overrides`, `user_audit_entries`, `refresh_tokens`, `territories`, `customers`,
 `rep_doctors`, `specialties`, `product_lines`, `products`, `user_product_lines`,
 `collection_methods`, `orders`, `order_lines`, `order_history`, `seed_history`, `visits`,
-`visit_photos`, `shifts`, `location_points`, `tracking_flags`, `devices`,
+`visit_photos`, `visit_feedback`, `visit_feedback_seen`, `visit_feedback_replies`, `visit_products`,
+`notifications`, `audit_entries`, `shifts`, `location_points`, `tracking_flags`, `devices`,
 `device_health_reports`, `tracking_consents`. Hangfire uses its own `hangfire` schema.
 
 Scaling notes: `location_points` will be the largest table; partition by month (or use

@@ -12,6 +12,8 @@ export interface FormLine {
   quantity: number
   /** Kept as typed so decimals can be entered. */
   discount: string
+  /** Lowest of the product and line limits, when known (the role cap applies on top). */
+  maxDiscount: number | null
 }
 
 export interface OrderFormValues {

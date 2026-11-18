@@ -45,6 +45,7 @@ export function fromOrder(order: OrderDto, products: ProductDto[] | undefined): 
       stock: byId.get(l.productId)?.stockQuantity ?? null,
       quantity: l.quantity,
       discount: l.discountPercent ? String(l.discountPercent) : '',
+      maxDiscount: byId.get(l.productId)?.effectiveMaxDiscountPercent ?? null,
     })),
   }
 }
@@ -76,6 +77,7 @@ export function fromRequest(
           stock: p.stockQuantity,
           quantity: l.quantity,
           discount: l.discountPercent ? String(l.discountPercent) : '',
+          maxDiscount: p.effectiveMaxDiscountPercent ?? null,
         },
       ]
     }),

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using OriginalPharma.Api.Common;
 using OriginalPharma.Application.Catalog;
+using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Infrastructure.Identity;
 
@@ -29,6 +30,15 @@ public sealed class ProductLinesController(CatalogService catalog) : ControllerB
     [HasPermission(Permissions.Products.Manage)]
     public Task<ProductLineDto> Update(Guid id, SaveProductLineRequest request, CancellationToken cancellationToken) =>
         catalog.UpdateLineAsync(id, request, cancellationToken);
+
+    /// <summary>
+    /// Delete product lines. Their products are never deleted: they stay in the catalog without a line
+    /// (<c>usageCount</c> = products that become unassigned). Reps lose the line from their assignments.
+    /// </summary>
+    [HttpPost("bulk-delete")]
+    [HasPermission(Permissions.Products.Delete)]
+    public Task<BulkResult> BulkDelete(BulkDeleteRequest request, CancellationToken cancellationToken) =>
+        catalog.DeleteLinesAsync(request, cancellationToken);
 }
 
 /// <summary>Products with price (EGP), stock and picture. Same line restriction as product lines.</summary>
@@ -38,14 +48,35 @@ public sealed class ProductLinesController(CatalogService catalog) : ControllerB
 public sealed class ProductsController(CatalogService catalog) : ControllerBase
 {
     /// <param name="includeInactive">Only honoured for products:manage.</param>
+    /// <param name="unassigned">Only products without a line (visible to products:manage and orders:manage only).</param>
+    /// <param name="archived">Only archived products (products:manage only).</param>
     [HttpGet]
     [HasPermission(Permissions.Products.Read)]
     public Task<IReadOnlyList<ProductDto>> List(
         [FromQuery] Guid? lineId,
         [FromQuery] string? search,
         [FromQuery] bool includeInactive,
-        CancellationToken cancellationToken) =>
-        catalog.ListProductsAsync(lineId, search, includeInactive, cancellationToken);
+        CancellationToken cancellationToken,
+        [FromQuery] bool unassigned = false,
+        [FromQuery] bool archived = false) =>
+        catalog.ListProductsAsync(new ProductQuery(lineId, search, includeInactive, unassigned, archived), cancellationToken);
+
+    /// <summary>Put products in a line, or (no line) take them out of their line.</summary>
+    [HttpPost("move-to-line")]
+    [HasPermission(Permissions.Products.Manage)]
+    public Task<BulkResult> MoveToLine(MoveProductsRequest request, CancellationToken cancellationToken) =>
+        catalog.MoveProductsAsync(request, cancellationToken);
+
+    /// <summary>Delete products: those on past orders or visits are archived, unused ones removed.</summary>
+    [HttpPost("bulk-delete")]
+    [HasPermission(Permissions.Products.Delete)]
+    public Task<BulkResult> BulkDelete(BulkDeleteRequest request, CancellationToken cancellationToken) =>
+        catalog.DeleteProductsAsync(request, cancellationToken);
+
+    [HttpPost("bulk-restore")]
+    [HasPermission(Permissions.Products.Restore)]
+    public Task<BulkResult> BulkRestore(BulkIdsRequest request, CancellationToken cancellationToken) =>
+        catalog.RestoreProductsAsync(request, cancellationToken);
 
     [HttpPost]
     [HasPermission(Permissions.Products.Manage)]

@@ -26,4 +26,11 @@ export interface CustomerDto {
   hasQrCode: boolean
   isActive: boolean
   createdAt: string
+  /** @nullable */
+  phone?: string | null
+  /** @nullable */
+  notes?: string | null
+  usageCount?: number
+  /** @nullable */
+  archivedAt?: string | null
 }

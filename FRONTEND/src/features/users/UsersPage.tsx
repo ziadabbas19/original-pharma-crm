@@ -1,20 +1,28 @@
+import { useQueryClient } from '@tanstack/react-query'
 import {
   KeyRoundIcon,
   LockKeyholeOpenIcon,
   PencilIcon,
   PlusIcon,
   ShieldCheckIcon,
+  Trash2Icon,
   UsersIcon,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   useRolesList,
+  usersBulkDelete,
+  usersBulkRestore,
   useTerritoriesList,
   useUsersAssignableRoles,
   useUsersList,
 } from '@/api/generated/endpoints'
 import type { RoleSummaryDto, TerritoryDto, UserListItemDto } from '@/api/generated/model'
+import { ArchivedBadge, ArchivedToggle, RestoreSelectedButton } from '@/components/bulk/ArchiveControls'
+import { BulkDeleteDialog } from '@/components/bulk/BulkDeleteDialog'
+import { useBulkRunner, useDeleteTarget } from '@/components/bulk/use-bulk-delete'
+import { useSelection } from '@/components/bulk/use-selection'
 import { DataTable } from '@/components/data-table/DataTable'
 import { dataTableColumns } from '@/components/data-table/features'
 import { FilterField, SearchInput, ToolbarSpacer } from '@/components/data-table/toolbar'
@@ -34,6 +42,7 @@ import { UserOverridesSheet } from './UserOverridesSheet'
 import { UserRolesDialog } from './UserRolesDialog'
 
 const column = dataTableColumns<UserListItemDto>()
+const userId = (u: UserListItemDto) => u.id
 const NO_TERRITORIES: TerritoryDto[] = []
 type StatusFilter = 'all' | 'active' | 'inactive'
 
@@ -44,12 +53,16 @@ export function UsersPage() {
   const canReset = usePermission(P.users.resetPassword)
   const canReadRoles = usePermission(P.roles.read)
   const canReadTerritories = usePermission(P.territories.read)
+  const canDelete = usePermission(P.users.delete)
+  const canRestore = usePermission(P.users.restore)
   const myId = useMyUserId()
   const myLevel = useMyRoleLevel()
+  const queryClient = useQueryClient()
+  const [archived, setArchived] = useState(false)
 
-  const users = useUsersList()
+  const users = useUsersList({ archived })
   const roles = useRolesList({ query: { enabled: canReadRoles } })
-  const territories = useTerritoriesList({
+  const territories = useTerritoriesList(undefined, {
     query: { enabled: (canManage || canCreate) && canReadTerritories },
   })
   // Without roles:read the create dialog offers the roles below the creator.
@@ -83,6 +96,11 @@ export function UsersPage() {
     )
   }, [users.data, search, role, status])
 
+  const selection = useSelection(filtered, userId)
+  const target = useDeleteTarget()
+  const bulk = useBulkRunner(usersBulkDelete, ['/api/users', '/api/roles'], selection)
+  const nameOf = (id: string) => users.data?.find((u) => u.id === id)?.fullName ?? id
+
   const isFiltered = search !== '' || role !== '' || status !== 'all'
   const clearFilters = () => {
     setSearch('')
@@ -114,7 +132,7 @@ export function UsersPage() {
               {info.getValue()}
             </span>
           ),
-          meta: { className: 'hidden md:table-cell' },
+          meta: { className: 'hidden @[58rem]:table-cell' },
         }),
         column.accessor('roles', {
           header: () => t('users.roles'),
@@ -132,26 +150,30 @@ export function UsersPage() {
               ))}
             </div>
           ),
+          meta: { className: 'hidden @[40rem]:table-cell' },
         }),
         column.accessor('managerName', {
           header: () => t('users.manager'),
           cell: (info) => info.getValue() || <span className="text-muted-foreground">—</span>,
-          meta: { className: 'hidden xl:table-cell' },
+          meta: { className: 'hidden @[76rem]:table-cell' },
         }),
         column.accessor((u) => localizedName(u.territoryName, u.territoryNameAr), {
           id: 'territory',
           header: () => t('users.area'),
           cell: (info) => info.getValue() || <span className="text-muted-foreground">—</span>,
-          meta: { className: 'hidden lg:table-cell' },
+          meta: { className: 'hidden @[65rem]:table-cell' },
         }),
         column.accessor('isActive', {
           header: () => t('users.status'),
-          cell: (info) =>
-            info.getValue() ? (
+          cell: ({ row }) =>
+            row.original.archivedAt ? (
+              <ArchivedBadge />
+            ) : row.original.isActive ? (
               <Badge variant="success">{t('users.active')}</Badge>
             ) : (
               <Badge variant="outline">{t('users.inactive')}</Badge>
             ),
+          meta: { className: 'hidden @[44.5rem]:table-cell' },
         }),
         column.display({
           id: 'actions',
@@ -159,6 +181,7 @@ export function UsersPage() {
           cell: ({ row }) => {
             const lock = userLock(row.original, myId, myLevel)
             const reason = lock ? t(`roles.reason.${lock}`) : undefined
+            if (row.original.archivedAt) return null
             return (
               <div className="flex justify-end gap-1">
                 {canManage && (
@@ -171,7 +194,7 @@ export function UsersPage() {
                     onClick={() => setEditing(row.original)}
                   >
                     <PencilIcon />
-                    <span className="hidden 2xl:inline">{t('users.actions.edit')}</span>
+                    <span className="hidden @[100rem]:inline">{t('users.actions.edit')}</span>
                   </Button>
                 )}
                 {canManage && canReadRoles && (
@@ -184,7 +207,7 @@ export function UsersPage() {
                     onClick={() => setRolesFor(row.original)}
                   >
                     <ShieldCheckIcon />
-                    <span className="hidden 2xl:inline">{t('users.actions.roles')}</span>
+                    <span className="hidden @[100rem]:inline">{t('users.actions.roles')}</span>
                   </Button>
                 )}
                 {canReset && (
@@ -197,7 +220,7 @@ export function UsersPage() {
                     onClick={() => setResetFor(row.original)}
                   >
                     <LockKeyholeOpenIcon />
-                    <span className="hidden 2xl:inline">{t('users.actions.resetPassword')}</span>
+                    <span className="hidden @[100rem]:inline">{t('users.actions.resetPassword')}</span>
                   </Button>
                 )}
                 {canReadRoles && (
@@ -209,7 +232,20 @@ export function UsersPage() {
                     onClick={() => setOverridesFor(row.original)}
                   >
                     <KeyRoundIcon />
-                    <span className="hidden 2xl:inline">{t('users.actions.overrides')}</span>
+                    <span className="hidden @[100rem]:inline">{t('users.actions.overrides')}</span>
+                  </Button>
+                )}
+                {canDelete && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    disabled={lock !== null}
+                    title={reason ?? t('common.delete')}
+                    aria-label={t('common.delete')}
+                    onClick={() => target.open([row.original.id])}
+                  >
+                    <Trash2Icon />
                   </Button>
                 )}
               </div>
@@ -217,7 +253,7 @@ export function UsersPage() {
           },
         }),
       ]),
-    [t, canManage, canReadRoles, canReset, myId, myLevel],
+    [t, canManage, canReadRoles, canReset, canDelete, myId, myLevel, target],
   )
 
   return (
@@ -245,7 +281,24 @@ export function UsersPage() {
         initialSorting={[{ id: 'fullName', desc: false }]}
         filtered={isFiltered}
         onClearFilters={clearFilters}
-        empty={{ icon: UsersIcon, title: t('users.empty') }}
+        empty={{ icon: UsersIcon, title: archived ? t('archive.empty') : t('users.empty') }}
+        selection={(archived ? canRestore : canDelete) ? selection : undefined}
+        rowLabel={(u) => u.fullName}
+        bulkActions={
+          archived ? (
+            <RestoreSelectedButton
+              selection={selection}
+              nameOf={nameOf}
+              run={(ids) => usersBulkRestore({ ids })}
+              onDone={() => void queryClient.invalidateQueries({ queryKey: ['/api/users'] })}
+            />
+          ) : (
+            <Button size="sm" variant="destructive" onClick={() => target.open(selection.ids)}>
+              <Trash2Icon />
+              {t('bulk.deleteSelected')}
+            </Button>
+          )
+        }
         toolbar={
           <>
             <SearchInput value={search} onChange={setSearch} placeholder={t('users.searchPlaceholder')} />
@@ -276,6 +329,15 @@ export function UsersPage() {
               )}
             </FilterField>
             <ToolbarSpacer />
+            {(canDelete || canRestore) && (
+              <ArchivedToggle
+                archived={archived}
+                onChange={(value) => {
+                  selection.clear()
+                  setArchived(value)
+                }}
+              />
+            )}
           </>
         }
       />
@@ -309,6 +371,17 @@ export function UsersPage() {
       )}
       {resetFor && (
         <ResetPasswordDialog key={resetFor.id} user={resetFor} onClose={() => setResetFor(null)} />
+      )}
+      {target.ids && (
+        <BulkDeleteDialog
+          ids={target.ids}
+          nameOf={nameOf}
+          dangerous
+          consequence={t('users.deleteConsequence')}
+          run={bulk.run}
+          onDone={bulk.onDone}
+          onClose={target.close}
+        />
       )}
       {overridesFor && (
         <UserOverridesSheet

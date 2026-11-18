@@ -2,6 +2,7 @@
  * Original Pharma CRM API v1.
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
+import type { DeliveryStatus } from './deliveryStatus'
 import type { OrderHistoryDto } from './orderHistoryDto'
 import type { OrderLineDto } from './orderLineDto'
 import type { OrderStatus } from './orderStatus'
@@ -49,4 +50,18 @@ export interface OrderDto {
   canEdit: boolean
   canCancel: boolean
   canReview: boolean
+  canDeliver?: boolean
+  /** @nullable */
+  decidedAt?: string | null
+  /** @nullable */
+  decidedByName?: string | null
+  delivery?: null | DeliveryStatus
+  /** @nullable */
+  deliveredAt?: string | null
+  /** @nullable */
+  deliveredByName?: string | null
+  /** @nullable */
+  deliveryNote?: string | null
+  /** @nullable */
+  archivedAt?: string | null
 }

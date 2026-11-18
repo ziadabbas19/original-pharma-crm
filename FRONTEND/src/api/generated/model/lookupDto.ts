@@ -9,4 +9,7 @@ export interface LookupDto {
   nameEn: string
   isActive: boolean
   sortOrder: number
+  usageCount?: number
+  /** @nullable */
+  archivedAt?: string | null
 }

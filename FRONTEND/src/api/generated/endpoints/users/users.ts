@@ -19,6 +19,9 @@ import type {
 } from '@tanstack/react-query'
 
 import type {
+  BulkDeleteRequest,
+  BulkIdsRequest,
+  BulkResult,
   CreateUserRequest,
   CreatedUserDto,
   PermissionOverrideDto,
@@ -32,6 +35,7 @@ import type {
   UserAuditEntryDto,
   UserListItemDto,
   UsersGetAuditParams,
+  UsersListParams,
 } from '../../model'
 
 import { apiFetch } from '../../../../lib/api-client'
@@ -77,34 +81,47 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result
 }
 
-export const getUsersListUrl = () => {
-  return `/api/users`
+export const getUsersListUrl = (params?: UsersListParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0 ? `/api/users?${stringifiedParams}` : `/api/users`
 }
 
-export const usersList = async (options?: Parameters<typeof apiFetch>[1]): Promise<UserListItemDto[]> => {
-  return apiFetch<UserListItemDto[]>(getUsersListUrl(), {
+export const usersList = async (
+  params?: UsersListParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<UserListItemDto[]> => {
+  return apiFetch<UserListItemDto[]>(getUsersListUrl(params), {
     ...options,
     method: 'GET',
   })
 }
 
-export const getUsersListQueryKey = () => {
-  return [`/api/users`] as const
+export const getUsersListQueryKey = (params?: UsersListParams) => {
+  return [`/api/users`, ...(params ? [params] : [])] as const
 }
 
-export const getUsersListQueryOptions = <
-  TData = Awaited<ReturnType<typeof usersList>>,
-  TError = unknown,
->(options?: {
-  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersList>>, TError, TData>>
-  request?: SecondParameter<typeof apiFetch>
-}) => {
+export const getUsersListQueryOptions = <TData = Awaited<ReturnType<typeof usersList>>, TError = unknown>(
+  params?: UsersListParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersList>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {}
 
-  const queryKey = queryOptions?.queryKey ?? getUsersListQueryKey()
+  const queryKey = queryOptions?.queryKey ?? getUsersListQueryKey(params)
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof usersList>>> = ({ signal }) =>
-    usersList({ signal, ...requestOptions })
+    usersList(params, { signal, ...requestOptions })
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof usersList>>,
@@ -117,6 +134,7 @@ export type UsersListQueryResult = NonNullable<Awaited<ReturnType<typeof usersLi
 export type UsersListQueryError = unknown
 
 export function useUsersList<TData = Awaited<ReturnType<typeof usersList>>, TError = unknown>(
+  params: undefined | UsersListParams,
   options: {
     query: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersList>>, TError, TData>> &
       Pick<
@@ -132,6 +150,7 @@ export function useUsersList<TData = Awaited<ReturnType<typeof usersList>>, TErr
   queryClient?: QueryClient,
 ): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useUsersList<TData = Awaited<ReturnType<typeof usersList>>, TError = unknown>(
+  params?: UsersListParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersList>>, TError, TData>> &
       Pick<
@@ -147,6 +166,7 @@ export function useUsersList<TData = Awaited<ReturnType<typeof usersList>>, TErr
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useUsersList<TData = Awaited<ReturnType<typeof usersList>>, TError = unknown>(
+  params?: UsersListParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersList>>, TError, TData>>
     request?: SecondParameter<typeof apiFetch>
@@ -154,13 +174,14 @@ export function useUsersList<TData = Awaited<ReturnType<typeof usersList>>, TErr
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useUsersList<TData = Awaited<ReturnType<typeof usersList>>, TError = unknown>(
+  params?: UsersListParams,
   options?: {
     query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersList>>, TError, TData>>
     request?: SecondParameter<typeof apiFetch>
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-  const queryOptions = getUsersListQueryOptions(options)
+  const queryOptions = getUsersListQueryOptions(params, options)
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>
@@ -243,6 +264,156 @@ export const useUsersCreate = <TError = unknown, TContext = unknown>(
   TContext
 > => {
   return useMutation(getUsersCreateMutationOptions(options), queryClient)
+}
+export const getUsersBulkDeleteUrl = () => {
+  return `/api/users/bulk-delete`
+}
+
+export const usersBulkDelete = async (
+  bulkDeleteRequest: BulkDeleteRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getUsersBulkDeleteUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkDeleteRequest),
+  })
+}
+
+export const getUsersBulkDeleteMutationKey = () => ['usersBulkDelete'] as const
+
+export const getUsersBulkDeleteMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof usersBulkDelete>>,
+    TError,
+    UsersBulkDeleteMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof usersBulkDelete>>,
+  TError,
+  UsersBulkDeleteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUsersBulkDeleteMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof usersBulkDelete>>,
+    UsersBulkDeleteMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return usersBulkDelete(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type UsersBulkDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof usersBulkDelete>>>
+export type UsersBulkDeleteMutationBody = BulkDeleteRequest
+export type UsersBulkDeleteMutationError = unknown
+export type UsersBulkDeleteMutationVariables = { data: BulkDeleteRequest }
+
+export const useUsersBulkDelete = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof usersBulkDelete>>,
+      TError,
+      UsersBulkDeleteMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof usersBulkDelete>>,
+  TError,
+  UsersBulkDeleteMutationVariables,
+  TContext
+> => {
+  return useMutation(getUsersBulkDeleteMutationOptions(options), queryClient)
+}
+export const getUsersBulkRestoreUrl = () => {
+  return `/api/users/bulk-restore`
+}
+
+export const usersBulkRestore = async (
+  bulkIdsRequest: BulkIdsRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getUsersBulkRestoreUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkIdsRequest),
+  })
+}
+
+export const getUsersBulkRestoreMutationKey = () => ['usersBulkRestore'] as const
+
+export const getUsersBulkRestoreMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof usersBulkRestore>>,
+    TError,
+    UsersBulkRestoreMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof usersBulkRestore>>,
+  TError,
+  UsersBulkRestoreMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUsersBulkRestoreMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof usersBulkRestore>>,
+    UsersBulkRestoreMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return usersBulkRestore(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type UsersBulkRestoreMutationResult = NonNullable<Awaited<ReturnType<typeof usersBulkRestore>>>
+export type UsersBulkRestoreMutationBody = BulkIdsRequest
+export type UsersBulkRestoreMutationError = unknown
+export type UsersBulkRestoreMutationVariables = { data: BulkIdsRequest }
+
+export const useUsersBulkRestore = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof usersBulkRestore>>,
+      TError,
+      UsersBulkRestoreMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof usersBulkRestore>>,
+  TError,
+  UsersBulkRestoreMutationVariables,
+  TContext
+> => {
+  return useMutation(getUsersBulkRestoreMutationOptions(options), queryClient)
 }
 export const getUsersAssignableRolesUrl = () => {
   return `/api/users/assignable-roles`

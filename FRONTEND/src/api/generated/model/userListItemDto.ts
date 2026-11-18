@@ -26,4 +26,6 @@ export interface UserListItemDto {
   /** @nullable */
   productLineIds?: string[] | null
   mustChangePassword?: boolean
+  /** @nullable */
+  archivedAt?: string | null
 }

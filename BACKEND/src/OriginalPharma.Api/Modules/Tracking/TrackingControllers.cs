@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Tracking;
 using OriginalPharma.Domain.Tracking;
@@ -107,6 +108,12 @@ public sealed class TrackingMonitorController(TrackingQueryService queries, Live
     [HasPermission(Permissions.Devices.Read)]
     public Task<IReadOnlyList<DeviceDto>> GetDevices([FromQuery] bool? healthy, CancellationToken cancellationToken) =>
         queries.GetDevicesAsync(healthy, cancellationToken);
+
+    /// <summary>Remove device records (lost or replaced phones) with their health history.</summary>
+    [HttpPost("devices/bulk-delete")]
+    [HasPermission(Permissions.Devices.Delete)]
+    public Task<BulkResult> DeleteDevices(BulkDeleteRequest request, CancellationToken cancellationToken) =>
+        queries.DeleteDevicesAsync(request, cancellationToken);
 
     [HttpGet("history/{userId:guid}")]
     [HasPermission(Permissions.Tracking.History)]

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OriginalPharma.Api.Modules.Tracking;
+using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Tracking;
 using OriginalPharma.Infrastructure.Persistence;
 using StackExchange.Redis;
@@ -75,6 +76,7 @@ internal static class ApiSetup
         }
 
         services.AddSingleton<ITrackingNotifier, SignalRTrackingNotifier>();
+        services.AddSingleton<INotificationPublisher, SignalRNotificationPublisher>();
         return services;
     }
 

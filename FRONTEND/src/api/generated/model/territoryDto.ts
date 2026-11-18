@@ -16,4 +16,7 @@ export interface TerritoryDto {
   userCount: number
   customerCount: number
   childCount: number
+  usageCount?: number
+  /** @nullable */
+  archivedAt?: string | null
 }

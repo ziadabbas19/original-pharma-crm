@@ -1,8 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2Icon, PencilIcon, PlusIcon } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { ListChecksIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  lookupsDeleteCollectionMethods,
+  lookupsDeleteSpecialties,
+  lookupsRestoreCollectionMethods,
+  lookupsRestoreSpecialties,
   useLookupsCreateCollectionMethod,
   useLookupsCreateSpecialty,
   useLookupsListCollectionMethods,
@@ -10,12 +14,18 @@ import {
   useLookupsUpdateCollectionMethod,
   useLookupsUpdateSpecialty,
 } from '@/api/generated/endpoints'
-import type { LookupDto } from '@/api/generated/model'
+import type { BulkDeleteRequest, BulkResult, LookupDto } from '@/api/generated/model'
+import { ArchivedBadge, ArchivedToggle, RestoreSelectedButton } from '@/components/bulk/ArchiveControls'
+import { BulkDeleteDialog } from '@/components/bulk/BulkDeleteDialog'
+import { useBulkRunner, useDeleteTarget } from '@/components/bulk/use-bulk-delete'
+import { useSelection } from '@/components/bulk/use-selection'
+import { DataTable } from '@/components/data-table/DataTable'
+import { dataTableColumns } from '@/components/data-table/features'
+import { SearchInput, ToolbarSpacer } from '@/components/data-table/toolbar'
 import { PageHeader } from '@/components/PageHeader'
-import { EmptyState, ErrorState, FormError, LoadingState } from '@/components/states'
+import { FormError } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
@@ -29,89 +39,233 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { usePermission } from '@/features/auth/usePermission'
 import { formatNumber, localizedName } from '@/lib/format'
+import { invalidateApi } from '@/lib/invalidate-api'
 import { P } from '@/lib/permissions'
 
 type Kind = 'specialties' | 'collectionMethods'
 
+const column = dataTableColumns<LookupDto>()
+
 /** Admin-managed lists: doctor specialties and order collection methods. */
 export function LookupsPage() {
   const { t } = useTranslation()
-  const canManage = usePermission(P.lookups.manage)
-  const specialties = useLookupsListSpecialties({ includeInactive: true })
-  const methods = useLookupsListCollectionMethods({ includeInactive: true })
-
   return (
     <>
       <PageHeader title={t('lookups.title')} description={t('lookups.hint')} />
-      <div className="grid gap-4 xl:grid-cols-2">
-        <LookupCard kind="specialties" query={specialties} canManage={canManage} />
-        <LookupCard kind="collectionMethods" query={methods} canManage={canManage} />
+      <div className="grid gap-4 2xl:grid-cols-2">
+        <SpecialtiesTable />
+        <CollectionMethodsTable />
       </div>
     </>
   )
 }
 
-function LookupCard({
+function SpecialtiesTable() {
+  const [archived, setArchived] = useState(false)
+  const query = useLookupsListSpecialties({ includeInactive: true, archived })
+  return (
+    <LookupTable
+      kind="specialties"
+      archived={archived}
+      onArchivedChange={setArchived}
+      query={query}
+      remove={lookupsDeleteSpecialties}
+      restore={(ids) => lookupsRestoreSpecialties({ ids })}
+    />
+  )
+}
+
+function CollectionMethodsTable() {
+  const [archived, setArchived] = useState(false)
+  const query = useLookupsListCollectionMethods({ includeInactive: true, archived })
+  return (
+    <LookupTable
+      kind="collectionMethods"
+      archived={archived}
+      onArchivedChange={setArchived}
+      query={query}
+      remove={lookupsDeleteCollectionMethods}
+      restore={(ids) => lookupsRestoreCollectionMethods({ ids })}
+    />
+  )
+}
+
+function LookupTable({
   kind,
+  archived,
+  onArchivedChange,
   query,
-  canManage,
+  remove,
+  restore,
 }: {
   kind: Kind
+  archived: boolean
+  onArchivedChange: (archived: boolean) => void
   query: { data?: LookupDto[]; isLoading: boolean; error: unknown; refetch: () => unknown }
-  canManage: boolean
+  remove: (request: BulkDeleteRequest) => Promise<BulkResult>
+  restore: (ids: string[]) => Promise<BulkResult>
 }) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const canManage = usePermission(P.lookups.manage)
+  const canDelete = usePermission(P.lookups.delete)
+  const canRestore = usePermission(P.lookups.restore)
   const [editing, setEditing] = useState<LookupDto | null | undefined>(undefined)
+  const [search, setSearch] = useState('')
+  const target = useDeleteTarget()
+
+  const rows = useMemo(() => {
+    if (!query.data) return undefined
+    const q = search.trim().toLowerCase()
+    return q
+      ? query.data.filter((i) => i.nameEn.toLowerCase().includes(q) || i.nameAr.includes(q))
+      : query.data
+  }, [query.data, search])
+  const selection = useSelection(rows, getId)
+  const byId = useMemo(() => new Map((query.data ?? []).map((i) => [i.id, i])), [query.data])
+  const nameOf = (id: string) => {
+    const item = byId.get(id)
+    return item ? localizedName(item.nameEn, item.nameAr) : id
+  }
+  const bulk = useBulkRunner(remove, ['/api/lookups'], selection)
+  const selectable = archived ? canRestore : canDelete
+
+  const columns = useMemo(
+    () =>
+      column.columns([
+        column.accessor((i) => localizedName(i.nameEn, i.nameAr), {
+          id: 'name',
+          header: () => t('lookups.name'),
+          cell: ({ row }) => {
+            const item = row.original
+            const shown = localizedName(item.nameEn, item.nameAr)
+            return (
+              <div className="min-w-0">
+                <div className="font-medium">{shown}</div>
+                <div className="text-xs text-muted-foreground">
+                  {shown === item.nameEn ? item.nameAr : item.nameEn}
+                </div>
+              </div>
+            )
+          },
+        }),
+        column.accessor('sortOrder', {
+          header: () => t('lookups.sortOrder'),
+          cell: (info) => <span className="tabular-nums">{formatNumber(info.getValue())}</span>,
+          meta: { className: 'hidden @[39rem]:table-cell' },
+        }),
+        column.accessor((i) => i.usageCount ?? 0, {
+          id: 'usage',
+          header: () => t(`lookups.${kind}.usage`),
+          cell: (info) => <span className="tabular-nums">{formatNumber(info.getValue())}</span>,
+          meta: { className: 'hidden @[34rem]:table-cell' },
+        }),
+        column.accessor('isActive', {
+          header: () => t('users.status'),
+          cell: ({ row }) =>
+            row.original.archivedAt ? (
+              <ArchivedBadge />
+            ) : row.original.isActive ? (
+              <Badge variant="success">{t('catalog.active')}</Badge>
+            ) : (
+              <Badge variant="outline">{t('catalog.inactive')}</Badge>
+            ),
+          meta: { className: 'hidden @[28rem]:table-cell' },
+        }),
+        column.display({
+          id: 'actions',
+          header: () => <span className="sr-only">{t('table.actions')}</span>,
+          cell: ({ row }) => (
+            <div className="flex justify-end gap-1">
+              {canManage && !row.original.archivedAt && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8"
+                  aria-label={t('lookups.edit')}
+                  title={t('lookups.edit')}
+                  onClick={() => setEditing(row.original)}
+                >
+                  <PencilIcon />
+                </Button>
+              )}
+              {canDelete && !row.original.archivedAt && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8 text-destructive"
+                  aria-label={t('common.delete')}
+                  title={t('common.delete')}
+                  onClick={() => target.open([row.original.id])}
+                >
+                  <Trash2Icon />
+                </Button>
+              )}
+            </div>
+          ),
+        }),
+      ]),
+    [t, kind, canManage, canDelete, target],
+  )
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div className="grid gap-1">
-          <CardTitle>{t(`lookups.${kind}.title`)}</CardTitle>
-          <CardDescription>{t(`lookups.${kind}.hint`)}</CardDescription>
+    <div className="grid content-start gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="grid gap-0.5">
+          <h2 className="font-semibold">{t(`lookups.${kind}.title`)}</h2>
+          <p className="max-w-prose text-sm text-muted-foreground">{t(`lookups.${kind}.hint`)}</p>
         </div>
-        {canManage && (
+        {canManage && !archived && (
           <Button size="sm" onClick={() => setEditing(null)}>
             <PlusIcon />
-            {t('lookups.add')}
+            {t(`lookups.${kind}.add`)}
           </Button>
         )}
-      </CardHeader>
-      <CardContent>
-        {query.isLoading ? (
-          <LoadingState rows={4} />
-        ) : query.error ? (
-          <ErrorState error={query.error} onRetry={() => void query.refetch()} />
-        ) : !query.data?.length ? (
-          <EmptyState title={t('lookups.empty')} />
-        ) : (
-          <ul className="divide-y rounded-lg border">
-            {query.data.map((item) => (
-              <li key={item.id} className="flex items-center gap-3 px-3 py-2">
-                <span className="w-8 text-xs text-muted-foreground tabular-nums">
-                  {formatNumber(item.sortOrder)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{localizedName(item.nameEn, item.nameAr)}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {localizedName(item.nameEn, item.nameAr) === item.nameEn ? item.nameAr : item.nameEn}
-                  </p>
-                </div>
-                {!item.isActive && <Badge variant="outline">{t('catalog.inactive')}</Badge>}
-                {canManage && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    aria-label={t('lookups.edit')}
-                    onClick={() => setEditing(item)}
-                  >
-                    <PencilIcon />
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
+      </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        isLoading={query.isLoading}
+        error={query.error}
+        onRetry={() => void query.refetch()}
+        getRowId={getId}
+        pageSize={10}
+        filtered={search !== ''}
+        onClearFilters={() => setSearch('')}
+        empty={{ icon: ListChecksIcon, title: archived ? t('archive.empty') : t('lookups.empty') }}
+        selection={selectable ? selection : undefined}
+        rowLabel={(i) => localizedName(i.nameEn, i.nameAr)}
+        bulkActions={
+          archived ? (
+            <RestoreSelectedButton
+              selection={selection}
+              nameOf={nameOf}
+              run={restore}
+              onDone={() => void invalidateApi(queryClient, '/api/lookups')}
+            />
+          ) : (
+            <Button size="sm" variant="destructive" onClick={() => target.open(selection.ids)}>
+              <Trash2Icon />
+              {t('bulk.deleteSelected')}
+            </Button>
+          )
+        }
+        toolbar={
+          <>
+            <SearchInput value={search} onChange={setSearch} />
+            <ToolbarSpacer />
+            {(canDelete || canRestore) && (
+              <ArchivedToggle
+                archived={archived}
+                onChange={(v) => {
+                  selection.clear()
+                  onArchivedChange(v)
+                }}
+              />
+            )}
+          </>
+        }
+      />
       {editing !== undefined && (
         <LookupDialog
           key={editing?.id ?? 'new'}
@@ -121,9 +275,21 @@ function LookupCard({
           onClose={() => setEditing(undefined)}
         />
       )}
-    </Card>
+      {target.ids && (
+        <BulkDeleteDialog
+          ids={target.ids}
+          nameOf={nameOf}
+          consequence={t(`lookups.${kind}.deleteConsequence`)}
+          run={bulk.run}
+          onDone={bulk.onDone}
+          onClose={target.close}
+        />
+      )}
+    </div>
   )
 }
+
+const getId = (item: LookupDto) => item.id
 
 function LookupDialog({
   kind,
@@ -168,7 +334,7 @@ function LookupDialog({
         else await createSpecialty.mutateAsync({ data })
       } else if (item) await updateMethod.mutateAsync({ id: item.id, data })
       else await createMethod.mutateAsync({ data })
-      await queryClient.invalidateQueries({ queryKey: ['/api/lookups'] })
+      await invalidateApi(queryClient, '/api/lookups')
       onClose()
     } catch (err) {
       setError(err)

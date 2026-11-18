@@ -9,6 +9,7 @@ import {
   useProductsUpdate,
 } from '@/api/generated/endpoints'
 import type { ProductDto, ProductLineDto } from '@/api/generated/model'
+import { ConfirmDialog } from '@/components/bulk/ConfirmDialog'
 import { FormError } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -27,7 +28,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { ProductThumb } from '@/features/orders/ProductPicker'
 import { IMAGE_ACCEPT, MAX_IMAGE_BYTES } from '@/features/profile/AvatarEditor'
 import { UserFacingError } from '@/lib/errors'
-import { localizedName } from '@/lib/format'
+import { formatPercent, localizedName } from '@/lib/format'
+import { DiscountFields } from './discount-fields'
+import { parsePercent, percentError } from './discount-rules'
 
 /** Create or edit a product; the picture can be added once the product exists. */
 export function ProductDialog({
@@ -49,13 +52,17 @@ export function ProductDialog({
   const removeImage = useProductsRemoveImage()
   const fileInput = useRef<HTMLInputElement>(null)
   const [product, setProduct] = useState<ProductDto | null>(initial)
-  const [lineId, setLineId] = useState(initial?.productLineId ?? defaultLineId ?? lines[0]?.id ?? '')
+  // Empty = no line: the product stays unassigned (only catalog and order managers see it).
+  const [lineId, setLineId] = useState(initial ? (initial.productLineId ?? '') : (defaultLineId ?? ''))
   const [nameAr, setNameAr] = useState(initial?.nameAr ?? '')
   const [nameEn, setNameEn] = useState(initial?.nameEn ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [price, setPrice] = useState(initial ? String(initial.price) : '')
   const [stock, setStock] = useState(initial ? String(initial.stockQuantity) : '0')
   const [active, setActive] = useState(initial?.isActive ?? true)
+  const [defaultDiscount, setDefaultDiscount] = useState(initial?.defaultDiscountPercent?.toString() ?? '')
+  const [maxDiscount, setMaxDiscount] = useState(initial?.maxDiscountPercent?.toString() ?? '')
+  const [confirmRemove, setConfirmRemove] = useState(false)
   const [touched, setTouched] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [imageError, setImageError] = useState<unknown>(null)
@@ -63,9 +70,22 @@ export function ProductDialog({
 
   const priceValue = Number(price.replace(',', '.'))
   const stockValue = Number(stock)
+  const line = lines.find((l) => l.id === lineId)
+  const defaultValue = parsePercent(defaultDiscount)
+  const maxValue = parsePercent(maxDiscount)
+  const limits = [maxValue, line?.maxDiscountPercent ?? null].filter(
+    (v): v is number => v !== null && !Number.isNaN(v),
+  )
+  const lowestLimit = limits.length ? Math.min(...limits) : null
+  const defaultProblem =
+    percentError(defaultValue) ??
+    (defaultValue !== null && lowestLimit !== null && defaultValue > lowestLimit
+      ? t('catalog.defaultAboveMax', { max: formatPercent(lowestLimit) })
+      : undefined)
+  const maxProblem = percentError(maxValue)
   const problems = {
     names: !nameAr.trim() || !nameEn.trim(),
-    line: !lineId,
+    discount: !!defaultProblem || !!maxProblem,
     price:
       price.trim() === '' ||
       !Number.isFinite(priceValue) ||
@@ -85,7 +105,9 @@ export function ProductDialog({
     setError(null)
     if (Object.values(problems).some(Boolean)) return
     const data = {
-      productLineId: lineId,
+      productLineId: lineId || null,
+      defaultDiscountPercent: defaultValue,
+      maxDiscountPercent: maxValue,
       nameAr: nameAr.trim(),
       nameEn: nameEn.trim(),
       description: description.trim() || null,
@@ -152,10 +174,7 @@ export function ProductDialog({
                     size="sm"
                     variant="ghost"
                     disabled={removeImage.isPending}
-                    onClick={async () => {
-                      setProduct(await removeImage.mutateAsync({ id: product.id }))
-                      await refresh()
-                    }}
+                    onClick={() => setConfirmRemove(true)}
                   >
                     <Trash2Icon />
                     {t('catalog.removePicture')}
@@ -180,19 +199,15 @@ export function ProductDialog({
         <form className="grid gap-4" noValidate onSubmit={(e) => void submit(e)}>
           <div className="grid gap-2">
             <Label htmlFor="product-line">{t('catalog.line')}</Label>
-            <NativeSelect
-              id="product-line"
-              value={lineId}
-              onChange={(e) => setLineId(e.target.value)}
-              aria-invalid={touched && problems.line}
-            >
-              <option value="">{t('orders.form.choose')}</option>
+            <NativeSelect id="product-line" value={lineId} onChange={(e) => setLineId(e.target.value)}>
+              <option value="">{t('catalog.noLine')}</option>
               {lines.map((l) => (
                 <option key={l.id} value={l.id}>
                   {localizedName(l.nameEn, l.nameAr)}
                 </option>
               ))}
             </NativeSelect>
+            {!lineId && <p className="text-xs text-muted-foreground">{t('catalog.unassignedHint')}</p>}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
@@ -248,6 +263,27 @@ export function ProductDialog({
               />
             </div>
           </div>
+          <DiscountFields
+            idPrefix="product-discount"
+            defaultValue={defaultDiscount}
+            maxValue={maxDiscount}
+            onDefaultChange={setDefaultDiscount}
+            onMaxChange={setMaxDiscount}
+            touched={touched}
+            defaultError={
+              defaultProblem && (defaultProblem.startsWith('orders.') ? t(defaultProblem) : defaultProblem)
+            }
+            maxError={maxProblem && t(maxProblem)}
+            hint={
+              line && (line.defaultDiscountPercent != null || line.maxDiscountPercent != null)
+                ? t('catalog.lineDiscountHint', {
+                    default:
+                      line.defaultDiscountPercent != null ? formatPercent(line.defaultDiscountPercent) : '—',
+                    max: line.maxDiscountPercent != null ? formatPercent(line.maxDiscountPercent) : '—',
+                  })
+                : undefined
+            }
+          />
           <div className="grid gap-2">
             <Label htmlFor="product-description">{t('catalog.description')}</Label>
             <Textarea
@@ -263,6 +299,18 @@ export function ProductDialog({
             {t('catalog.active')}
           </Label>
           <FormError error={error} />
+          {confirmRemove && product && (
+            <ConfirmDialog
+              title={t('catalog.removePictureTitle')}
+              description={t('catalog.removePictureHint')}
+              confirmLabel={t('catalog.removePicture')}
+              onClose={() => setConfirmRemove(false)}
+              onConfirm={async () => {
+                setProduct(await removeImage.mutateAsync({ id: product.id }))
+                await refresh()
+              }}
+            />
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               {product && !initial ? t('common.done') : t('common.cancel')}

@@ -12,4 +12,5 @@ export type DoctorsListParams = {
   Search?: string
   Unassigned?: boolean
   IncludeInactive?: boolean
+  Archived?: boolean
 }

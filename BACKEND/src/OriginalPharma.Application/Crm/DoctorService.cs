@@ -1,9 +1,12 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Common.Auditing;
+using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
 
@@ -31,11 +34,13 @@ public sealed record DoctorDto(
     bool IsActive,
     IReadOnlyList<DoctorRepDto> Reps,
     bool OnMyList,
-    bool OutsideMyArea);
+    bool OutsideMyArea,
+    DateTimeOffset? ArchivedAt = null);
 
 /// <param name="Mine">Only the caller's own list (the rep app).</param>
 /// <param name="RepId">Only this rep's list (must be in the caller's scope).</param>
 /// <param name="Unassigned">Only doctors that are on nobody's list.</param>
+/// <param name="Archived">Only archived (deleted) doctors.</param>
 public sealed record DoctorQuery(
     bool Mine = false,
     Guid? RepId = null,
@@ -44,7 +49,8 @@ public sealed record DoctorQuery(
     Guid? SpecialtyId = null,
     string? Search = null,
     bool Unassigned = false,
-    bool IncludeInactive = false);
+    bool IncludeInactive = false,
+    bool Archived = false);
 
 /// <param name="RepId">List to add the new doctor to. Defaults to the caller; another rep needs customers:assign.</param>
 public sealed record CreateDoctorRequest(
@@ -100,6 +106,7 @@ public sealed class DoctorService(
     ICurrentUser currentUser,
     IDataScopeResolver scopeResolver,
     IPermissionService permissions,
+    AuditTrail audit,
     TimeProvider time)
 {
     public const int MaxRows = 1000;
@@ -118,7 +125,8 @@ public sealed class DoctorService(
             throw new ForbiddenException("This rep is outside your scope.");
         }
 
-        var doctors = db.Customers.AsNoTracking().Where(c => c.Type == CustomerType.Doctor);
+        var doctors = db.Customers.AsNoTracking()
+            .Where(c => c.Type == CustomerType.Doctor && (query.Archived ? c.ArchivedAt != null : c.ArchivedAt == null));
         if (!query.IncludeInactive)
         {
             doctors = doctors.Where(c => c.IsActive);
@@ -196,7 +204,7 @@ public sealed class DoctorService(
         CancellationToken cancellationToken = default)
     {
         var me = currentUser.RequireUserId();
-        var doctors = db.Customers.AsNoTracking().Where(c => c.Type == CustomerType.Doctor && c.IsActive);
+        var doctors = db.Customers.AsNoTracking().Where(c => c.Type == CustomerType.Doctor && c.IsActive && c.ArchivedAt == null);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
@@ -271,7 +279,7 @@ public sealed class DoctorService(
     public async Task<DoctorDto> AddToMyListAsync(Guid doctorId, CancellationToken cancellationToken = default)
     {
         var me = currentUser.RequireUserId();
-        if (!await db.Customers.AnyAsync(c => c.Id == doctorId && c.Type == CustomerType.Doctor && c.IsActive, cancellationToken))
+        if (!await db.Customers.AnyAsync(c => c.Id == doctorId && c.Type == CustomerType.Doctor && c.IsActive && c.ArchivedAt == null, cancellationToken))
         {
             throw new NotFoundException("Doctor", doctorId);
         }
@@ -287,11 +295,36 @@ public sealed class DoctorService(
 
     public async Task RemoveFromMyListAsync(Guid doctorId, CancellationToken cancellationToken = default)
     {
+        var result = await RemoveManyFromMyListAsync(new BulkIdsRequest([doctorId]), cancellationToken);
+        if (result.Blocked > 0)
+        {
+            throw new NotFoundException("Doctor", doctorId);
+        }
+    }
+
+    /// <summary>
+    /// Takes doctors off the caller's own list (customers:create). The doctors themselves stay in the
+    /// directory and on other reps' lists; <see cref="BulkOutcome.Deleted"/> means "removed from the list".
+    /// </summary>
+    public async Task<BulkResult> RemoveManyFromMyListAsync(BulkIdsRequest request, CancellationToken cancellationToken = default)
+    {
         var me = currentUser.RequireUserId();
-        var row = await db.RepDoctors.SingleOrDefaultAsync(a => a.UserId == me && a.CustomerId == doctorId, cancellationToken)
-                  ?? throw new NotFoundException("Doctor", doctorId);
-        db.RepDoctors.Remove(row);
-        await db.SaveChangesAsync(cancellationToken);
+        var ids = request.Ids.Distinct().ToArray();
+        var rows = await db.RepDoctors.Where(a => a.UserId == me && ids.Contains(a.CustomerId)).ToDictionaryAsync(a => a.CustomerId, cancellationToken);
+        var results = ids
+            .Select(id => rows.ContainsKey(id)
+                ? new BulkItemResult(id, BulkOutcome.Deleted)
+                : new BulkItemResult(id, BulkOutcome.Blocked, DoctorErrorCodes.NotOnList))
+            .ToList();
+        if (rows.Count > 0)
+        {
+            db.RepDoctors.RemoveRange(rows.Values);
+            await audit.AddAsync(AuditEntities.Customer, null, AuditAction.Updated,
+                new { removedFromListOf = me, doctorIds = rows.Keys.ToArray() }, rows.Count, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return BulkResult.From(results, false);
     }
 
     /// <summary>
@@ -320,6 +353,7 @@ public sealed class DoctorService(
         }
 
         await EnsureTownAndSpecialtyAsync(request.TownId, request.SpecialtyId, cancellationToken);
+        var before = new { doctor.Name, doctor.NameAr, doctor.TerritoryId, doctor.SpecialtyId, doctor.Phone, doctor.Notes, doctor.IsActive };
         doctor.Name = request.Name.Trim();
         doctor.NameAr = Clean(request.NameAr);
         doctor.TerritoryId = request.TownId;
@@ -327,7 +361,13 @@ public sealed class DoctorService(
         doctor.Phone = Clean(request.Phone);
         doctor.Notes = Clean(request.Notes);
         doctor.IsActive = request.IsActive;
-        doctor.UpdatedAt = time.GetUtcNow();
+        var after = new { doctor.Name, doctor.NameAr, doctor.TerritoryId, doctor.SpecialtyId, doctor.Phone, doctor.Notes, doctor.IsActive };
+        if (!before.Equals(after))
+        {
+            doctor.UpdatedAt = time.GetUtcNow();
+            await audit.AddAsync(AuditEntities.Customer, id, AuditAction.Updated, new { before, after }, cancellationToken: cancellationToken);
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         return await GetAsync(id, cancellationToken);
     }
@@ -399,7 +439,7 @@ public sealed class DoctorService(
     }
 
     /// <summary>Doctors visible in a scope: on the list of a visible rep, or (territory scope) in one of its towns.</summary>
-    private static IQueryable<Customer> WhereVisible(
+    internal static IQueryable<Customer> WhereVisible(
         IQueryable<Customer> doctors,
         DataScope scope,
         HashSet<Guid>? visibleReps,
@@ -444,12 +484,12 @@ public sealed class DoctorService(
 
     private async Task EnsureTownAndSpecialtyAsync(Guid townId, Guid specialtyId, CancellationToken cancellationToken)
     {
-        if (!await db.Territories.AnyAsync(t => t.Id == townId && t.Level == TerritoryLevel.Town, cancellationToken))
+        if (!await db.Territories.AnyAsync(t => t.Id == townId && t.Level == TerritoryLevel.Town && t.ArchivedAt == null, cancellationToken))
         {
             throw new BusinessRuleException(DoctorErrorCodes.TownInvalid, "Choose a town.");
         }
 
-        if (!await db.Specialties.AnyAsync(s => s.Id == specialtyId && s.IsActive, cancellationToken))
+        if (!await db.Specialties.AnyAsync(s => s.Id == specialtyId && s.IsActive && s.ArchivedAt == null, cancellationToken))
         {
             throw new BusinessRuleException(DoctorErrorCodes.SpecialtyInvalid, "Choose an active specialty.");
         }
@@ -468,7 +508,8 @@ public sealed class DoctorService(
             c.Specialty != null ? c.Specialty.NameEn : null,
             c.Phone,
             c.Notes,
-            c.IsActive));
+            c.IsActive,
+            c.ArchivedAt));
 
     private async Task<List<DoctorDto>> ToDtosAsync(
         IReadOnlyList<DoctorRow> rows,
@@ -495,7 +536,8 @@ public sealed class DoctorService(
                     .Select(a => new DoctorRepDto(a.Id, a.FullName, tree.IsOutsideArea(r.TownId, a.TerritoryId)))
                     .ToList(),
                 byDoctor[r.Id].Any(a => a.Id == me),
-                tree.IsOutsideArea(r.TownId, myTerritory)))
+                tree.IsOutsideArea(r.TownId, myTerritory),
+                r.ArchivedAt))
             .ToList();
     }
 
@@ -513,7 +555,8 @@ public sealed class DoctorService(
         string? SpecialtyNameEn,
         string? Phone,
         string? Notes,
-        bool IsActive);
+        bool IsActive,
+        DateTimeOffset? ArchivedAt);
 }
 
 public sealed class CreateDoctorRequestValidator : AbstractValidator<CreateDoctorRequest>

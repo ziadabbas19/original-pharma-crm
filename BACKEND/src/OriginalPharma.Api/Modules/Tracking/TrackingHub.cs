@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Tracking;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Infrastructure.Identity;
@@ -16,6 +17,9 @@ public interface ITrackingClient
     Task PresenceChanged(PresenceChangeDto change);
     Task FlagRaised(TrackingFlagDto flag);
     Task DeviceHealthChanged(DeviceHealthChangeDto change);
+
+    /// <summary>A new in-app notification for the connected user.</summary>
+    Task NotificationReceived(NotificationDto notification);
 }
 
 internal static class TrackingGroups
@@ -24,12 +28,15 @@ internal static class TrackingGroups
     public static string Territory(Guid id) => $"tracking:territory:{id:N}";
     public static string Manager(Guid id) => $"tracking:manager:{id:N}";
     public static string User(Guid id) => $"tracking:user:{id:N}";
+
+    /// <summary>Every connection of one user, whatever their permissions (their own notifications).</summary>
+    public static string Inbox(Guid id) => $"inbox:{id:N}";
 }
 
 /// <summary>
-/// Dashboard connection (only dashboards connect; phones never keep a socket open).
-/// On connect the user joins groups matching their tracking:view-live scope.
-/// Permission changes take effect on the next reconnect.
+/// Realtime connection. Dashboards keep it open; the rep app opens it only while it is in the
+/// foreground, to receive its notifications. On connect every user joins their own inbox group, and
+/// the groups matching their tracking:view-live scope. Permission changes take effect on the next reconnect.
 /// </summary>
 [Authorize]
 public sealed class TrackingHub(IPermissionService permissions, IOrgHierarchy hierarchy) : Hub<ITrackingClient>
@@ -38,6 +45,7 @@ public sealed class TrackingHub(IPermissionService permissions, IOrgHierarchy hi
     {
         if (Guid.TryParse(Context.User?.FindFirstValue(AppClaims.Subject), out var userId))
         {
+            await Groups.AddToGroupAsync(Context.ConnectionId, TrackingGroups.Inbox(userId));
             var effective = await permissions.GetEffectivePermissionsAsync(userId);
             foreach (var group in await GroupsForAsync(userId, effective.ScopeOf(Permissions.Tracking.ViewLive)))
             {
@@ -84,4 +92,11 @@ internal sealed class SignalRTrackingNotifier(IHubContext<TrackingHub, ITracking
         groups.AddRange(audience.ManagerChain.Select(TrackingGroups.Manager));
         return hub.Clients.Groups(groups);
     }
+}
+
+/// <summary>Delivers a new notification to every open connection of the recipient (dashboard or rep app).</summary>
+internal sealed class SignalRNotificationPublisher(IHubContext<TrackingHub, ITrackingClient> hub) : INotificationPublisher
+{
+    public Task PublishAsync(Guid userId, NotificationDto notification, CancellationToken cancellationToken = default) =>
+        hub.Clients.Group(TrackingGroups.Inbox(userId)).NotificationReceived(notification);
 }

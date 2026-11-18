@@ -2,24 +2,58 @@
  * Original Pharma CRM API v1.
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
+  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from '@tanstack/react-query'
 
-import type { CustomerDto, CustomersListParams } from '../../model'
+import type {
+  BulkDeleteRequest,
+  BulkIdsRequest,
+  BulkResult,
+  CustomerDto,
+  CustomersListParams,
+  UpdateCustomerRequest,
+} from '../../model'
 
 import { apiFetch } from '../../../../lib/api-client'
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1]
+
+const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
+  const seen = new Set<string>()
+  const layers: [string, string | readonly string[]][][] = []
+  for (const source of sources.reverse()) {
+    if (!source) continue
+    const entries =
+      source instanceof Headers
+        ? source.entries()
+        : Symbol.iterator in source
+          ? Array.from(source as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string])
+          : Object.entries<string | readonly string[] | undefined>(source)
+    const layer: [string, string | readonly string[]][] = []
+    for (const [name, value] of entries) {
+      if (value !== undefined && !seen.has(name.toLowerCase())) layer.push([name, value])
+    }
+    for (const [name] of layer) seen.add(name.toLowerCase())
+    layers.push(layer)
+  }
+  return Object.fromEntries(layers.reverse().flat()) as Extract<
+    RequestInit['headers'],
+    Record<string, unknown>
+  >
+}
 
 const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
   const result = { queryKey } as T & { queryKey: K }
@@ -146,4 +180,231 @@ export function useCustomersList<TData = Awaited<ReturnType<typeof customersList
   }
 
   return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getCustomersUpdateUrl = (id: string) => {
+  return `/api/customers/${id}`
+}
+
+export const customersUpdate = async (
+  id: string,
+  updateCustomerRequest: UpdateCustomerRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<CustomerDto> => {
+  return apiFetch<CustomerDto>(getCustomersUpdateUrl(id), {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(updateCustomerRequest),
+  })
+}
+
+export const getCustomersUpdateMutationKey = () => ['customersUpdate'] as const
+
+export const getCustomersUpdateMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof customersUpdate>>,
+    TError,
+    CustomersUpdateMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof customersUpdate>>,
+  TError,
+  CustomersUpdateMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCustomersUpdateMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof customersUpdate>>,
+    CustomersUpdateMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {}
+
+    return customersUpdate(id, data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type CustomersUpdateMutationResult = NonNullable<Awaited<ReturnType<typeof customersUpdate>>>
+export type CustomersUpdateMutationBody = UpdateCustomerRequest
+export type CustomersUpdateMutationError = unknown
+export type CustomersUpdateMutationVariables = { id: string; data: UpdateCustomerRequest }
+
+export const useCustomersUpdate = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof customersUpdate>>,
+      TError,
+      CustomersUpdateMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof customersUpdate>>,
+  TError,
+  CustomersUpdateMutationVariables,
+  TContext
+> => {
+  return useMutation(getCustomersUpdateMutationOptions(options), queryClient)
+}
+export const getCustomersBulkDeleteUrl = () => {
+  return `/api/customers/bulk-delete`
+}
+
+export const customersBulkDelete = async (
+  bulkDeleteRequest: BulkDeleteRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getCustomersBulkDeleteUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkDeleteRequest),
+  })
+}
+
+export const getCustomersBulkDeleteMutationKey = () => ['customersBulkDelete'] as const
+
+export const getCustomersBulkDeleteMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof customersBulkDelete>>,
+    TError,
+    CustomersBulkDeleteMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof customersBulkDelete>>,
+  TError,
+  CustomersBulkDeleteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCustomersBulkDeleteMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof customersBulkDelete>>,
+    CustomersBulkDeleteMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return customersBulkDelete(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type CustomersBulkDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof customersBulkDelete>>>
+export type CustomersBulkDeleteMutationBody = BulkDeleteRequest
+export type CustomersBulkDeleteMutationError = unknown
+export type CustomersBulkDeleteMutationVariables = { data: BulkDeleteRequest }
+
+export const useCustomersBulkDelete = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof customersBulkDelete>>,
+      TError,
+      CustomersBulkDeleteMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof customersBulkDelete>>,
+  TError,
+  CustomersBulkDeleteMutationVariables,
+  TContext
+> => {
+  return useMutation(getCustomersBulkDeleteMutationOptions(options), queryClient)
+}
+export const getCustomersBulkRestoreUrl = () => {
+  return `/api/customers/bulk-restore`
+}
+
+export const customersBulkRestore = async (
+  bulkIdsRequest: BulkIdsRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getCustomersBulkRestoreUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkIdsRequest),
+  })
+}
+
+export const getCustomersBulkRestoreMutationKey = () => ['customersBulkRestore'] as const
+
+export const getCustomersBulkRestoreMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof customersBulkRestore>>,
+    TError,
+    CustomersBulkRestoreMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof customersBulkRestore>>,
+  TError,
+  CustomersBulkRestoreMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCustomersBulkRestoreMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof customersBulkRestore>>,
+    CustomersBulkRestoreMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return customersBulkRestore(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type CustomersBulkRestoreMutationResult = NonNullable<Awaited<ReturnType<typeof customersBulkRestore>>>
+export type CustomersBulkRestoreMutationBody = BulkIdsRequest
+export type CustomersBulkRestoreMutationError = unknown
+export type CustomersBulkRestoreMutationVariables = { data: BulkIdsRequest }
+
+export const useCustomersBulkRestore = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof customersBulkRestore>>,
+      TError,
+      CustomersBulkRestoreMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof customersBulkRestore>>,
+  TError,
+  CustomersBulkRestoreMutationVariables,
+  TContext
+> => {
+  return useMutation(getCustomersBulkRestoreMutationOptions(options), queryClient)
 }

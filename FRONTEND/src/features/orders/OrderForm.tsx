@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils'
 import { useAppSelector } from '@/store'
 import type { FormLine, OrderFormValues } from './order-form-values'
 import { OTHER_METHOD, PLACE_TYPES, productName } from './order-labels'
-import { estimateLine, estimateOrder } from './order-math'
+import { estimateLine, estimateOrder, lowestCap } from './order-math'
 import { ProductPicker, ProductThumb } from './ProductPicker'
 import { useOrderReferenceData } from './use-order-data'
 
@@ -63,6 +63,10 @@ export function OrderForm({
     () => new Map((products.data ?? []).map((p) => [p.id, p.stockQuantity])),
     [products.data],
   )
+  const maxById = useMemo(
+    () => new Map((products.data ?? []).map((p) => [p.id, p.effectiveMaxDiscountPercent ?? null])),
+    [products.data],
+  )
   const quantities = useMemo(
     () => Object.fromEntries(values.lines.map((l) => [l.productId, l.quantity])),
     [values.lines],
@@ -92,7 +96,8 @@ export function OrderForm({
                 unitPrice: product.price,
                 stock: product.stockQuantity,
                 quantity: 1,
-                discount: '',
+                discount: defaultDiscountFor(product, cap),
+                maxDiscount: product.effectiveMaxDiscountPercent ?? null,
               },
             ],
       }
@@ -105,12 +110,18 @@ export function OrderForm({
       lines: current.lines.map((l) => (l.productId === productId ? { ...l, ...patch } : l)),
     }))
 
-  const discountError = (value: string): string | undefined => {
+  /** The lowest of the product limit, the line limit and the role cap. */
+  const lineCap = (line: FormLine): number | null =>
+    lowestCap(maxById.get(line.productId) ?? line.maxDiscount, cap)
+
+  const discountError = (line: FormLine): string | undefined => {
+    const value = line.discount
     if (value.trim() === '') return undefined
     const n = Number(value)
     if (!Number.isFinite(n) || n < 0 || n > 100) return t('orders.form.discountRange')
     if (Math.round(n * 100) !== n * 100) return t('orders.form.discountDecimals')
-    if (cap !== null && n > cap) return t('orders.form.discountCap', { max: formatPercent(cap) })
+    const max = lineCap(line)
+    if (max !== null && n > max) return t('orders.form.discountCap', { max: formatPercent(max) })
     return undefined
   }
 
@@ -123,7 +134,7 @@ export function OrderForm({
           ? t('orders.form.collectionOtherRequired')
           : undefined,
     lines: values.lines.length === 0 ? t('orders.form.noLines') : undefined,
-    discount: values.lines.some((l) => discountError(l.discount)),
+    discount: values.lines.some((l) => discountError(l)),
     quantity: values.lines.some((l) => !Number.isInteger(l.quantity) || l.quantity < 1),
   }
   const valid =
@@ -284,7 +295,8 @@ export function OrderForm({
               })
               const stock = stockById.get(line.productId) ?? line.stock
               const overStock = stock !== null && line.quantity > stock
-              const lineDiscountError = discountError(line.discount)
+              const lineDiscountError = discountError(line)
+              const maxForLine = lineCap(line)
               return (
                 <li key={line.productId}>
                   <Card className="gap-3 py-3">
@@ -368,6 +380,11 @@ export function OrderForm({
                             }
                             aria-invalid={!!lineDiscountError}
                           />
+                          {maxForLine !== null && (
+                            <p className="text-xs text-muted-foreground tabular-nums">
+                              {t('catalog.maxShort', { value: formatPercent(maxForLine) })}
+                            </p>
+                          )}
                         </div>
                         <div className="ms-auto text-end">
                           <p className="text-xs text-muted-foreground">{t('orders.lineTotal')}</p>
@@ -409,11 +426,7 @@ export function OrderForm({
             <span>{t('orders.total')}</span>
             <span className="tabular-nums">{formatMoney(totals.total)}</span>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {cap !== null
-              ? t('orders.form.capHint', { max: formatPercent(cap) })
-              : t('orders.form.estimateHint')}
-          </p>
+          <p className="text-xs text-muted-foreground">{t('orders.form.estimateHint')}</p>
         </CardContent>
       </Card>
 
@@ -440,6 +453,14 @@ export function OrderForm({
       />
     </form>
   )
+}
+
+/** The product's default discount (else its line's), never above what this user may give. */
+function defaultDiscountFor(product: ProductDto, roleCap: number | null): string {
+  const value = product.effectiveDefaultDiscountPercent
+  if (value === null || value === undefined) return ''
+  const max = lowestCap(product.effectiveMaxDiscountPercent, roleCap)
+  return String(max !== null ? Math.min(value, max) : value)
 }
 
 function Row({ label, value }: { label: string; value: string }) {

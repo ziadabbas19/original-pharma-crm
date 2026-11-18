@@ -47,7 +47,9 @@ public sealed record UpdateOrderRequest(
     string? CollectionMethodOther = null,
     string? Notes = null) : IOrderInput;
 
-public sealed record OrderStatusRequest(string? Reason = null);
+/// <param name="Reason">Reason (required to reject) or note (optional otherwise). The rep sees it on the order and in the notification.</param>
+/// <param name="InternalNote">Note for managers only; never shown to the rep who owns the order.</param>
+public sealed record OrderStatusRequest(string? Reason = null, string? InternalNote = null);
 
 public sealed record OrderLineDto(
     Guid Id,
@@ -62,13 +64,15 @@ public sealed record OrderLineDto(
     decimal LineTotal,
     bool ExceededStock);
 
+/// <param name="InternalNote">Null for the rep who owns the order (managers' notes are not shown to them).</param>
 public sealed record OrderHistoryDto(
     OrderHistoryAction Action,
     OrderStatus? FromStatus,
     OrderStatus ToStatus,
     string ActorName,
     string? Reason,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? InternalNote = null);
 
 /// <summary>A line asks for more than the stock currently available (a warning; the order is saved).</summary>
 public sealed record StockWarningDto(Guid ProductId, int Requested, int Available);
@@ -76,6 +80,9 @@ public sealed record StockWarningDto(Guid ProductId, int Requested, int Availabl
 /// <param name="CanEdit">The caller may edit the order now.</param>
 /// <param name="CanCancel">The caller may cancel the order now.</param>
 /// <param name="CanReview">The caller may approve or reject the order now.</param>
+/// <param name="CanDeliver">The caller may mark the order delivered now.</param>
+/// <param name="StatusReason">Reason (rejected) or note (approved, cancelled) given with the decision.</param>
+/// <param name="Delivery">Null until the order is approved.</param>
 public sealed record OrderDto(
     Guid Id,
     string Number,
@@ -106,7 +113,15 @@ public sealed record OrderDto(
     IReadOnlyList<StockWarningDto> StockWarnings,
     bool CanEdit,
     bool CanCancel,
-    bool CanReview);
+    bool CanReview,
+    bool CanDeliver = false,
+    DateTimeOffset? DecidedAt = null,
+    string? DecidedByName = null,
+    DeliveryStatus? Delivery = null,
+    DateTimeOffset? DeliveredAt = null,
+    string? DeliveredByName = null,
+    string? DeliveryNote = null,
+    DateTimeOffset? ArchivedAt = null);
 
 public sealed record OrderListItemDto(
     Guid Id,
@@ -126,11 +141,19 @@ public sealed record OrderListItemDto(
     OrderStatus Status,
     int LineCount,
     decimal Total,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    decimal DiscountTotal = 0,
+    DeliveryStatus? Delivery = null,
+    DateTimeOffset? DecidedAt = null,
+    string? DecidedByName = null,
+    string? StatusReason = null,
+    DateTimeOffset? DeliveredAt = null,
+    DateTimeOffset? ArchivedAt = null);
 
 /// <param name="AreaId">Orders whose rep territory is this node or under it.</param>
 /// <param name="Place">Place name contains this text.</param>
 /// <param name="Search">Order number or place name contains this text.</param>
+/// <param name="Archived">Only archived (deleted) orders, or (default) only orders that are not archived.</param>
 public sealed record OrderQuery(
     DateOnly? From = null,
     DateOnly? To = null,
@@ -141,19 +164,25 @@ public sealed record OrderQuery(
     string? Place = null,
     Guid? CollectionMethodId = null,
     bool Mine = false,
-    string? Search = null);
+    string? Search = null,
+    DeliveryStatus? Delivery = null,
+    bool Archived = false);
 
 /// <summary>A place name used before (or a known pharmacy) offered while typing.</summary>
 public sealed record PlaceSuggestionDto(string Name, PlaceType PlaceType, Guid? CustomerId);
 
 public static class OrderErrorCodes
 {
+    /// <summary>A line's discount is above the lowest of the product, line and role limits; the response carries <c>maxDiscountPercent</c>, <c>productId</c> and <c>limit</c> (product, line or role).</summary>
     public const string DiscountAboveCap = "discount_above_cap";
     public const string ProductUnavailable = "product_unavailable";
     public const string CollectionMethodInvalid = "collection_method_invalid";
     public const string StatusInvalid = "order_status_invalid";
     public const string SelfReview = "order_self_review";
     public const string CustomerInvalid = "order_customer_invalid";
+
+    /// <summary>The order is archived; restore it first.</summary>
+    public const string Archived = "order_archived";
 }
 
 internal static class OrderInputRules
@@ -210,7 +239,8 @@ public sealed class OrderStatusRequestValidator : AbstractValidator<OrderStatusR
 {
     public OrderStatusRequestValidator()
     {
-        RuleFor(x => x.Reason).MaximumLength(500);
+        RuleFor(x => x.Reason).MaximumLength(Order.ReasonMaxLength);
+        RuleFor(x => x.InternalNote).MaximumLength(Order.ReasonMaxLength);
     }
 }
 

@@ -18,7 +18,13 @@ import type {
   UseQueryResult,
 } from '@tanstack/react-query'
 
-import type { ProductLineDto, ProductLinesListParams, SaveProductLineRequest } from '../../model'
+import type {
+  BulkDeleteRequest,
+  BulkResult,
+  ProductLineDto,
+  ProductLinesListParams,
+  SaveProductLineRequest,
+} from '../../model'
 
 import { apiFetch } from '../../../../lib/api-client'
 
@@ -325,4 +331,81 @@ export const useProductLinesUpdate = <TError = unknown, TContext = unknown>(
   TContext
 > => {
   return useMutation(getProductLinesUpdateMutationOptions(options), queryClient)
+}
+export const getProductLinesBulkDeleteUrl = () => {
+  return `/api/product-lines/bulk-delete`
+}
+
+export const productLinesBulkDelete = async (
+  bulkDeleteRequest: BulkDeleteRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getProductLinesBulkDeleteUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkDeleteRequest),
+  })
+}
+
+export const getProductLinesBulkDeleteMutationKey = () => ['productLinesBulkDelete'] as const
+
+export const getProductLinesBulkDeleteMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof productLinesBulkDelete>>,
+    TError,
+    ProductLinesBulkDeleteMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof productLinesBulkDelete>>,
+  TError,
+  ProductLinesBulkDeleteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getProductLinesBulkDeleteMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof productLinesBulkDelete>>,
+    ProductLinesBulkDeleteMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return productLinesBulkDelete(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type ProductLinesBulkDeleteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof productLinesBulkDelete>>
+>
+export type ProductLinesBulkDeleteMutationBody = BulkDeleteRequest
+export type ProductLinesBulkDeleteMutationError = unknown
+export type ProductLinesBulkDeleteMutationVariables = { data: BulkDeleteRequest }
+
+export const useProductLinesBulkDelete = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof productLinesBulkDelete>>,
+      TError,
+      ProductLinesBulkDeleteMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof productLinesBulkDelete>>,
+  TError,
+  ProductLinesBulkDeleteMutationVariables,
+  TContext
+> => {
+  return useMutation(getProductLinesBulkDeleteMutationOptions(options), queryClient)
 }

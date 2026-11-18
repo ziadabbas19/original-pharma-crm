@@ -8,8 +8,9 @@ import { useTrackingHub } from './useTrackingHub'
 
 /**
  * Keeps the liveLocations store current for the whole dashboard: a presence
- * snapshot (polled as a safety net) plus SignalR updates in between. Runs only
- * for users who may see live positions.
+ * snapshot (polled as a safety net) plus SignalR updates in between. The snapshot
+ * is only for users who may see live positions; the connection is for everyone,
+ * because it also delivers their notifications.
  */
 export function useLiveTracking(): void {
   const canViewLive = usePermission(P.tracking.viewLive)
@@ -22,5 +23,5 @@ export function useLiveTracking(): void {
     if (presence.data) dispatch(presenceLoaded(presence.data))
   }, [presence.data, dispatch])
 
-  useTrackingHub(canViewLive)
+  useTrackingHub()
 }

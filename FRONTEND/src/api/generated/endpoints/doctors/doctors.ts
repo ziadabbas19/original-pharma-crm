@@ -21,6 +21,8 @@ import type {
 import type {
   AssignDoctorsRequest,
   AssignDoctorsResult,
+  BulkIdsRequest,
+  BulkResult,
   CreateDoctorRequest,
   DoctorDto,
   DoctorsListParams,
@@ -705,6 +707,86 @@ export const useDoctorsRemoveFromMyList = <TError = unknown, TContext = unknown>
   TContext
 > => {
   return useMutation(getDoctorsRemoveFromMyListMutationOptions(options), queryClient)
+}
+export const getDoctorsRemoveManyFromMyListUrl = () => {
+  return `/api/doctors/my-list/bulk-remove`
+}
+
+export const doctorsRemoveManyFromMyList = async (
+  bulkIdsRequest: BulkIdsRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BulkResult> => {
+  return apiFetch<BulkResult>(getDoctorsRemoveManyFromMyListUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(bulkIdsRequest),
+  })
+}
+
+export const getDoctorsRemoveManyFromMyListMutationKey = () => ['doctorsRemoveManyFromMyList'] as const
+
+export const getDoctorsRemoveManyFromMyListMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof doctorsRemoveManyFromMyList>>,
+    TError,
+    DoctorsRemoveManyFromMyListMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof doctorsRemoveManyFromMyList>>,
+  TError,
+  DoctorsRemoveManyFromMyListMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDoctorsRemoveManyFromMyListMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof doctorsRemoveManyFromMyList>>,
+    DoctorsRemoveManyFromMyListMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return doctorsRemoveManyFromMyList(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type DoctorsRemoveManyFromMyListMutationResult = NonNullable<
+  Awaited<ReturnType<typeof doctorsRemoveManyFromMyList>>
+>
+export type DoctorsRemoveManyFromMyListMutationBody = BulkIdsRequest
+export type DoctorsRemoveManyFromMyListMutationError = unknown
+export type DoctorsRemoveManyFromMyListMutationVariables = { data: BulkIdsRequest }
+
+export const useDoctorsRemoveManyFromMyList = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof doctorsRemoveManyFromMyList>>,
+      TError,
+      DoctorsRemoveManyFromMyListMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof doctorsRemoveManyFromMyList>>,
+  TError,
+  DoctorsRemoveManyFromMyListMutationVariables,
+  TContext
+> => {
+  return useMutation(getDoctorsRemoveManyFromMyListMutationOptions(options), queryClient)
 }
 export const getDoctorsAssignUrl = () => {
   return `/api/doctors/assign`

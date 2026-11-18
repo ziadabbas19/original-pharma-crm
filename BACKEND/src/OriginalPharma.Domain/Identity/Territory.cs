@@ -32,6 +32,9 @@ public class Territory : Entity
 
     public Guid? ParentId { get; set; }
     public Territory? Parent { get; set; }
+
+    /// <summary>Deleted while doctors, orders or visits still point at it: hidden from pickers, kept for history.</summary>
+    public DateTimeOffset? ArchivedAt { get; set; }
     public ICollection<Territory> Children { get; set; } = new List<Territory>();
 
     /// <summary>The level a child of this level must have (null for towns, which have no children).</summary>

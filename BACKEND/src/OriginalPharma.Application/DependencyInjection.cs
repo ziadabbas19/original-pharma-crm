@@ -3,13 +3,16 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using OriginalPharma.Application.Catalog;
+using OriginalPharma.Application.Common.Auditing;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Crm;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Lookups;
+using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Orders;
+using OriginalPharma.Application.Stats;
 using OriginalPharma.Application.Tracking;
 using OriginalPharma.Application.Tracking.Anomalies;
 using OriginalPharma.Application.Visits;
@@ -28,11 +31,15 @@ public static class DependencyInjection
         services.Configure<AnomalyDetectionOptions>(configuration.GetSection(AnomalyDetectionOptions.SectionName));
         services.Configure<VisitOptions>(configuration.GetSection(VisitOptions.SectionName));
         services.Configure<ImageOptions>(configuration.GetSection(ImageOptions.SectionName));
+        services.Configure<StatsOptions>(configuration.GetSection(StatsOptions.SectionName));
 
         // Shared
         services.AddScoped<IOrgHierarchy, OrgHierarchy>();
         services.AddScoped<IDataScopeResolver, DataScopeResolver>();
         services.AddScoped<ImageService>();
+        services.AddScoped<AuditTrail>();
+        services.AddScoped<AuditLogService>();
+        services.AddScoped<NotificationService>();
 
         // Identity
         services.AddScoped<HierarchyGuard>();
@@ -64,6 +71,9 @@ public static class DependencyInjection
 
         // Visits
         services.AddScoped<VisitService>();
+
+        // Statistics
+        services.AddScoped<StatsService>();
 
         return services;
     }

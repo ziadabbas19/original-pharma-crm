@@ -9,17 +9,32 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useOrdersList } from '@/api/generated/endpoints'
+import type { BulkResult } from '@/api/generated/model'
+import { BulkDeleteDialog } from '@/components/bulk/BulkDeleteDialog'
+import { SelectionBar } from '@/components/bulk/SelectionBar'
+import { useDeleteTarget } from '@/components/bulk/use-bulk-delete'
+import { useSelection } from '@/components/bulk/use-selection'
 import { EmptyState, ErrorState, LoadingState } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { usePermission } from '@/features/auth/usePermission'
 import { errorMessage } from '@/lib/errors'
 import { ApiError } from '@/lib/api-client'
-import { formatDay, formatMoney, formatNumber, formatPercent, formatRelative } from '@/lib/format'
+import {
+  formatDateTime,
+  formatDay,
+  formatMoney,
+  formatNumber,
+  formatPercent,
+  formatRelative,
+} from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { discardFailedOrder, syncOrders, useOrderOutbox } from './order-outbox'
-import { OrderStatusBadge } from './OrderStatusBadge'
+import { DeliveryBadge, OrderStatusBadge } from './OrderStatusBadge'
+
+const outboxId = (item: { id: number }) => String(item.id)
 
 /** "My orders" in the rep app: waiting to sync, needs attention, then the orders on the server. */
 export function RepOrdersPage() {
@@ -28,6 +43,24 @@ export function RepOrdersPage() {
   const canRead = usePermission(P.orders.read)
   const outbox = useOrderOutbox()
   const orders = useOrdersList({ Mine: true }, { query: { enabled: canRead } })
+  const failedSelection = useSelection(outbox.failed, outboxId)
+  const discard = useDeleteTarget()
+
+  /** The refused orders only live on this device, so discarding them needs no server call. */
+  const discardOrders = async ({ ids }: { ids: string[] }): Promise<BulkResult> => {
+    await Promise.all(ids.map((id) => discardFailedOrder(Number(id))))
+    return {
+      deleted: ids.length,
+      archived: 0,
+      restored: 0,
+      updated: 0,
+      blocked: 0,
+      dryRun: false,
+      items: ids.map((id) => ({ id, outcome: 'deleted' as const })),
+    }
+  }
+  const failedName = (id: string) =>
+    outbox.failed.find((item) => String(item.id) === id)?.payload.request.placeName ?? id
 
   return (
     <div className="space-y-4">
@@ -83,11 +116,36 @@ export function RepOrdersPage() {
             <AlertCircleIcon className="size-4" />
             {t('orders.failedTitle')}
           </h2>
+          <div className="overflow-hidden rounded-lg border">
+            <label className="flex items-center gap-2 px-3 py-2 text-sm">
+              <Checkbox
+                checked={
+                  failedSelection.allSelected ? true : failedSelection.someSelected ? 'indeterminate' : false
+                }
+                onCheckedChange={(v) => failedSelection.setAll(v === true)}
+              />
+              {t('bulk.selectAll', {
+                count: failedSelection.total,
+                value: formatNumber(failedSelection.total),
+              })}
+            </label>
+            <SelectionBar selection={failedSelection} className="static border-t border-b-0">
+              <Button size="sm" variant="destructive" onClick={() => discard.open(failedSelection.ids)}>
+                <Trash2Icon />
+                {t('orders.discard')}
+              </Button>
+            </SelectionBar>
+          </div>
           {outbox.failed.map((item) => (
             <Card key={item.id} className="border-destructive/40 py-3">
               <CardContent className="grid gap-2 px-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="truncate font-medium">{item.payload.request.placeName}</p>
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    aria-label={t('bulk.selectRow', { name: item.payload.request.placeName })}
+                    checked={failedSelection.has(String(item.id))}
+                    onCheckedChange={(v) => failedSelection.toggle(String(item.id), v === true)}
+                  />
+                  <p className="min-w-0 flex-1 truncate font-medium">{item.payload.request.placeName}</p>
                   <span className="text-sm tabular-nums">{formatMoney(item.payload.estimatedTotal)}</span>
                 </div>
                 <p className="text-sm text-destructive">
@@ -108,7 +166,7 @@ export function RepOrdersPage() {
                       {t('orders.fixAndResend')}
                     </Link>
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => void discardFailedOrder(item.id)}>
+                  <Button size="sm" variant="ghost" onClick={() => discard.open([String(item.id)])}>
                     <Trash2Icon />
                     {t('orders.discard')}
                   </Button>
@@ -145,10 +203,23 @@ export function RepOrdersPage() {
                           </span>{' '}
                           · {formatDay(o.orderDate)}
                         </p>
+                        {o.decidedAt && (
+                          <p className="text-xs text-muted-foreground">
+                            {t(`orders.decidedBy.${o.status}`, { name: o.decidedByName ?? '' })} ·{' '}
+                            {formatDateTime(o.decidedAt)}
+                          </p>
+                        )}
+                        {o.statusReason && <p className="line-clamp-2 text-xs">{o.statusReason}</p>}
                       </div>
-                      <div className="grid justify-items-end gap-1">
+                      <div className="grid shrink-0 justify-items-end gap-1">
                         <OrderStatusBadge status={o.status} />
+                        <DeliveryBadge delivery={o.delivery} />
                         <span className="text-sm font-medium tabular-nums">{formatMoney(o.total)}</span>
+                        {(o.discountTotal ?? 0) > 0 && (
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {t('orders.discountShort', { value: formatMoney(o.discountTotal) })}
+                          </span>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -157,6 +228,19 @@ export function RepOrdersPage() {
             ))}
           </ul>
         ))}
+
+      {discard.ids && (
+        <BulkDeleteDialog
+          ids={discard.ids}
+          nameOf={failedName}
+          verb="discard"
+          preview={false}
+          consequence={t('orders.discardConsequence')}
+          run={discardOrders}
+          onDone={() => failedSelection.clear()}
+          onClose={discard.close}
+        />
+      )}
     </div>
   )
 }

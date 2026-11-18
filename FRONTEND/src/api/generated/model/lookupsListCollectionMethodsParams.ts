@@ -5,4 +5,5 @@
 
 export type LookupsListCollectionMethodsParams = {
   includeInactive?: boolean
+  archived?: boolean
 }

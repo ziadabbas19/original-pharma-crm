@@ -5,9 +5,12 @@
 
 export interface ProductDto {
   id: string
-  productLineId: string
-  lineNameAr: string
-  lineNameEn: string
+  /** @nullable */
+  productLineId: string | null
+  /** @nullable */
+  lineNameAr: string | null
+  /** @nullable */
+  lineNameEn: string | null
   nameAr: string
   nameEn: string
   /** @nullable */
@@ -21,4 +24,19 @@ export interface ProductDto {
   isActive: boolean
   /** @nullable */
   updatedAt: string | null
+  /** @nullable */
+  defaultDiscountPercent?: number | null
+  /** @nullable */
+  maxDiscountPercent?: number | null
+  /** @nullable */
+  lineDefaultDiscountPercent?: number | null
+  /** @nullable */
+  lineMaxDiscountPercent?: number | null
+  /** @nullable */
+  effectiveDefaultDiscountPercent?: number | null
+  /** @nullable */
+  effectiveMaxDiscountPercent?: number | null
+  usageCount?: number
+  /** @nullable */
+  archivedAt?: string | null
 }

@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using OriginalPharma.Domain.Audit;
+using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Visits;
 
 namespace OriginalPharma.Infrastructure.Persistence.Configurations;
@@ -39,8 +42,88 @@ internal sealed class VisitConfiguration : IEntityTypeConfiguration<Visit>
         builder.Property(v => v.Notes).HasMaxLength(2000);
         builder.HasOne(v => v.Customer).WithMany().HasForeignKey(v => v.CustomerId).OnDelete(DeleteBehavior.Restrict);
         builder.HasMany(v => v.Photos).WithOne().HasForeignKey(p => p.VisitId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(v => v.Feedback).WithOne().HasForeignKey<VisitFeedback>(f => f.VisitId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(v => v.Products).WithOne().HasForeignKey(p => p.VisitId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(v => v.Replies).WithOne().HasForeignKey(r => r.VisitId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(v => new { v.UserId, v.CheckInAt });
         builder.HasIndex(v => new { v.UserId, v.Status });
+        builder.HasIndex(v => new { v.TerritoryId, v.CheckInAt });
+        builder.HasIndex(v => v.CustomerId);
+    }
+}
+
+internal sealed class VisitFeedbackConfiguration : IEntityTypeConfiguration<VisitFeedback>
+{
+    public void Configure(EntityTypeBuilder<VisitFeedback> builder)
+    {
+        builder.ToTable("visit_feedback");
+        builder.HasKey(f => f.VisitId);
+        builder.Property(f => f.Text).HasMaxLength(VisitFeedback.TextMaxLength).IsRequired();
+        builder.HasMany(f => f.SeenBy).WithOne().HasForeignKey(s => s.VisitId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(f => f.Category);
+    }
+}
+
+internal sealed class VisitFeedbackSeenConfiguration : IEntityTypeConfiguration<VisitFeedbackSeen>
+{
+    public void Configure(EntityTypeBuilder<VisitFeedbackSeen> builder)
+    {
+        builder.ToTable("visit_feedback_seen");
+        builder.HasKey(s => new { s.VisitId, s.UserId });
+        builder.Property(s => s.UserName).HasMaxLength(200).IsRequired();
+    }
+}
+
+internal sealed class VisitFeedbackReplyConfiguration : IEntityTypeConfiguration<VisitFeedbackReply>
+{
+    public void Configure(EntityTypeBuilder<VisitFeedbackReply> builder)
+    {
+        builder.ToTable("visit_feedback_replies");
+        builder.Property(r => r.AuthorName).HasMaxLength(200).IsRequired();
+        builder.Property(r => r.Text).HasMaxLength(VisitFeedbackReply.TextMaxLength).IsRequired();
+        builder.HasIndex(r => new { r.VisitId, r.CreatedAt });
+    }
+}
+
+internal sealed class VisitProductConfiguration : IEntityTypeConfiguration<VisitProduct>
+{
+    public void Configure(EntityTypeBuilder<VisitProduct> builder)
+    {
+        builder.ToTable("visit_products");
+        builder.HasKey(p => new { p.VisitId, p.ProductId });
+        builder.Property(p => p.Note).HasMaxLength(VisitProduct.NoteMaxLength);
+
+        // A product discussed in a visit is "used": deleting it archives it instead.
+        builder.HasOne<Product>().WithMany().HasForeignKey(p => p.ProductId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(p => p.ProductId);
+    }
+}
+
+internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notification>
+{
+    public void Configure(EntityTypeBuilder<Notification> builder)
+    {
+        builder.ToTable("notifications");
+        builder.Property(n => n.Data).HasColumnType("jsonb").IsRequired();
+        builder.HasOne<User>().WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(n => new { n.UserId, n.CreatedAt });
+        builder.HasIndex(n => new { n.UserId, n.ReadAt });
+        builder.HasIndex(n => new { n.UserId, n.EntityId });
+    }
+}
+
+internal sealed class AuditEntryConfiguration : IEntityTypeConfiguration<AuditEntry>
+{
+    public void Configure(EntityTypeBuilder<AuditEntry> builder)
+    {
+        builder.ToTable("audit_entries");
+        builder.Property(e => e.EntityType).HasMaxLength(50).IsRequired();
+        builder.Property(e => e.ActorName).HasMaxLength(200).IsRequired();
+        builder.Property(e => e.Details).HasColumnType("jsonb").IsRequired();
+
+        // No foreign keys: the trail outlives the rows it describes.
+        builder.HasIndex(e => new { e.EntityType, e.EntityId, e.CreatedAt });
+        builder.HasIndex(e => e.CreatedAt);
     }
 }
 

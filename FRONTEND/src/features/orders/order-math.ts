@@ -47,3 +47,9 @@ export function newClientRequestId(): string {
   const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
+
+/** The lowest of the discount limits that are set (product, line, role); null when none is. */
+export function lowestCap(...caps: (number | null | undefined)[]): number | null {
+  const set = caps.filter((c): c is number => c !== null && c !== undefined)
+  return set.length ? Math.min(...set) : null
+}

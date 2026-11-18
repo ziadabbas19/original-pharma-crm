@@ -11,12 +11,22 @@ public enum VisitStatus
     Cancelled = 3,
 }
 
+/// <summary>How the rep sums up a visit (optional).</summary>
+public enum VisitFeedbackCategory
+{
+    Positive = 1,
+    NeedsFollowUp = 2,
+    Complaint = 3,
+    Request = 4,
+}
+
 /// <summary>
 /// A rep's visit to a doctor or pharmacy, verified by geofence at check-in and
-/// check-out, optional photos and an optional QR scan.
-/// TODO: visit content (products discussed, samples, notes templates).
+/// check-out, optional photos and an optional QR scan. The rep adds feedback and the
+/// products discussed; the reporting line reads and answers the feedback.
+/// TODO: samples handed out, notes templates.
 /// </summary>
-public class Visit : Entity, IScopedEntity
+public class Visit : Entity, IScopedEntity, IArchivable
 {
     public Guid UserId { get; set; }
     public Guid? TerritoryId { get; set; }
@@ -49,7 +59,68 @@ public class Visit : Entity, IScopedEntity
     /// <summary>True when something about the visit needs a supervisor's eye.</summary>
     public bool NeedsReview { get; set; }
 
+    /// <summary>
+    /// Device time of the last feedback / products update that was applied. An update queued offline
+    /// earlier than this is ignored, so a late retry never overwrites newer content.
+    /// </summary>
+    public DateTimeOffset? ContentUpdatedAt { get; set; }
+
+    public DateTimeOffset? ArchivedAt { get; set; }
+    public Guid? ArchivedById { get; set; }
+
     public ICollection<VisitPhoto> Photos { get; set; } = new List<VisitPhoto>();
+    public VisitFeedback? Feedback { get; set; }
+    public ICollection<VisitProduct> Products { get; set; } = new List<VisitProduct>();
+    public ICollection<VisitFeedbackReply> Replies { get; set; } = new List<VisitFeedbackReply>();
+}
+
+/// <summary>The rep's feedback on a visit (at most one per visit).</summary>
+public class VisitFeedback
+{
+    public const int TextMaxLength = 2000;
+
+    public Guid VisitId { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public VisitFeedbackCategory? Category { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public ICollection<VisitFeedbackSeen> SeenBy { get; set; } = new List<VisitFeedbackSeen>();
+}
+
+/// <summary>Someone in the reporting line marked the feedback as seen. Cleared when the rep changes it.</summary>
+public class VisitFeedbackSeen
+{
+    public Guid VisitId { get; set; }
+    public Guid UserId { get; set; }
+    public string UserName { get; set; } = string.Empty;
+    public DateTimeOffset SeenAt { get; set; }
+}
+
+/// <summary>A short answer from a supervisor or manager, shown to the rep.</summary>
+public class VisitFeedbackReply : Entity
+{
+    public const int TextMaxLength = 500;
+
+    public Guid VisitId { get; set; }
+    public Guid AuthorId { get; set; }
+
+    /// <summary>Author's name at the time of the reply.</summary>
+    public string AuthorName { get; set; } = string.Empty;
+
+    public string Text { get; set; } = string.Empty;
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>A product discussed during a visit, with an optional short note.</summary>
+public class VisitProduct
+{
+    public const int NoteMaxLength = 300;
+
+    public Guid VisitId { get; set; }
+    public Guid ProductId { get; set; }
+    public string? Note { get; set; }
+    public int SortOrder { get; set; }
 }
 
 public class VisitPhoto : Entity

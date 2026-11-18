@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Common.Auditing;
+using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
+using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Identity;
 
@@ -23,14 +26,17 @@ public sealed class UserAdminService(
     IOrgHierarchy hierarchy,
     HierarchyGuard guard,
     AccountService accounts,
+    AuditTrail audit,
     TimeProvider time)
 {
-    public async Task<IReadOnlyList<UserListItemDto>> ListAsync(CancellationToken cancellationToken = default)
+    /// <param name="archived">Only archived (deleted) users, or (default) only users that are not archived.</param>
+    public async Task<IReadOnlyList<UserListItemDto>> ListAsync(bool archived = false, CancellationToken cancellationToken = default)
     {
         var scope = await scopeResolver.ResolveAsync(Permissions.Users.Read, cancellationToken);
 
         var users = await db.Users.AsNoTracking()
             .WhereUsersInScope(scope)
+            .Where(u => archived ? u.ArchivedAt != null : u.ArchivedAt == null)
             .OrderBy(u => u.FullName)
             .Select(u => new
             {
@@ -46,6 +52,7 @@ public sealed class UserAdminService(
                 u.PreferredLanguage,
                 u.AvatarKey,
                 u.MustChangePassword,
+                u.ArchivedAt,
             })
             .ToListAsync(cancellationToken);
 
@@ -61,8 +68,198 @@ public sealed class UserAdminService(
             .Select(u => new UserListItemDto(
                 u.Id, u.Email ?? string.Empty, u.FullName, roles[u.Id].ToList(), u.ManagerId, u.TerritoryId, u.IsActive,
                 u.TerritoryName, u.TerritoryNameAr, u.ManagerName, u.PreferredLanguage,
-                ImageService.Url(u.AvatarKey, ImageService.Thumbnail), lines[u.Id].ToList(), u.MustChangePassword))
+                ImageService.Url(u.AvatarKey, ImageService.Thumbnail), lines[u.Id].ToList(), u.MustChangePassword, u.ArchivedAt))
             .ToList();
+    }
+
+    /// <summary>
+    /// Deletes users (users:delete). Per user: never yourself, only inside the scope and below your
+    /// level, never someone people still report to, never the last active admin. A user who took part
+    /// in orders, visits, tracking or administration is archived (deactivated, signed out, hidden);
+    /// one without any activity is removed. Lower levels are handled first, so a team and its
+    /// supervisor can go in one request.
+    /// </summary>
+    public async Task<BulkResult> DeleteManyAsync(BulkDeleteRequest request, CancellationToken cancellationToken = default)
+    {
+        var actor = await guard.GetActorAsync(cancellationToken);
+        var scope = await scopeResolver.ResolveAsync(Permissions.Users.Delete, cancellationToken);
+        var ids = request.Ids.Distinct().ToArray();
+        var users = await db.Users.Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, cancellationToken);
+        var levels = await guard.GetBestLevelsAsync(ids, cancellationToken);
+        var reports = await db.Users.AsNoTracking()
+            .Where(u => u.ManagerId != null && ids.Contains(u.ManagerId.Value))
+            .Select(u => new { u.Id, ManagerId = u.ManagerId!.Value, u.ArchivedAt })
+            .ToListAsync(cancellationToken);
+        var active = await ActiveIdsAsync(ids, cancellationToken);
+        var admins = await ActiveAdminIdsAsync(cancellationToken);
+
+        var removed = new HashSet<Guid>();
+        var outcomes = new Dictionary<Guid, BulkItemResult>();
+        foreach (var id in ids.OrderByDescending(i => levels.GetValueOrDefault(i)))
+        {
+            var outcome = Evaluate(id);
+            outcomes[id] = outcome;
+            if (outcome.Outcome != BulkOutcome.Blocked)
+            {
+                removed.Add(id);
+            }
+        }
+
+        BulkItemResult Evaluate(Guid id)
+        {
+            if (id == actor.Id)
+            {
+                return new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.Self);
+            }
+
+            if (!users.TryGetValue(id, out var user))
+            {
+                return new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.NotFound);
+            }
+
+            if (!scope.Includes(user.Id, user.TerritoryId))
+            {
+                return new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.OutOfScope);
+            }
+
+            if (!actor.CanManageLevel(levels.GetValueOrDefault(id)))
+            {
+                return new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.UserLevelTooHigh);
+            }
+
+            var activeReports = reports.Count(r => r.ManagerId == id && r.ArchivedAt == null && !removed.Contains(r.Id));
+            if (activeReports > 0)
+            {
+                return new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.UserHasReports, activeReports);
+            }
+
+            if (admins.Contains(id) && !admins.Except(removed).Except([id]).Any())
+            {
+                return new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.LastAdmin);
+            }
+
+            // Archived reports still point at the user, so the row has to stay.
+            var keep = active.Contains(id) || reports.Any(r => r.ManagerId == id) || user.ArchivedAt is not null;
+            return new BulkItemResult(id, keep ? BulkOutcome.Archived : BulkOutcome.Deleted);
+        }
+
+        var result = BulkResult.From(ids.Select(i => outcomes[i]).ToList(), request.DryRun);
+        if (request.DryRun || result.Done == 0)
+        {
+            return result;
+        }
+
+        var now = time.GetUtcNow();
+        var affected = new List<Guid>();
+        foreach (var item in result.Items.Where(i => i.Outcome != BulkOutcome.Blocked))
+        {
+            var user = users[item.Id];
+            var details = new { user.FullName, user.Email, user.TerritoryId, user.ManagerId };
+            if (item.Outcome == BulkOutcome.Archived)
+            {
+                user.IsActive = false;
+                user.ArchivedAt ??= now;
+                user.ArchivedById ??= actor.Id;
+                affected.Add(user.Id);
+                await accounts.RevokeSessionsAsync(user.Id, null, "user-archived", cancellationToken);
+                db.UserAuditEntries.Add(UserAudit.Entry(user.Id, actor.Id, actor.FullName, UserAuditAction.Archived, details, null, now));
+                await audit.AddAsync(AuditEntities.User, user.Id, AuditAction.Archived, details, cancellationToken: cancellationToken);
+            }
+            else
+            {
+                db.UserRoles.RemoveRange(await db.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync(cancellationToken));
+                db.Users.Remove(user);
+                db.UserAuditEntries.Add(UserAudit.Entry(user.Id, actor.Id, actor.FullName, UserAuditAction.Deleted, details, null, now));
+                await audit.AddAsync(AuditEntities.User, user.Id, AuditAction.Deleted, details, cancellationToken: cancellationToken);
+            }
+        }
+
+        await audit.AddBulkAsync(AuditEntities.User, AuditAction.BulkDelete, result, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        await permissionService.BumpVersionAsync(affected, cancellationToken);
+        hierarchy.Invalidate();
+        return result;
+    }
+
+    /// <summary>Brings archived users back and lets them sign in again (users:restore, scope and level rules apply).</summary>
+    public async Task<BulkResult> RestoreManyAsync(BulkIdsRequest request, CancellationToken cancellationToken = default)
+    {
+        var actor = await guard.GetActorAsync(cancellationToken);
+        var scope = await scopeResolver.ResolveAsync(Permissions.Users.Restore, cancellationToken);
+        var ids = request.Ids.Distinct().ToArray();
+        var users = await db.Users.Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id, cancellationToken);
+        var levels = await guard.GetBestLevelsAsync(ids, cancellationToken);
+        var now = time.GetUtcNow();
+        var results = new List<BulkItemResult>();
+        foreach (var id in ids)
+        {
+            if (!users.TryGetValue(id, out var user))
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.NotFound));
+            }
+            else if (!scope.Includes(user.Id, user.TerritoryId))
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.OutOfScope));
+            }
+            else if (!actor.CanManageLevel(levels.GetValueOrDefault(id)))
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.UserLevelTooHigh));
+            }
+            else if (user.ArchivedAt is null)
+            {
+                results.Add(new BulkItemResult(id, BulkOutcome.Blocked, BulkCodes.NotArchived));
+            }
+            else
+            {
+                user.ArchivedAt = null;
+                user.ArchivedById = null;
+                user.IsActive = true;
+                results.Add(new BulkItemResult(id, BulkOutcome.Restored));
+                db.UserAuditEntries.Add(UserAudit.Entry(user.Id, actor.Id, actor.FullName, UserAuditAction.Restored, new { user.FullName }, null, now));
+                await audit.AddAsync(AuditEntities.User, user.Id, AuditAction.Restored, new { user.FullName, user.Email }, cancellationToken: cancellationToken);
+            }
+        }
+
+        var result = BulkResult.From(results, false);
+        if (result.Done > 0)
+        {
+            await audit.AddBulkAsync(AuditEntities.User, AuditAction.BulkRestore, result, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            await permissionService.BumpVersionAsync(results.Where(r => r.Outcome == BulkOutcome.Restored).Select(r => r.Id).ToList(), cancellationToken);
+            hierarchy.Invalidate();
+        }
+
+        return result;
+    }
+
+    /// <summary>Users who took part in something that has to stay readable (orders, visits, tracking, administration).</summary>
+    private async Task<HashSet<Guid>> ActiveIdsAsync(Guid[] ids, CancellationToken cancellationToken)
+    {
+        var found = new HashSet<Guid>();
+        async Task AddAsync(IQueryable<Guid> query) => found.UnionWith(await query.Distinct().ToListAsync(cancellationToken));
+
+        await AddAsync(db.Orders.Where(o => ids.Contains(o.UserId)).Select(o => o.UserId));
+        await AddAsync(db.OrderHistory.Where(h => h.ActorId != null && ids.Contains(h.ActorId.Value)).Select(h => h.ActorId!.Value));
+        await AddAsync(db.Visits.Where(v => ids.Contains(v.UserId)).Select(v => v.UserId));
+        await AddAsync(db.Shifts.Where(s => ids.Contains(s.UserId)).Select(s => s.UserId));
+        await AddAsync(db.Devices.Where(d => ids.Contains(d.UserId)).Select(d => d.UserId));
+        await AddAsync(db.TrackingConsents.Where(c => ids.Contains(c.UserId)).Select(c => c.UserId));
+        await AddAsync(db.Customers.Where(c => c.CreatedById != null && ids.Contains(c.CreatedById.Value)).Select(c => c.CreatedById!.Value));
+        await AddAsync(db.RoleAuditEntries.Where(e => e.ActorId != null && ids.Contains(e.ActorId.Value)).Select(e => e.ActorId!.Value));
+        await AddAsync(db.UserAuditEntries.Where(e => e.ActorId != null && ids.Contains(e.ActorId.Value)).Select(e => e.ActorId!.Value));
+        await AddAsync(db.AuditEntries.Where(e => e.ActorId != null && ids.Contains(e.ActorId.Value)).Select(e => e.ActorId!.Value));
+        await AddAsync(db.VisitFeedbackReplies.Where(r => ids.Contains(r.AuthorId)).Select(r => r.AuthorId));
+        return found;
+    }
+
+    private async Task<HashSet<Guid>> ActiveAdminIdsAsync(CancellationToken cancellationToken)
+    {
+        var adminKey = Role.NormalizeKey(DefaultRoles.Admin);
+        return (await db.UserRoles.AsNoTracking()
+                .Join(db.Roles.Where(r => r.NormalizedName == adminKey), ur => ur.RoleId, r => r.Id, (ur, _) => ur.UserId)
+                .Join(db.Users.Where(u => u.IsActive && u.ArchivedAt == null), userId => userId, u => u.Id, (userId, _) => userId)
+                .ToListAsync(cancellationToken))
+            .ToHashSet();
     }
 
     /// <summary>Roles the caller may give to a new user: those strictly below their own level.</summary>
@@ -216,10 +413,18 @@ public sealed class UserAdminService(
             await guard.EnsureReportingLinesAsync(change, cancellationToken);
         }
 
+        var before = new { user.FullName, user.PreferredLanguage, user.TerritoryId, user.ManagerId };
         user.FullName = request.FullName.Trim();
         user.PreferredLanguage = request.PreferredLanguage;
         user.TerritoryId = request.TerritoryId;
         user.ManagerId = request.ManagerId;
+        var after = new { user.FullName, user.PreferredLanguage, user.TerritoryId, user.ManagerId };
+        if (!before.Equals(after))
+        {
+            db.UserAuditEntries.Add(UserAudit.Entry(user.Id, actor.Id, actor.FullName, UserAuditAction.Updated, new { before, after }, null, time.GetUtcNow()));
+            await audit.AddAsync(AuditEntities.User, user.Id, AuditAction.Updated, new { before, after }, cancellationToken: cancellationToken);
+        }
+
         await db.SaveChangesAsync(cancellationToken);
 
         // Team and territory scopes are resolved from the org snapshot on every request.
@@ -257,6 +462,13 @@ public sealed class UserAdminService(
         foreach (var roleId in requestedIds.Except(currentIds))
         {
             db.UserRoles.Add(new IdentityUserRole<Guid> { UserId = userId, RoleId = roleId });
+        }
+
+        if (!currentIds.SetEquals(requestedIds))
+        {
+            var details = new { before = currentIds.ToArray(), after = requestedIds.ToArray() };
+            db.UserAuditEntries.Add(UserAudit.Entry(userId, actor.Id, actor.FullName, UserAuditAction.RolesChanged, details, null, time.GetUtcNow()));
+            await audit.AddAsync(AuditEntities.User, userId, AuditAction.Updated, new { roles = details }, cancellationToken: cancellationToken);
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -337,6 +549,8 @@ public sealed class UserAdminService(
             });
         }
 
+        await audit.AddAsync(AuditEntities.User, userId, AuditAction.Updated,
+            new { overrides = request.Overrides.Select(o => new { o.Key, o.IsGranted, o.Scope, o.ExpiresAt }).ToArray() }, cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await permissionService.BumpVersionAsync([userId], cancellationToken);
     }
@@ -359,6 +573,7 @@ public sealed class UserAdminService(
                 u.PreferredLanguage,
                 u.AvatarKey,
                 u.MustChangePassword,
+                u.ArchivedAt,
                 ProductLineIds = u.ProductLines.Select(l => l.ProductLineId).ToList(),
             })
             .SingleAsync(cancellationToken);
@@ -367,7 +582,7 @@ public sealed class UserAdminService(
         return new UserListItemDto(
             user.Id, user.Email ?? string.Empty, user.FullName, roles, user.ManagerId, user.TerritoryId, user.IsActive,
             user.TerritoryName, user.TerritoryNameAr, user.ManagerName, user.PreferredLanguage,
-            ImageService.Url(user.AvatarKey, ImageService.Thumbnail), user.ProductLineIds, user.MustChangePassword);
+            ImageService.Url(user.AvatarKey, ImageService.Thumbnail), user.ProductLineIds, user.MustChangePassword, user.ArchivedAt);
     }
 
     /// <summary>Distinct ids of existing product lines; unknown ids are refused.</summary>

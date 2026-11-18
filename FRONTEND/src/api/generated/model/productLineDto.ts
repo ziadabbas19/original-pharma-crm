@@ -11,4 +11,9 @@ export interface ProductLineDto {
   description: string | null
   isActive: boolean
   productCount: number
+  /** @nullable */
+  defaultDiscountPercent?: number | null
+  /** @nullable */
+  maxDiscountPercent?: number | null
+  repCount?: number
 }

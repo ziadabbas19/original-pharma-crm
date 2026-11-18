@@ -4,7 +4,8 @@
  */
 
 export interface SaveProductRequest {
-  productLineId: string
+  /** @nullable */
+  productLineId: string | null
   nameAr: string
   nameEn: string
   /** @nullable */
@@ -12,4 +13,8 @@ export interface SaveProductRequest {
   price: number
   stockQuantity: number
   isActive?: boolean
+  /** @nullable */
+  defaultDiscountPercent?: number | null
+  /** @nullable */
+  maxDiscountPercent?: number | null
 }

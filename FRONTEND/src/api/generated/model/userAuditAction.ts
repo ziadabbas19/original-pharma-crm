@@ -10,4 +10,9 @@ export const UserAuditAction = {
   passwordChanged: 'passwordChanged',
   passwordReset: 'passwordReset',
   productLinesChanged: 'productLinesChanged',
+  updated: 'updated',
+  archived: 'archived',
+  restored: 'restored',
+  deleted: 'deleted',
+  rolesChanged: 'rolesChanged',
 } as const

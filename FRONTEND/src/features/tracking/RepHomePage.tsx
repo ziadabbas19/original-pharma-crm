@@ -1,12 +1,23 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CircleStopIcon, InfoIcon, Loader2Icon, MapPinIcon, PlayIcon, ShieldAlertIcon } from 'lucide-react'
+import {
+  BarChart3Icon,
+  ChevronRightIcon,
+  CircleStopIcon,
+  InfoIcon,
+  Loader2Icon,
+  MapPinIcon,
+  PlayIcon,
+  ShieldAlertIcon,
+} from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { usePermission } from '@/features/auth/usePermission'
 import { ApiError } from '@/lib/api-client'
 import { formatTime } from '@/lib/format'
+import { P } from '@/lib/permissions'
 import { platform } from '@/lib/platform'
 import { useAppSelector } from '@/store'
 import { endDay, startDay } from './tracking-service'
@@ -21,6 +32,7 @@ export function RepHomePage() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(0)
   const isPwa = platform().kind === 'pwa'
+  const canSeeStats = usePermission(P.stats.read)
 
   useEffect(() => {
     if (!shift) return
@@ -109,6 +121,18 @@ export function RepHomePage() {
           )}
         </CardContent>
       </Card>
+
+      {canSeeStats && (
+        <Link to="/rep/statistics" className="block">
+          <Card className="py-3 transition-colors hover:bg-accent/50">
+            <CardContent className="flex items-center gap-3 px-4">
+              <BarChart3Icon className="size-5 text-primary" aria-hidden />
+              <span className="flex-1 font-medium">{t('stats.mine')}</span>
+              <ChevronRightIcon className="size-4 text-muted-foreground rtl:rotate-180" aria-hidden />
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       {isPwa && (
         <Alert>
