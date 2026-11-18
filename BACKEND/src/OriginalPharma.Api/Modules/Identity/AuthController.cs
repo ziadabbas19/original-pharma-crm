@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using OriginalPharma.Api.Common;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Identity;
@@ -15,7 +16,7 @@ public sealed record BackgroundSessionRequest(string DeviceId);
 /// <summary>
 /// Login / refresh / logout for both clients:
 /// <list type="bullet">
-/// <item>Web: refresh token in an httpOnly, Secure, SameSite=Strict cookie scoped to /api/auth.</item>
+/// <item>Web: refresh token in an httpOnly cookie scoped to /api/auth (see <see cref="RefreshCookieSettings"/>).</item>
 /// <item>Native: refresh token returned in the body; the app keeps it in secure storage.</item>
 /// </list>
 /// Access tokens are short-lived JWTs sent as "Authorization: Bearer".
@@ -23,7 +24,11 @@ public sealed record BackgroundSessionRequest(string DeviceId);
 [ApiController]
 [Route("api/auth")]
 [Tags("Auth")]
-public sealed class AuthController(IAuthService auth, ICurrentUser currentUser, TimeProvider time) : ControllerBase
+public sealed class AuthController(
+    IAuthService auth,
+    ICurrentUser currentUser,
+    IOptions<RefreshCookieSettings> cookieSettings,
+    TimeProvider time) : ControllerBase
 {
     public const string RefreshCookie = "op_refresh";
     private const string RefreshCookiePath = "/api/auth";
@@ -162,11 +167,12 @@ public sealed class AuthController(IAuthService auth, ICurrentUser currentUser, 
         return new AuthResponse(tokens.AccessToken, tokens.AccessTokenExpiresAt, expiresIn, tokens.RefreshToken, tokens.RefreshTokenExpiresAt, tokens.User);
     }
 
-    private static CookieOptions CookieOptions(DateTimeOffset? expires) => new()
+    private CookieOptions CookieOptions(DateTimeOffset? expires) => new()
     {
         HttpOnly = true,
-        Secure = true,
-        SameSite = SameSiteMode.Strict,
+        Secure = cookieSettings.Value.Secure,
+        SameSite = cookieSettings.Value.SameSite,
+        Domain = string.IsNullOrWhiteSpace(cookieSettings.Value.Domain) ? null : cookieSettings.Value.Domain,
         Path = RefreshCookiePath,
         Expires = expires,
         IsEssential = true,

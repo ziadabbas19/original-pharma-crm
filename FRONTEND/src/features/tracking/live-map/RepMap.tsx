@@ -16,7 +16,7 @@ import {
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
   FLAGGED_COLOR,
-  OSM_STYLE,
+  BASE_MAP_STYLE,
   ROUTE_COLOR,
   START_COLOR,
 } from './map-setup'
@@ -104,7 +104,7 @@ export function RepMap({
     const rtl = document.documentElement.dir === 'rtl'
     const map = new MapLibreMap({
       container,
-      style: OSM_STYLE,
+      style: BASE_MAP_STYLE,
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
       attributionControl: { compact: true },

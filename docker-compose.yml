@@ -38,8 +38,9 @@ services:
       retries: 20
     restart: unless-stopped
 
-  # Optional: the API in a container (podman compose --profile api up -d). In development the
-  # API usually runs with `dotnet watch` and keeps uploads in ~/.local/share/original-pharma.
+  # Optional: the API as it runs in production (podman compose --profile api up -d --build).
+  # Copy .env.production.example to .env.production.local and fill it in first; the API refuses
+  # to start on incomplete settings. In development the API usually runs with `dotnet watch`.
   api:
     profiles: ["api"]
     build: ./BACKEND
@@ -49,13 +50,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
-      ASPNETCORE_ENVIRONMENT: ${API_ENVIRONMENT:-Production}
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:-original_pharma};Username=${POSTGRES_USER:-pharma};Password=${POSTGRES_PASSWORD}
-      ConnectionStrings__Redis: redis:6379
-      Jwt__SigningKey: ${JWT_SIGNING_KEY:-}
-      Database__MigrateOnStartup: "true"
-      FileStorage__RootPath: /var/lib/original-pharma/uploads
+    env_file:
+      - path: .env.production.local
+        required: false
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
     volumes:

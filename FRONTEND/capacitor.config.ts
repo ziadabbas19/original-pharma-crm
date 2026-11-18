@@ -1,7 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 // Set CAP_DEV_HTTP=1 when syncing a debug build that talks to a plain-http API
-// (e.g. http://10.0.2.2:5080 from the Android emulator). Never for release builds.
+// (e.g. http://10.0.2.2:5080 from the Android emulator). Development only: the release
+// build stops with an error when the synced config still allows plain HTTP.
 const allowHttp = process.env.CAP_DEV_HTTP === '1'
 
 const config: CapacitorConfig = {

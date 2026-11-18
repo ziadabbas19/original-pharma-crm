@@ -7,10 +7,13 @@ public sealed record RoleGrant(string Key, PermissionScope Scope);
 public sealed record OverrideEntry(string Key, bool IsGranted, PermissionScope? Scope, DateTimeOffset? ExpiresAt);
 
 /// <summary>The permissions a user actually has, with the widest scope per permission.</summary>
-public sealed class EffectivePermissions(int version, IReadOnlyDictionary<string, PermissionScope> scopes)
+public sealed class EffectivePermissions(int version, IReadOnlyDictionary<string, PermissionScope> scopes, bool mustChangePassword = false)
 {
     public int Version { get; } = version;
     public IReadOnlyDictionary<string, PermissionScope> Scopes { get; } = scopes;
+
+    /// <summary>The password is temporary: the API refuses everything except changing it and signing out.</summary>
+    public bool MustChangePassword { get; } = mustChangePassword;
 
     public bool Has(string key) => Scopes.ContainsKey(key);
 

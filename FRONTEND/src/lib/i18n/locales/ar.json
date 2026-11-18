@@ -849,6 +849,7 @@
     "catalog_name_taken": "يوجد خط منتجات بنفس الاسم.",
     "current_password_incorrect": "كلمة المرور الحالية غير صحيحة.",
     "password_unchanged": "اختر كلمة مرور مختلفة عن الحالية.",
+    "password_change_required": "غيّر كلمة المرور المؤقتة للمتابعة.",
     "password_policy": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل وتحتوي على حرف كبير وحرف صغير ورقم.",
     "unknown-product-line": "خط منتجات أو أكثر غير موجود.",
     "discount_default_above_max": "لا يمكن أن يتجاوز الخصم الافتراضي الحد الأقصى ({{max}}).",

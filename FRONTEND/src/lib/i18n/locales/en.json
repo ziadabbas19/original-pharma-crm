@@ -849,6 +849,7 @@
     "catalog_name_taken": "Another product line already uses this name.",
     "current_password_incorrect": "The current password is incorrect.",
     "password_unchanged": "Choose a password different from the current one.",
+    "password_change_required": "Change your temporary password to continue.",
     "password_policy": "The password needs at least 8 characters with upper-case, lower-case and a digit.",
     "unknown-product-line": "One or more product lines do not exist.",
     "discount_default_above_max": "The default discount cannot be above the maximum ({{max}}).",

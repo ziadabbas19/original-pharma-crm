@@ -41,6 +41,7 @@ FRONTEND/android/build/
 FRONTEND/android/app/build/
 FRONTEND/android/capacitor-cordova-android-plugins/build/
 FRONTEND/android/local.properties
+FRONTEND/android/keystore.properties
 FRONTEND/android/app/release/
 .cxx/
 .externalNativeBuild/

@@ -6,9 +6,13 @@
  * - Sends cookies (web refresh token lives in an httpOnly cookie on /api/auth).
  * - On 401 refreshes the session once and retries.
  * - Watches X-Permissions-Version so permission edits from the dashboard apply quickly.
+ * - Reports when the API refuses a request because the password is temporary.
  */
 
 export const API_BASE_URL: string = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+
+/** Problem code of a request refused until the temporary password is replaced. */
+const PASSWORD_CHANGE_REQUIRED = 'password_change_required'
 
 /** Absolute URL for a path the API returned (e.g. an image URL). Null stays null. */
 export function apiAssetUrl(path: string | null | undefined): string | undefined {
@@ -46,6 +50,7 @@ interface ApiClientHooks {
   refreshSession: () => Promise<'ok' | 'expired' | 'offline'>
   onPermissionsVersion: (version: number) => void
   onUnauthorized: () => void
+  onPasswordChangeRequired: () => void
 }
 
 let hooks: ApiClientHooks = {
@@ -53,6 +58,7 @@ let hooks: ApiClientHooks = {
   refreshSession: async () => 'expired',
   onPermissionsVersion: () => {},
   onUnauthorized: () => {},
+  onPasswordChangeRequired: () => {},
 }
 
 export function configureApiClient(next: ApiClientHooks): void {
@@ -118,6 +124,7 @@ async function parse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const problem: ProblemDetails =
       body && typeof body === 'object' ? (body as ProblemDetails) : { title: response.statusText }
+    if (problem.code === PASSWORD_CHANGE_REQUIRED) hooks.onPasswordChangeRequired()
     throw new ApiError(response.status, { status: response.status, ...problem })
   }
 

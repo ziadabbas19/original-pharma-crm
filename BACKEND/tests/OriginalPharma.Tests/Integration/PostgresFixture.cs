@@ -9,6 +9,7 @@ using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Orders;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Infrastructure;
 using OriginalPharma.Infrastructure.Files;
 using OriginalPharma.Infrastructure.Identity;
 using OriginalPharma.Infrastructure.Orders;
@@ -111,6 +112,21 @@ public sealed class PostgresFixture : IAsyncLifetime
         return new TestDatabase(this, name, BuildServices(ConnectionStringFor(name)));
     }
 
+    /// <summary>A migrated, unseeded database whose services run as <paramref name="environmentName"/>.</summary>
+    public async Task<TestDatabase> CreateEmptyDatabaseAsync(string environmentName, IReadOnlyDictionary<string, string?> settings)
+    {
+        if (SkipReason is not null)
+        {
+            Assert.Skip(SkipReason);
+        }
+
+        var name = "op_test_" + Guid.NewGuid().ToString("N")[..12];
+        await ExecuteAsync($"CREATE DATABASE \"{name}\"");
+        var database = new TestDatabase(this, name, BuildServices(ConnectionStringFor(name), environmentName, settings));
+        await database.MigrateAsync();
+        return database;
+    }
+
     internal async Task DropDatabaseAsync(string name)
     {
         NpgsqlConnection.ClearAllPools();
@@ -134,10 +150,13 @@ public sealed class PostgresFixture : IAsyncLifetime
     }
 
     /// <summary>The application and identity services, with an in-memory cache instead of Redis.</summary>
-    private static ServiceProvider BuildServices(string connectionString)
+    private static ServiceProvider BuildServices(
+        string connectionString,
+        string environmentName = DeploymentEnvironment.Testing,
+        IReadOnlyDictionary<string, string?>? settings = null)
     {
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
+            .AddInMemoryCollection(settings ?? new Dictionary<string, string?>
             {
                 ["Seed:AdminEmail"] = AdminEmail,
                 ["Seed:AdminPassword"] = Password,
@@ -166,7 +185,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         services.AddScoped<DatabaseSeeder>();
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
-        services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(new TestHostEnvironment());
+        services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(new TestHostEnvironment { EnvironmentName = environmentName });
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IImageProcessor, SkiaImageProcessor>();
         services.AddScoped<IOrderNumberGenerator, OrderNumberGenerator>();
@@ -296,6 +315,12 @@ public sealed class TestDatabase : IAsyncDisposable
 
     /// <summary>Notifications pushed live during this test (the in-app rows are in the database).</summary>
     public RecordingNotificationPublisher Published => _services.GetRequiredService<RecordingNotificationPublisher>();
+
+    public async Task MigrateAsync()
+    {
+        await using var scope = _services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync(Ct);
+    }
 
     public async Task SeedAgainAsync()
     {

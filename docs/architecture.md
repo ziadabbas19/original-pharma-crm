@@ -72,8 +72,10 @@ Short-lived JWT access tokens (15 min) plus rotating refresh tokens (30 days, st
 - The access token carries the session's family id (`sid`). Changing your own password
   (`POST /api/account/password`, current password required, rate limited per user) revokes
   every other family; a reset by someone else (`users:reset-password`) revokes all of them
-  and sets `must_change_password`, which sends the user to `/change-password`. Account
-  events are written to `user_audit_entries` (`GET /api/users/{id}/audit`).
+  and sets `must_change_password`. Until the password is changed the API answers every
+  signed-in request with 403 `password_change_required`, except changing the password and
+  signing out, and the apps show `/change-password`. Account events are written to
+  `user_audit_entries` (`GET /api/users/{id}/audit`).
 - No network at start-up: the rep app restores the last profile and grants from the device
   and keeps the stored refresh token; only a refused refresh (4xx) signs the user out.
 

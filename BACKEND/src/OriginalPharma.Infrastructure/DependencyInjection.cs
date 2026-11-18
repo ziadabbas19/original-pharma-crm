@@ -10,6 +10,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Orders;
@@ -37,8 +38,10 @@ public static class DependencyInjection
 
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var postgres = configuration.GetConnectionString("Postgres") ?? string.Empty;
-        var redis = RedisOptions(configuration.GetConnectionString("Redis") ?? "localhost:6379");
+        var postgres = PostgresConnectionString(configuration.GetConnectionString("Postgres"));
+        // Empty only while the build writes the OpenAPI document; live deployments refuse to start without it.
+        var redisConnection = configuration.GetConnectionString("Redis");
+        var redis = RedisOptions(string.IsNullOrWhiteSpace(redisConnection) ? "localhost:6379" : redisConnection);
 
         // Persistence
         services.AddDbContext<AppDbContext>(o => AppDbContextOptions.Configure(o, postgres));
@@ -152,6 +155,12 @@ public static class DependencyInjection
 
         return services;
     }
+
+    /// <summary>Kerberos is not used here, and the runtime image does not ship the library Npgsql would probe for.</summary>
+    private static string PostgresConnectionString(string? configured) =>
+        string.IsNullOrWhiteSpace(configured)
+            ? string.Empty
+            : new NpgsqlConnectionStringBuilder(configured) { GssEncryptionMode = GssEncryptionMode.Disable }.ConnectionString;
 
     private static ConfigurationOptions RedisOptions(string connectionString)
     {

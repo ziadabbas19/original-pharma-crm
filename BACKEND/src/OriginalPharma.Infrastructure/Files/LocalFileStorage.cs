@@ -31,12 +31,12 @@ internal sealed class LocalFileStorage(IOptions<FileStorageOptions> options, IHo
         get
         {
             var configured = options.Value.RootPath;
-            if (string.IsNullOrWhiteSpace(configured))
-            {
-                return Path.GetFullPath(FileStorageOptions.DefaultRoot());
-            }
+            var root = string.IsNullOrWhiteSpace(configured)
+                ? FileStorageOptions.DefaultRoot()
+                : Path.IsPathRooted(configured) ? configured : Path.Combine(environment.ContentRootPath, configured);
 
-            return Path.GetFullPath(Path.IsPathRooted(configured) ? configured : Path.Combine(environment.ContentRootPath, configured));
+            // "/data/uploads/" and "/data/uploads" are the same folder.
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         }
     }
 

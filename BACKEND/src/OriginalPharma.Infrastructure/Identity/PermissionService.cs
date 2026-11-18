@@ -68,7 +68,10 @@ internal sealed class PermissionService(
         }
 
         var now = time.GetUtcNow();
-        var isActive = await db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.IsActive).SingleOrDefaultAsync(cancellationToken);
+        var account = await db.Users.AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.IsActive, u.MustChangePassword })
+            .SingleOrDefaultAsync(cancellationToken);
 
         var roleIds = db.UserRoles.Where(ur => ur.UserId == userId).Select(ur => ur.RoleId);
         var grants = await db.RolePermissions.AsNoTracking()
@@ -81,8 +84,8 @@ internal sealed class PermissionService(
             .Select(o => new OverrideEntry(o.Permission!.Key, o.IsGranted, o.Scope, o.ExpiresAt))
             .ToListAsync(cancellationToken);
 
-        var scopes = isActive ? PermissionEvaluator.Evaluate(grants, overrides, now) : [];
-        var result = new EffectivePermissions(version, scopes);
+        var scopes = account?.IsActive == true ? PermissionEvaluator.Evaluate(grants, overrides, now) : [];
+        var result = new EffectivePermissions(version, scopes, account?.MustChangePassword == true);
 
         // An override that expires soon must not outlive its expiry in the cache.
         var ttl = PermissionsTtl;

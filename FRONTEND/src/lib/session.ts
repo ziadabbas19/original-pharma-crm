@@ -48,7 +48,7 @@ export async function login(email: string, password: string): Promise<void> {
   const { deviceId } = await platform().app.info()
   const response = await authLogin({ email, password, client: clientKind(), deviceId })
   await applyAuthResponse(response)
-  await loadMe()
+  if (!response.user.mustChangePassword) await loadMe()
 }
 
 /**
@@ -107,6 +107,8 @@ export function bootstrapSession(): Promise<void> {
     if (store.getState().auth.status === 'authenticated') return
     const result = await refresh()
     if (result === 'ok') {
+      // A temporary password only opens the change-password screen; the profile follows the change.
+      if (store.getState().auth.user?.mustChangePassword) return
       await loadMe().catch(() => (restoreOfflineSession() ? undefined : clearLocalSession()))
     } else if (result !== 'offline' || !restoreOfflineSession()) {
       store.dispatch(sessionEnded())
@@ -162,16 +164,23 @@ function restoreOfflineSession(): boolean {
 }
 
 /** Wire the fetch wrapper to the session. Called once at startup. */
-export function connectApiClient(onSignedOut: () => void): void {
+export function connectApiClient(onSignedOut: () => void, onPasswordChangeRequired: () => void): void {
   configureApiClient({
     getAccessToken: () => store.getState().auth.accessToken,
     refreshSession: refresh,
     onUnauthorized: () => {
       void clearLocalSession().then(onSignedOut)
     },
+    onPasswordChangeRequired: () => {
+      // Reset by a manager during this session: the next screen is the change-password form.
+      const { user } = store.getState().auth
+      if (user && !user.mustChangePassword) store.dispatch(userLoaded({ ...user, mustChangePassword: true }))
+      onPasswordChangeRequired()
+    },
     onPermissionsVersion: (version) => {
       const { permissions, auth } = store.getState()
-      if (auth.status !== 'authenticated' || version <= permissions.serverVersion) return
+      if (auth.status !== 'authenticated' || auth.user?.mustChangePassword) return
+      if (version <= permissions.serverVersion) return
       store.dispatch(serverVersionSeen(version))
       // Roles or overrides changed on the dashboard: pull the new grants.
       if (version > permissions.version) void loadMe().catch(() => {})

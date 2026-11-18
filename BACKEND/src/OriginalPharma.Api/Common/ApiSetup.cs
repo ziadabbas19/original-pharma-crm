@@ -3,11 +3,13 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Hangfire;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HostFiltering;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OriginalPharma.Api.Modules.Tracking;
 using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Tracking;
+using OriginalPharma.Infrastructure;
 using OriginalPharma.Infrastructure.Persistence;
 using StackExchange.Redis;
 
@@ -22,7 +24,10 @@ internal static class ApiSetup
     /// <summary>Image uploads are limited to 5 MB by the image service; this leaves room for the multipart envelope.</summary>
     public const long MaxImageRequestBytes = 6 * 1024 * 1024;
 
-    public static IServiceCollection AddApi(this IServiceCollection services, IConfiguration configuration)
+    /// <summary>The host Railway's deployment health check calls the container with.</summary>
+    private const string PlatformHealthCheckHost = "healthcheck.railway.app";
+
+    public static IServiceCollection AddApi(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         services.AddScoped<ValidationFilter>();
         services.AddControllers(o => o.Filters.AddService<ValidationFilter>())
@@ -39,7 +44,9 @@ internal static class ApiSetup
             o.AddOperationTransformer<OperationIdTransformer>();
         });
 
-        var origins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+        services.Configure<RefreshCookieSettings>(configuration.GetSection(RefreshCookieSettings.SectionName));
+
+        var origins = SettingList.Read(configuration.GetSection("Cors:AllowedOrigins"));
         services.AddCors(o => o.AddPolicy(CorsPolicy, policy => policy
             .WithOrigins(origins)
             .AllowAnyHeader()
@@ -62,10 +69,27 @@ internal static class ApiSetup
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(15) }));
         });
 
-        // Only proxies on loopback are trusted by default.
-        // TODO: add KnownProxies / KnownNetworks for the production reverse proxy.
-        services.Configure<ForwardedHeadersOptions>(o =>
-            o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
+        // Only proxies on loopback are trusted unless the ForwardedHeaders section says otherwise.
+        services.Configure<ForwardedHeadersOptions>(o => ForwardedHeadersSettings.Apply(o, configuration));
+
+        if (!environment.IsLocal())
+        {
+            services.AddHsts(o =>
+            {
+                o.MaxAge = TimeSpan.FromDays(365);
+                o.IncludeSubDomains = true;
+            });
+            services.AddHttpsRedirection(o => o.HttpsPort = 443);
+
+            // AllowedHosts=* means "not configured": answer only on the public address.
+            services.PostConfigure<HostFilteringOptions>(o =>
+            {
+                if (o.AllowedHosts.Contains("*") && Uri.TryCreate(configuration["App:PublicBaseUrl"], UriKind.Absolute, out var publicUrl))
+                {
+                    o.AllowedHosts = [publicUrl.Host, PlatformHealthCheckHost];
+                }
+            });
+        }
 
         var signalR = services.AddSignalR()
             .AddJsonProtocol(o => ConfigureJson(o.PayloadSerializerOptions));
@@ -86,7 +110,7 @@ internal static class ApiSetup
         {
             await app.Services.InitializeDatabaseAsync(app.Configuration.GetValue<bool>("Database:MigrateOnStartup"));
         }
-        catch (Exception ex)
+        catch (Exception ex) when (app.Environment.IsLocal())
         {
             app.Logger.LogError(ex, "Database initialisation failed. Is PostgreSQL running? (podman compose up -d)");
         }
@@ -117,7 +141,17 @@ internal static class ApiSetup
         });
     }
 
-    public static HealthCheckOptions HealthOptions => new() { ResponseWriter = WriteHealthAsync };
+    /// <summary>Public answer of a live deployment: up or not, nothing about what is behind it.</summary>
+    public static Task WritePublicHealthAsync(HttpContext context, HealthReport report)
+    {
+        context.Response.ContentType = "application/json";
+        return context.Response.WriteAsJsonAsync(new { status = report.Status.ToString() });
+    }
+
+    public static HealthCheckOptions HealthOptions(IHostEnvironment environment) => new()
+    {
+        ResponseWriter = environment.IsLocal() ? WriteHealthAsync : WritePublicHealthAsync,
+    };
 
     private static void ConfigureJson(JsonSerializerOptions options)
     {

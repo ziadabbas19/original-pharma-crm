@@ -29,6 +29,9 @@ public static class AccountErrorCodes
 
     /// <summary>The new password breaks the password policy; <c>errors</c> lists the policy codes.</summary>
     public const string PasswordPolicy = "password_policy";
+
+    /// <summary>The password is temporary; nothing else works until it is changed.</summary>
+    public const string PasswordChangeRequired = "password_change_required";
 }
 
 /// <summary>
@@ -41,6 +44,7 @@ public sealed class AccountService(
     ICurrentUser currentUser,
     HierarchyGuard guard,
     IDataScopeResolver scopeResolver,
+    IPermissionService permissions,
     ImageService images,
     TimeProvider time)
 {
@@ -71,6 +75,7 @@ public sealed class AccountService(
         user.MustChangePassword = false;
         await userManager.ResetAccessFailedCountAsync(user);
         await userManager.UpdateAsync(user);
+        await permissions.BumpVersionAsync([me], cancellationToken); // lifts the restriction on every instance
 
         var revoked = await RevokeSessionsAsync(me, currentUser.SessionId, "password-changed", cancellationToken);
         await AuditAsync(me, me, UserAuditAction.PasswordChanged, new { revokedSessions = revoked }, cancellationToken);
@@ -91,6 +96,7 @@ public sealed class AccountService(
         user.LockoutEnd = null;
         user.AccessFailedCount = 0;
         await userManager.UpdateAsync(user);
+        await permissions.BumpVersionAsync([user.Id], cancellationToken); // applies to access tokens already issued
 
         var revoked = await RevokeSessionsAsync(user.Id, null, "password-reset", cancellationToken);
         await AuditAsync(user.Id, actor.Id, UserAuditAction.PasswordReset,

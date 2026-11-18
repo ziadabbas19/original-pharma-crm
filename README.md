@@ -15,7 +15,9 @@ mobile-first rep app (`/rep`), which runs in the Android app (Capacitor) and as 
 installable PWA for iPhone reps (foreground tracking only).
 
 See [docs/architecture.md](docs/architecture.md) for the design (permissions,
-tracking pipeline, battery strategy, anti-fraud layers).
+tracking pipeline, battery strategy, anti-fraud layers) and
+[docs/deployment.md](docs/deployment.md) for production: every environment variable, Railway,
+web hosting, Android release builds, backups.
 
 ## Prerequisites (Fedora)
 
@@ -99,8 +101,8 @@ at `30.0511, 31.3656`, and Dr. Karim Adel has no saved location on purpose.
 
 Uploaded pictures (products, profile pictures, visit photos) are stored outside the
 repository, in `~/.local/share/original-pharma/uploads` by default (`FileStorage:RootPath`).
-`podman compose --profile api up -d` builds and runs the API in a container
-(`BACKEND/Dockerfile`, needs `JWT_SIGNING_KEY` in `.env`) with the `op-uploads` named volume.
+`podman compose --profile api up -d --build` runs the production image (`BACKEND/Dockerfile`) with the
+`op-uploads` named volume. It reads `.env.production.local`; see [docs/deployment.md](docs/deployment.md).
 
 ### 3. Frontend
 
@@ -197,7 +199,9 @@ CAP_DEV_HTTP=1 npx cap sync android
 npx cap run android
 ```
 
-Debug builds allow cleartext HTTP; release builds do not.
+Debug builds allow cleartext HTTP; release builds do not, and stop with an error if the last sync used
+`CAP_DEV_HTTP`. Signed release builds and debug builds against the live API are described in
+[docs/deployment.md](docs/deployment.md#android).
 
 Before a release build:
 
@@ -213,16 +217,16 @@ Before a release build:
 
 | Setting | Where |
 | --- | --- |
-| Secrets (DB connection, JWT key, admin password) | `dotnet user-secrets` (dev), environment variables (prod) |
+| Secrets (DB connection, JWT key, admin password) | `dotnet user-secrets` (dev), environment variables (prod, see [docs/deployment.md](docs/deployment.md)) |
 | Tracking profiles, tracking-lost window, consent version, anomaly thresholds | `BACKEND/src/OriginalPharma.Api/appsettings.json` → `Tracking` |
 | Visit geofence / accuracy rules | `appsettings.json` → `Visits` |
 | Upload size and pixel limits | `appsettings.json` → `Images` |
 | Statistics time zone, low stock threshold, cache time | `appsettings.json` → `Stats` |
 | Hours after check-out a rep may still edit visit feedback and products | `appsettings.json` → `Visits:ContentEditHours` |
 | Upload folder | `FileStorage:RootPath` (empty = per-user data folder) |
-| CORS origins | `appsettings*.json` → `Cors:AllowedOrigins` |
+| CORS origins | `appsettings.Development.json` (dev), `Cors__AllowedOrigins` (prod) |
 | SignalR Redis backplane (multi-instance) | `SignalR:UseRedisBackplane` |
-| Frontend API origin / FCM switch | `FRONTEND/.env.local` (see `FRONTEND/.env.example`) |
+| Frontend API origin, map tiles, FCM switch | `FRONTEND/.env.local` (see `FRONTEND/.env.example`) |
 
 ## Not built yet (stubs and TODOs)
 
@@ -232,8 +236,6 @@ Before a release build:
 - Doctor classification and QR printing.
 - Orders do not deduct stock yet (quantities above stock are only a warning).
 - An account-history screen (`GET /api/users/{id}/audit` exists, no UI yet).
-- `must_change_password` is enforced by the apps (redirect to `/change-password`), not by the
-  API on every request.
 - Image URLs are capability URLs (random keys, cached publicly), not signed per user.
 - The Android status bar follows the theme through `@capacitor/status-bar`; on Android 15
   edge-to-edge the colour may be ignored by the system (icons still switch).
@@ -243,6 +245,4 @@ Before a release build:
   there; `visit-checkin.ts` holds the calls), reports.
 - Push notifications to phones stay off (`VITE_FCM_ENABLED`, and the FCM sender above); notifications
   are in-app, and live while the app is open.
-- Live map tiles come straight from tile.openstreetmap.org; production traffic needs a tile
-  provider or an own tile server (OpenStreetMap tile usage policy).
 - Production file storage for uploads (local disk or a mounted volume today).

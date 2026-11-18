@@ -18,6 +18,7 @@ public sealed class AccountController(AccountService accounts) : ControllerBase
     /// the "must change password" flag. 422 <c>current_password_incorrect</c> or <c>password_policy</c>.
     /// </summary>
     [HttpPost("password")]
+    [AllowWithTemporaryPassword]
     [EnableRateLimiting(ApiSetup.PasswordRateLimit)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]

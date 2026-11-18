@@ -1,5 +1,16 @@
 apply plugin: 'com.android.application'
 
+// Release signing comes from the environment or from the git-ignored android/keystore.properties.
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+def signingValue = { String variable, String property ->
+    System.getenv(variable) ?: keystoreProperties.getProperty(property)
+}
+def releaseStoreFile = signingValue('ANDROID_KEYSTORE_PATH', 'storeFile')
+
 android {
     namespace = "com.originalpharma.crm"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,6 +27,16 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseStoreFile) {
+                storeFile = rootProject.file(releaseStoreFile)
+                storePassword = signingValue('ANDROID_KEYSTORE_PASSWORD', 'storePassword')
+                keyAlias = signingValue('ANDROID_KEY_ALIAS', 'keyAlias')
+                keyPassword = signingValue('ANDROID_KEY_PASSWORD', 'keyPassword')
+            }
+        }
+    }
     buildTypes {
         debug {
             // Debug builds may talk to a local plain-http API (emulator: http://10.0.2.2:5080).
@@ -23,6 +44,7 @@ android {
         }
         release {
             manifestPlaceholders = [usesCleartextTraffic: "false"]
+            signingConfig = releaseStoreFile ? signingConfigs.release : null
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -48,6 +70,25 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// CAP_DEV_HTTP is written into the synced Capacitor config; a release must never ship with it.
+tasks.register('verifyReleaseConfig') {
+    def syncedConfig = file('src/main/assets/capacitor.config.json')
+    def signed = releaseStoreFile != null
+    doLast {
+        if (!signed) {
+            throw new GradleException('Release signing is not configured. See "Android" in docs/deployment.md.')
+        }
+        if (!syncedConfig.exists()) {
+            throw new GradleException('Run "npx cap sync android" before building a release.')
+        }
+        def config = new groovy.json.JsonSlurper().parse(syncedConfig)
+        if (config.server?.cleartext == true || config.android?.allowMixedContent == true || config.server?.url) {
+            throw new GradleException('This sync allows plain HTTP. Run "npx cap sync android" again without CAP_DEV_HTTP.')
+        }
+    }
+}
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach { dependsOn 'verifyReleaseConfig' }
 
 try {
     def servicesJSON = file('google-services.json')

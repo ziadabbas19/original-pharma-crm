@@ -1,13 +1,17 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Tracking;
+using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Domain.Orders;
 
 namespace OriginalPharma.Infrastructure.Persistence;
 
@@ -17,21 +21,24 @@ public sealed class SeedOptions
 
     public string? AdminEmail { get; set; }
 
-    /// <summary>Set with user secrets. Without it no admin user is created.</summary>
+    /// <summary>
+    /// Development: user secrets. Live deployments: the initial password of the first admin, who must
+    /// replace it at first sign-in. It is only read while no admin exists.
+    /// </summary>
     public string? AdminPassword { get; set; }
 
     public string AdminFullName { get; set; } = "System Admin";
 
     /// <summary>
-    /// Development only: territory tree (regions, areas, towns), demo users, lookups, a product
-    /// catalog with generated pictures, doctor lists and a few orders.
+    /// Development only: territory tree (regions, areas, towns), demo users, a product catalog with
+    /// drawn pictures, doctor lists and a few orders. Ignored outside Development and tests.
     /// </summary>
     public bool DemoData { get; set; }
 }
 
 /// <summary>
-/// Idempotent seeding run on startup: permission catalog, default roles, the admin user and
-/// (optionally) demo data. Nothing an admin edited is ever overwritten: roles only receive
+/// Idempotent seeding run on startup: permission catalog, default roles, lookups, the admin user and
+/// (Development only) demo data. Nothing an admin edited is ever overwritten: roles only receive
 /// template grants for permissions that are new to the catalog, and every demo step runs once
 /// per database (<see cref="SeedHistoryEntry"/>), so deleted or renamed demo rows stay that way.
 /// </summary>
@@ -44,8 +51,33 @@ internal sealed partial class DatabaseSeeder(
     IOptions<SeedOptions> options,
     IOptions<TrackingOptions> trackingOptions,
     TimeProvider time,
+    IHostEnvironment environment,
     ILogger<DatabaseSeeder> logger)
 {
+    /// <summary>The key lookups were recorded under while they were part of the demo seed.</summary>
+    private const string LegacyLookupsStep = "demo-lookups-v1";
+
+    private static readonly (string En, string Ar)[] SpecialtySeeds =
+    [
+        ("Cardiology", "أمراض القلب"),
+        ("Pediatrics", "طب الأطفال"),
+        ("Internal medicine", "الباطنة"),
+        ("Dermatology", "الجلدية"),
+        ("Orthopedics", "العظام"),
+        ("Obstetrics and gynecology", "النساء والتوليد"),
+        ("ENT", "الأنف والأذن والحنجرة"),
+        ("Ophthalmology", "الرمد"),
+    ];
+
+    private static readonly (string En, string Ar)[] CollectionMethodSeeds =
+    [
+        ("Cash", "نقدي"),
+        ("Bank transfer", "تحويل بنكي"),
+        ("Cheque", "شيك"),
+        ("Post-dated cheque", "شيك آجل"),
+        ("On account (credit)", "على الحساب (آجل)"),
+    ];
+
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
@@ -60,12 +92,58 @@ internal sealed partial class DatabaseSeeder(
             await permissionService.BumpVersionAsync(holders, cancellationToken);
         }
 
+        if (!await db.SeedHistory.AnyAsync(e => e.Key == LegacyLookupsStep, cancellationToken))
+        {
+            await RunOnceAsync("lookups-v1", SeedLookupsAsync, cancellationToken);
+        }
+
         await EnsureAdminAsync(cancellationToken);
 
-        if (options.Value.DemoData)
+        if (options.Value.DemoData && environment.IsLocal())
         {
             await SeedDemoDataAsync(cancellationToken);
         }
+    }
+
+    private async Task RunOnceAsync(string key, Func<CancellationToken, Task> step, CancellationToken cancellationToken)
+    {
+        if (await db.SeedHistory.AnyAsync(e => e.Key == key, cancellationToken))
+        {
+            return;
+        }
+
+        await step(cancellationToken);
+        db.SeedHistory.Add(new SeedHistoryEntry { Key = key, AppliedAt = time.GetUtcNow() });
+        await db.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("Applied seed step {Step}", key);
+    }
+
+    /// <summary>Doctor specialties and collection methods the forms need from day one.</summary>
+    private async Task SeedLookupsAsync(CancellationToken cancellationToken)
+    {
+        var specialties = (await db.Specialties.Select(s => s.NameEn.ToLower()).ToListAsync(cancellationToken)).ToHashSet();
+        var order = 0;
+        foreach (var (en, ar) in SpecialtySeeds)
+        {
+            order += 10;
+            if (!specialties.Contains(en.ToLowerInvariant()))
+            {
+                db.Specialties.Add(new Specialty { NameEn = en, NameAr = ar, SortOrder = order });
+            }
+        }
+
+        var methods = (await db.CollectionMethods.Select(m => m.NameEn.ToLower()).ToListAsync(cancellationToken)).ToHashSet();
+        order = 0;
+        foreach (var (en, ar) in CollectionMethodSeeds)
+        {
+            order += 10;
+            if (!methods.Contains(en.ToLowerInvariant()))
+            {
+                db.CollectionMethods.Add(new CollectionMethod { NameEn = en, NameAr = ar, SortOrder = order });
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>Adds missing permissions and refreshes descriptions. Returns the keys that were new.</summary>
@@ -184,11 +262,27 @@ internal sealed partial class DatabaseSeeder(
         return changed;
     }
 
+    /// <summary>
+    /// Development creates the configured admin whenever it is missing. A live deployment only creates
+    /// the first admin, with a password that must be changed, and refuses to start without one.
+    /// </summary>
     private async Task EnsureAdminAsync(CancellationToken cancellationToken)
     {
         var settings = options.Value;
+        var live = !environment.IsLocal();
+        if (live && await AnyAdminExistsAsync(cancellationToken))
+        {
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(settings.AdminEmail) || string.IsNullOrWhiteSpace(settings.AdminPassword))
         {
+            if (live)
+            {
+                throw new InvalidOperationException(
+                    "No administrator exists yet. Set Seed__AdminEmail and Seed__AdminPassword for the first start.");
+            }
+
             logger.LogWarning("Seed:AdminEmail / Seed:AdminPassword not set; skipping admin user creation");
             return;
         }
@@ -198,11 +292,24 @@ internal sealed partial class DatabaseSeeder(
             return;
         }
 
-        await CreateUserAsync(settings.AdminEmail, settings.AdminFullName, DefaultRoles.Admin, null, null, "en");
+        var admin = await CreateUserAsync(settings.AdminEmail, settings.AdminFullName, DefaultRoles.Admin, null, null, "en", mustChangePassword: live);
+        if (admin is null && live)
+        {
+            throw new InvalidOperationException(
+                "The first administrator could not be created. Check Seed__AdminEmail and that Seed__AdminPassword meets the password policy.");
+        }
+
         logger.LogInformation("Created admin user {Email}", settings.AdminEmail);
     }
 
-    private async Task<User?> CreateUserAsync(string email, string fullName, string roleKey, Guid? managerId, Guid? territoryId, string language)
+    private Task<bool> AnyAdminExistsAsync(CancellationToken cancellationToken)
+    {
+        var adminRole = Role.NormalizeKey(DefaultRoles.Admin);
+        return db.UserRoles.AnyAsync(ur => db.Roles.Any(r => r.Id == ur.RoleId && r.NormalizedName == adminRole), cancellationToken);
+    }
+
+    private async Task<User?> CreateUserAsync(
+        string email, string fullName, string roleKey, Guid? managerId, Guid? territoryId, string language, bool mustChangePassword = false)
     {
         var password = options.Value.AdminPassword;
         if (string.IsNullOrWhiteSpace(password))
@@ -219,6 +326,7 @@ internal sealed partial class DatabaseSeeder(
             ManagerId = managerId,
             TerritoryId = territoryId,
             PreferredLanguage = language,
+            MustChangePassword = mustChangePassword,
             CreatedAt = time.GetUtcNow(),
         };
 
@@ -236,11 +344,29 @@ internal sealed partial class DatabaseSeeder(
 
 public static class DatabaseInitializer
 {
-    /// <summary>Applies migrations (optional) and runs the seeder.</summary>
+    /// <summary>Arbitrary but fixed: the PostgreSQL advisory lock every API instance takes before touching the schema.</summary>
+    private const long StartupLockKey = 7_203_114_560_218_001;
+
+    private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan LockRetryDelay = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Applies migrations (optional) and runs the seeder, one instance at a time: an instance that
+    /// starts while another is migrating waits here and then finds nothing left to do.
+    /// </summary>
     public static async Task InitializeDatabaseAsync(this IServiceProvider services, bool applyMigrations, CancellationToken cancellationToken = default)
     {
         await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(DatabaseInitializer));
+
+        // Its own unpooled connection: the lock belongs to the session and ends with it, even after a crash.
+        // CloneWith keeps the password, which the connection's own ConnectionString no longer shows.
+        var connection = (NpgsqlConnection)db.Database.GetDbConnection();
+        var unpooled = new NpgsqlConnectionStringBuilder(connection.ConnectionString) { Pooling = false }.ConnectionString;
+        await using var lockConnection = connection.CloneWith(unpooled);
+        await lockConnection.OpenAsync(cancellationToken);
+        await AcquireStartupLockAsync(lockConnection, logger, cancellationToken);
 
         if (applyMigrations)
         {
@@ -248,5 +374,23 @@ public static class DatabaseInitializer
         }
 
         await scope.ServiceProvider.GetRequiredService<DatabaseSeeder>().SeedAsync(cancellationToken);
+    }
+
+    private static async Task AcquireStartupLockAsync(NpgsqlConnection connection, ILogger logger, CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand("SELECT pg_try_advisory_lock(@key)", connection);
+        command.Parameters.AddWithValue("key", StartupLockKey);
+
+        var waitingSince = DateTimeOffset.UtcNow;
+        while (await command.ExecuteScalarAsync(cancellationToken) is not true)
+        {
+            if (DateTimeOffset.UtcNow - waitingSince > LockTimeout)
+            {
+                throw new TimeoutException($"Another instance held the database startup lock for more than {LockTimeout.TotalMinutes:0} minutes.");
+            }
+
+            logger.LogInformation("Another instance is initialising the database; waiting");
+            await Task.Delay(LockRetryDelay, cancellationToken);
+        }
     }
 }

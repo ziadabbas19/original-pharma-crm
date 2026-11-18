@@ -32,7 +32,6 @@ internal sealed partial class DatabaseSeeder
     {
         await RunOnceAsync("demo-org-v1", SeedOrganisationAsync, cancellationToken);
         await RunOnceAsync("demo-towns-v1", SeedTownsAsync, cancellationToken);
-        await RunOnceAsync("demo-lookups-v1", SeedLookupsAsync, cancellationToken);
         await RunOnceAsync("demo-catalog-v1", SeedCatalogAsync, cancellationToken);
         await RunOnceAsync("demo-reps-v1", SeedRepsAsync, cancellationToken);
         await RunOnceAsync("demo-doctors-v1", SeedDoctorsAsync, cancellationToken);
@@ -40,19 +39,6 @@ internal sealed partial class DatabaseSeeder
         await RunOnceAsync("demo-discounts-v1", SeedDiscountsAsync, cancellationToken);
         await RunOnceAsync("demo-activity-v1", SeedActivityAsync, cancellationToken);
         await RunOnceAsync("demo-visit-flow-v1", SeedVisitFlowAsync, cancellationToken);
-    }
-
-    private async Task RunOnceAsync(string key, Func<CancellationToken, Task> step, CancellationToken cancellationToken)
-    {
-        if (await db.SeedHistory.AnyAsync(e => e.Key == key, cancellationToken))
-        {
-            return;
-        }
-
-        await step(cancellationToken);
-        db.SeedHistory.Add(new SeedHistoryEntry { Key = key, AppliedAt = time.GetUtcNow() });
-        await db.SaveChangesAsync(cancellationToken);
-        logger.LogInformation("Applied demo seed step {Step}", key);
     }
 
     /// <summary>Region, area and first town, the managers and the first rep (skipped on databases that already have territories).</summary>
@@ -162,54 +148,6 @@ internal sealed partial class DatabaseSeeder
                 {
                     Ensure(town.Code, town.Name, town.NameAr, TerritoryLevel.Town, areaNode);
                 }
-            }
-        }
-
-        await db.SaveChangesAsync(cancellationToken);
-    }
-
-    private static readonly (string En, string Ar)[] SpecialtySeeds =
-    [
-        ("Cardiology", "أمراض القلب"),
-        ("Pediatrics", "طب الأطفال"),
-        ("Internal medicine", "الباطنة"),
-        ("Dermatology", "الجلدية"),
-        ("Orthopedics", "العظام"),
-        ("Obstetrics and gynecology", "النساء والتوليد"),
-        ("ENT", "الأنف والأذن والحنجرة"),
-        ("Ophthalmology", "الرمد"),
-    ];
-
-    private static readonly (string En, string Ar)[] CollectionMethodSeeds =
-    [
-        ("Cash", "نقدي"),
-        ("Bank transfer", "تحويل بنكي"),
-        ("Cheque", "شيك"),
-        ("Post-dated cheque", "شيك آجل"),
-        ("On account (credit)", "على الحساب (آجل)"),
-    ];
-
-    private async Task SeedLookupsAsync(CancellationToken cancellationToken)
-    {
-        var specialties = (await db.Specialties.Select(s => s.NameEn.ToLower()).ToListAsync(cancellationToken)).ToHashSet();
-        var order = 0;
-        foreach (var (en, ar) in SpecialtySeeds)
-        {
-            order += 10;
-            if (!specialties.Contains(en.ToLowerInvariant()))
-            {
-                db.Specialties.Add(new Specialty { NameEn = en, NameAr = ar, SortOrder = order });
-            }
-        }
-
-        var methods = (await db.CollectionMethods.Select(m => m.NameEn.ToLower()).ToListAsync(cancellationToken)).ToHashSet();
-        order = 0;
-        foreach (var (en, ar) in CollectionMethodSeeds)
-        {
-            order += 10;
-            if (!methods.Contains(en.ToLowerInvariant()))
-            {
-                db.CollectionMethods.Add(new CollectionMethod { NameEn = en, NameAr = ar, SortOrder = order });
             }
         }
 

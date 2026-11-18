@@ -5,9 +5,36 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+/** `npm run build:production` refuses to build a bundle that could not work on the live site. */
+function assertProductionEnv(env: Record<string, string>): void {
+  const problems: string[] = []
+
+  const api = URL.canParse(env.VITE_API_BASE_URL ?? '') ? new URL(env.VITE_API_BASE_URL) : null
+  if (!api || api.protocol !== 'https:' || api.pathname !== '/' || api.hostname === 'localhost') {
+    problems.push(
+      'VITE_API_BASE_URL must be the public HTTPS origin of the API, e.g. https://api.example.com',
+    )
+  }
+
+  const tiles = env.VITE_MAP_TILE_URL ?? ''
+  if (!tiles.startsWith('https://') || !['{z}', '{x}', '{y}'].every((part) => tiles.includes(part))) {
+    problems.push(
+      'VITE_MAP_TILE_URL must be an HTTPS tile template with {z}, {x} and {y} (docs/deployment.md)',
+    )
+  }
+  if (!env.VITE_MAP_TILE_ATTRIBUTION) {
+    problems.push('VITE_MAP_TILE_ATTRIBUTION must hold the credit your tile provider requires')
+  }
+
+  if (problems.length > 0) {
+    throw new Error(`Production build stopped:\n  - ${problems.join('\n  - ')}`)
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiTarget = env.VITE_DEV_API_TARGET || 'http://localhost:5080'
+  if (process.env.npm_lifecycle_event === 'build:production') assertProductionEnv(env)
 
   return {
     plugins: [
@@ -44,6 +71,12 @@ export default defineConfig(({ mode }) => {
           navigateFallback: '/index.html',
           // API calls, the realtime hub and backend tools are never served from cache.
           navigateFallbackDenylist: [/^\/api\//, /^\/hubs\//, /^\/swagger/, /^\/hangfire/, /^\/health/],
+          // Only the app's own build files are cached: no runtime caching, so API responses never are.
+          runtimeCaching: [],
+          // A new release takes over at once and removes the files of the previous one.
+          skipWaiting: true,
+          clientsClaim: true,
+          cleanupOutdatedCaches: true,
         },
         devOptions: { enabled: false },
       }),
@@ -63,7 +96,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      sourcemap: true,
+      // Source maps stay out of the production bundle: the site is public, the source is not.
+      sourcemap: mode !== 'production',
       // maplibre-gl alone is ~1.1 MB minified; it only loads with the live map route chunk.
       chunkSizeWarningLimit: 1200,
     },
