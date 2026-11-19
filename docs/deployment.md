@@ -35,7 +35,7 @@ is missing, unsafe or still a placeholder, and names each variable to fix.
 | `Cors__AllowedOrigins` | Comma-separated exact origins: the web app, plus `https://localhost` for the Android app |
 | `FileStorage__RootPath` | Uploads folder on the data volume: `/var/lib/original-pharma/uploads` |
 | `ForwardedHeaders__TrustAllProxies` | `true` on Railway. Elsewhere use `ForwardedHeaders__KnownNetworks` instead |
-| `Seed__AdminEmail` | First administrator. Needed only until an admin exists |
+| `Seed__AdminEmail` | First administrator. Needed only until an admin exists, or for a [password reset](#resetting-the-admin-password) |
 | `Seed__AdminPassword` | Initial password, 12+ characters with upper case, lower case and a digit. Must be changed at first sign-in |
 
 ### Optional
@@ -54,6 +54,7 @@ is missing, unsafe or still a placeholder, and names each variable to fix.
 | `Auth__RefreshCookie__SameSite` | `Strict` | `Strict` or `Lax` |
 | `Database__MigrateOnStartup` | `true` | See [Migrations](#migrations) |
 | `Seed__AdminFullName` | `System Admin` | Display name of the first administrator |
+| `Seed__ResetAdminPassword` | not set | `true` resets the admin's password at startup. Remove it right after. See [Resetting the admin password](#resetting-the-admin-password) |
 | `AllowedHosts` | public host and Railway's health check | Semicolon-separated host override |
 | `DeveloperPages__Enabled` | `false` | Turns on `/swagger` and `/openapi/v1.json`. The Hangfire dashboard stays local-only |
 | `SignalR__UseRedisBackplane` | `false` | Needed only when running more than one API instance |
@@ -131,6 +132,33 @@ The lock needs a direct database connection. Do not point the API at a pooler in
 Roles, permissions, doctor specialties, collection methods and the first administrator. Demo users, regions,
 products, doctors and orders are created only in `Development`. Setting `Seed__DemoData=true` in production
 stops the API from starting.
+
+### Resetting the admin password
+
+For when the administrator has lost the password or is locked out and no other user can reset it.
+
+1. Set these variables on the API service:
+
+   ```
+   Seed__ResetAdminPassword=true
+   Seed__AdminEmail=<the admin's email>
+   Seed__AdminPassword=<temporary password>
+   ```
+
+   The temporary password follows the same rules as the first one: 12+ characters with upper case, lower case
+   and a digit, and not a placeholder.
+2. Let the service redeploy (Railway does this when variables change). At startup the API sets the temporary
+   password on the user with that email, clears any lockout and failed sign-in count, signs the account out on
+   every device and requires a new password at the next sign-in. The log shows one line:
+   `Admin password for ... was reset from Seed__ResetAdminPassword`. The password itself is never logged.
+3. **Remove `Seed__ResetAdminPassword` right away**, together with `Seed__AdminEmail` and `Seed__AdminPassword`.
+   While the flag stays `true`, every restart resets the password again and signs the admin out everywhere.
+4. Sign in with the temporary password and choose a new one.
+
+If the flag is `true` but the email or password is missing, or the password is too weak, the API refuses to
+start and names the variable to fix. If no user has that email, nothing is reset: on an empty database the first
+administrator is created as usual; otherwise the API logs a warning and starts without creating a second
+administrator. Only `true` (in any letter case) starts a reset; any other value is ignored.
 
 ### Uploads
 

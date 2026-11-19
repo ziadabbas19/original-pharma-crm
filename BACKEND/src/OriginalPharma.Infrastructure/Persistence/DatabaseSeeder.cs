@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,13 +20,27 @@ public sealed class SeedOptions
 {
     public const string SectionName = "Seed";
 
+    public const int MinAdminPasswordLength = 12;
+
+    public static readonly string AdminPasswordRule =
+        $"Seed__AdminPassword must be at least {MinAdminPasswordLength} characters with upper case, lower case and a digit, and not a placeholder.";
+
     public string? AdminEmail { get; set; }
 
     /// <summary>
     /// Development: user secrets. Live deployments: the initial password of the first admin, who must
-    /// replace it at first sign-in. It is only read while no admin exists.
+    /// replace it at first sign-in. It is only read while no admin exists, or for
+    /// <see cref="ResetAdminPassword"/>.
     /// </summary>
     public string? AdminPassword { get; set; }
+
+    /// <summary>
+    /// "true": every start sets <see cref="AdminPassword"/> as a temporary password on the user with
+    /// <see cref="AdminEmail"/>, clears its lockout and ends its sessions. For recovering a locked-out
+    /// admin; remove it right after. Any other value (or none) leaves seeding unchanged. A string, so a
+    /// mistyped value is ignored instead of failing the start.
+    /// </summary>
+    public string? ResetAdminPassword { get; set; }
 
     public string AdminFullName { get; set; } = "System Admin";
 
@@ -34,6 +49,13 @@ public sealed class SeedOptions
     /// drawn pictures, doctor lists and a few orders. Ignored outside Development and tests.
     /// </summary>
     public bool DemoData { get; set; }
+
+    public static bool IsResetRequested(string? value) => bool.TryParse(value, out var reset) && reset;
+
+    /// <summary>What a live deployment accepts as <see cref="AdminPassword"/>: <see cref="AdminPasswordRule"/>.</summary>
+    public static bool IsStrongAdminPassword(string password) =>
+        password.Length >= MinAdminPasswordLength && !DeploymentEnvironment.IsPlaceholder(password) &&
+        password.Any(char.IsUpper) && password.Any(char.IsLower) && password.Any(char.IsDigit);
 }
 
 /// <summary>
@@ -56,6 +78,8 @@ internal sealed partial class DatabaseSeeder(
 {
     /// <summary>The key lookups were recorded under while they were part of the demo seed.</summary>
     private const string LegacyLookupsStep = "demo-lookups-v1";
+
+    private static readonly JsonSerializerOptions AuditJson = new(JsonSerializerDefaults.Web);
 
     private static readonly (string En, string Ar)[] SpecialtySeeds =
     [
@@ -265,13 +289,26 @@ internal sealed partial class DatabaseSeeder(
     /// <summary>
     /// Development creates the configured admin whenever it is missing. A live deployment only creates
     /// the first admin, with a password that must be changed, and refuses to start without one.
+    /// <see cref="SeedOptions.ResetAdminPassword"/> resets the configured user first; when no user has
+    /// that email, the rules above apply unchanged.
     /// </summary>
     private async Task EnsureAdminAsync(CancellationToken cancellationToken)
     {
         var settings = options.Value;
+        var reset = SeedOptions.IsResetRequested(settings.ResetAdminPassword);
+        if (reset && await ResetAdminPasswordAsync(settings, cancellationToken))
+        {
+            return;
+        }
+
         var live = !environment.IsLocal();
         if (live && await AnyAdminExistsAsync(cancellationToken))
         {
+            if (reset)
+            {
+                logger.LogWarning("Seed__ResetAdminPassword is set but no user has the Seed__AdminEmail address; nothing was reset and no second admin was created");
+            }
+
             return;
         }
 
@@ -300,6 +337,78 @@ internal sealed partial class DatabaseSeeder(
         }
 
         logger.LogInformation("Created admin user {Email}", settings.AdminEmail);
+    }
+
+    /// <summary>
+    /// The configured password becomes a temporary one on the user with the configured email: lockout
+    /// and failed sign-in count cleared, every session revoked, access tokens already issued restricted
+    /// to changing the password. Returns false when no user has that email.
+    /// </summary>
+    private async Task<bool> ResetAdminPasswordAsync(SeedOptions settings, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(settings.AdminEmail) || string.IsNullOrWhiteSpace(settings.AdminPassword))
+        {
+            throw new InvalidOperationException("Seed__ResetAdminPassword=true needs Seed__AdminEmail and Seed__AdminPassword.");
+        }
+
+        if (!SeedOptions.IsStrongAdminPassword(settings.AdminPassword))
+        {
+            throw new InvalidOperationException(SeedOptions.AdminPasswordRule);
+        }
+
+        var user = await userManager.FindByEmailAsync(settings.AdminEmail);
+        if (user is null)
+        {
+            return false;
+        }
+
+        foreach (var validator in userManager.PasswordValidators)
+        {
+            var check = await validator.ValidateAsync(userManager, user, settings.AdminPassword);
+            if (!check.Succeeded)
+            {
+                throw new InvalidOperationException(
+                    "Seed__AdminPassword breaks the password policy: " + string.Join(" ", check.Errors.Select(e => e.Description)));
+            }
+        }
+
+        var now = time.GetUtcNow();
+        int revokedSessions;
+        await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
+        {
+            user.PasswordHash = userManager.PasswordHasher.HashPassword(user, settings.AdminPassword);
+            user.MustChangePassword = true;
+            user.LockoutEnd = null;
+            user.AccessFailedCount = 0;
+            var saved = await userManager.UpdateSecurityStampAsync(user); // also saves the changes above
+            if (!saved.Succeeded)
+            {
+                throw new InvalidOperationException(
+                    $"Could not reset the password of {settings.AdminEmail}: " + string.Join(" ", saved.Errors.Select(e => e.Description)));
+            }
+
+            var sessions = db.RefreshTokens.Where(t => t.UserId == user.Id && t.RevokedAt == null);
+            revokedSessions = await sessions.Select(t => t.FamilyId).Distinct().CountAsync(cancellationToken);
+            await sessions.ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.RevokedAt, now)
+                .SetProperty(t => t.RevokedReason, "password-reset"), cancellationToken);
+
+            db.UserAuditEntries.Add(new UserAuditEntry
+            {
+                UserId = user.Id,
+                Action = UserAuditAction.PasswordReset,
+                Details = JsonSerializer.Serialize(new { source = "Seed__ResetAdminPassword", revokedSessions }, AuditJson),
+                CreatedAt = now,
+            });
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        await permissionService.BumpVersionAsync([user.Id], cancellationToken);
+        logger.LogWarning(
+            "Admin password for {Email} was reset from Seed__ResetAdminPassword ({Sessions} sessions signed out); remove Seed__ResetAdminPassword now",
+            settings.AdminEmail, revokedSessions);
+        return true;
     }
 
     private Task<bool> AnyAdminExistsAsync(CancellationToken cancellationToken)

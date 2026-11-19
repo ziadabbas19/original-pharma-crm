@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using OriginalPharma.Application;
 using OriginalPharma.Application.Common;
@@ -109,7 +110,7 @@ public sealed class PostgresFixture : IAsyncLifetime
 
         var name = "op_test_" + Guid.NewGuid().ToString("N")[..12];
         await ExecuteAsync($"CREATE DATABASE \"{name}\" TEMPLATE \"{_template}\"");
-        return new TestDatabase(this, name, BuildServices(ConnectionStringFor(name)));
+        return new TestDatabase(this, name, DeploymentEnvironment.Testing, BuildServices(ConnectionStringFor(name)));
     }
 
     /// <summary>A migrated, unseeded database whose services run as <paramref name="environmentName"/>.</summary>
@@ -122,10 +123,15 @@ public sealed class PostgresFixture : IAsyncLifetime
 
         var name = "op_test_" + Guid.NewGuid().ToString("N")[..12];
         await ExecuteAsync($"CREATE DATABASE \"{name}\"");
-        var database = new TestDatabase(this, name, BuildServices(ConnectionStringFor(name), environmentName, settings));
+        var database = new TestDatabase(this, name, environmentName, BuildServices(ConnectionStringFor(name), environmentName, settings));
         await database.MigrateAsync();
         return database;
     }
+
+    /// <summary>Services for an existing test database with other settings, as after a restart with changed variables.</summary>
+    internal ServiceProvider BuildServicesFor(
+        string database, string environmentName, IReadOnlyDictionary<string, string?> settings, ILoggerProvider logs) =>
+        BuildServices(ConnectionStringFor(database), environmentName, settings, logs);
 
     internal async Task DropDatabaseAsync(string name)
     {
@@ -153,7 +159,8 @@ public sealed class PostgresFixture : IAsyncLifetime
     private static ServiceProvider BuildServices(
         string connectionString,
         string environmentName = DeploymentEnvironment.Testing,
-        IReadOnlyDictionary<string, string?>? settings = null)
+        IReadOnlyDictionary<string, string?>? settings = null,
+        ILoggerProvider? logs = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(settings ?? new Dictionary<string, string?>
@@ -166,7 +173,13 @@ public sealed class PostgresFixture : IAsyncLifetime
             .Build();
 
         var services = new ServiceCollection();
-        services.AddLogging();
+        services.AddLogging(b =>
+        {
+            if (logs is not null)
+            {
+                b.AddProvider(logs);
+            }
+        });
         services.AddApplication(configuration);
         services.AddDistributedMemoryCache();
         services.AddDbContext<AppDbContext>(o => AppDbContextOptions.Configure(o, connectionString));
@@ -227,12 +240,14 @@ public sealed class TestDatabase : IAsyncDisposable
 {
     private readonly PostgresFixture _fixture;
     private readonly string _name;
+    private readonly string _environmentName;
     private readonly ServiceProvider _services;
 
-    internal TestDatabase(PostgresFixture fixture, string name, ServiceProvider services)
+    internal TestDatabase(PostgresFixture fixture, string name, string environmentName, ServiceProvider services)
     {
         _fixture = fixture;
         _name = name;
+        _environmentName = environmentName;
         _services = services;
     }
 
@@ -328,6 +343,16 @@ public sealed class TestDatabase : IAsyncDisposable
         await scope.ServiceProvider.GetRequiredService<DatabaseSeeder>().SeedAsync(Ct);
     }
 
+    /// <summary>Seeds as a restart with <paramref name="settings"/> would. Returns everything logged meanwhile.</summary>
+    public async Task<IReadOnlyList<LogLine>> SeedAgainAsync(IReadOnlyDictionary<string, string?> settings)
+    {
+        var logs = new CapturingLoggerProvider();
+        await using var services = _fixture.BuildServicesFor(_name, _environmentName, settings, logs);
+        await using var scope = services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<DatabaseSeeder>().SeedAsync(Ct);
+        return logs.Lines;
+    }
+
     /// <summary>Admin adds grants to a role on top of what it has.</summary>
     public async Task GrantAsync(Guid adminId, string roleKey, params (string Key, PermissionScope Scope)[] extra)
     {
@@ -343,6 +368,33 @@ public sealed class TestDatabase : IAsyncDisposable
     {
         await _services.DisposeAsync();
         await _fixture.DropDatabaseAsync(_name);
+    }
+}
+
+public sealed record LogLine(LogLevel Level, string Category, string Message);
+
+/// <summary>Keeps every log line written, exception text included.</summary>
+internal sealed class CapturingLoggerProvider : ILoggerProvider
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<LogLine> _lines = new();
+
+    public IReadOnlyList<LogLine> Lines => [.. _lines];
+
+    public ILogger CreateLogger(string categoryName) => new Logger(this, categoryName);
+
+    public void Dispose()
+    {
+    }
+
+    private sealed class Logger(CapturingLoggerProvider owner, string category) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            owner._lines.Enqueue(new LogLine(logLevel, category, exception is null ? formatter(state, null) : $"{formatter(state, exception)} {exception}"));
     }
 }
 

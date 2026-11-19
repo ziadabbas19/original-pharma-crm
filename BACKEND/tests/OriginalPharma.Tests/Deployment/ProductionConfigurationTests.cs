@@ -102,6 +102,31 @@ public sealed class ProductionConfigurationTests
         }));
 
     [Fact]
+    public void A_password_reset_with_a_strong_password_is_accepted() =>
+        Assert.Empty(Problems(v => v["Seed:ResetAdminPassword"] = "true"));
+
+    [Theory]
+    [InlineData("Seed:AdminEmail")]
+    [InlineData("Seed:AdminPassword")]
+    public void A_password_reset_needs_the_admin_email_and_password(string missing) =>
+        Assert.Contains(Problems(v =>
+        {
+            v["Seed:ResetAdminPassword"] = "true";
+            v.Remove(missing);
+        }), p => p.Contains("Seed__ResetAdminPassword", StringComparison.Ordinal));
+
+    [Theory]
+    [InlineData("Short-1a")]
+    [InlineData("recovery-pass-2026")]
+    [InlineData("Change-Me-Admin-2026")]
+    public void A_password_reset_refuses_a_weak_password(string password) =>
+        Assert.Contains(Problems(v =>
+        {
+            v["Seed:ResetAdminPassword"] = "true";
+            v["Seed:AdminPassword"] = password;
+        }), p => p.StartsWith("Seed__AdminPassword", StringComparison.Ordinal));
+
+    [Fact]
     public void Problems_never_repeat_secret_values()
     {
         const string secret = "change-me-Sup3rPrivateValue-change-me";

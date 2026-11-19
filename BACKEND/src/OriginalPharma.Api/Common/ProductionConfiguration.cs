@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Mail;
 using Npgsql;
+using OriginalPharma.Infrastructure;
+using OriginalPharma.Infrastructure.Persistence;
 using StackExchange.Redis;
 
 namespace OriginalPharma.Api.Common;
@@ -11,18 +13,11 @@ namespace OriginalPharma.Api.Common;
 /// </summary>
 internal static class ProductionConfiguration
 {
-    private const int MinAdminPasswordLength = 12;
     private const int MinSigningKeyLength = 32;
     private const int MinDistinctSecretCharacters = 10;
 
     /// <summary>Origins the Android app's web view sends. Everything else must be a public HTTPS origin.</summary>
     private static readonly string[] NativeAppOrigins = ["https://localhost", "capacitor://localhost"];
-
-    private static readonly string[] PlaceholderFragments =
-    [
-        "change-me", "changeme", "change_me", "replace", "placeholder", "example", "your-", "your_",
-        "secret-key", "development", "password", "<", ">",
-    ];
 
     public static IReadOnlyList<string> FindProblems(IConfiguration configuration)
     {
@@ -344,11 +339,15 @@ internal static class ProductionConfiguration
             problems.Add("Seed__AdminEmail must be a real mailbox.");
         }
 
-        if (!string.IsNullOrWhiteSpace(password) &&
-            (password.Length < MinAdminPasswordLength || IsPlaceholder(password) ||
-             !password.Any(char.IsUpper) || !password.Any(char.IsLower) || !password.Any(char.IsDigit)))
+        if (!string.IsNullOrWhiteSpace(password) && !SeedOptions.IsStrongAdminPassword(password))
         {
-            problems.Add($"Seed__AdminPassword must be at least {MinAdminPasswordLength} characters with upper case, lower case and a digit, and not a placeholder.");
+            problems.Add(SeedOptions.AdminPasswordRule);
+        }
+
+        if (SeedOptions.IsResetRequested(configuration["Seed:ResetAdminPassword"]) &&
+            (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)))
+        {
+            problems.Add("Seed__ResetAdminPassword=true needs Seed__AdminEmail and Seed__AdminPassword.");
         }
     }
 
@@ -373,6 +372,5 @@ internal static class ProductionConfiguration
         host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
         (IPAddress.TryParse(host.Trim('[', ']'), out var ip) && IPAddress.IsLoopback(ip));
 
-    private static bool IsPlaceholder(string value) =>
-        PlaceholderFragments.Any(f => value.Contains(f, StringComparison.OrdinalIgnoreCase));
+    private static bool IsPlaceholder(string value) => DeploymentEnvironment.IsPlaceholder(value);
 }
