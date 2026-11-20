@@ -5,6 +5,7 @@ using OriginalPharma.Application.Common.Auditing;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Tracking.Anomalies;
+using OriginalPharma.Application.Tracking.Visibility;
 using OriginalPharma.Application.Visits;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Tracking;
@@ -28,6 +29,9 @@ public sealed record IntegrityEventReportResult(Guid FlagId, bool Merged);
 /// <summary>A suspicious-location event (a flag) for the review page.</summary>
 /// <param name="LocationPointId">The point that shows the problem best; <paramref name="Lat"/>/<paramref name="Lng"/> are its position.</param>
 /// <param name="VisitId">The visit the event is about, if any.</param>
+/// <param name="LocationHidden">
+/// Visit-only visibility: the point was recorded outside the rep's visits, so only its time is shown.
+/// </param>
 public sealed record IntegrityEventDto(
     Guid Id,
     Guid UserId,
@@ -49,13 +53,15 @@ public sealed record IntegrityEventDto(
     string? CustomerNameAr,
     string? ReviewNote,
     DateTimeOffset? ReviewedAt,
-    string? ReviewedByName);
+    string? ReviewedByName,
+    bool LocationHidden = false);
 
 /// <summary>A stored point with the evidence the checks used.</summary>
+/// <param name="Lat">Empty when the point was recorded outside the rep's visits in visit-only mode (time and reasons only).</param>
 public sealed record IntegrityPointDto(
     long Id,
-    double Lat,
-    double Lng,
+    double? Lat,
+    double? Lng,
     double Accuracy,
     DateTimeOffset RecordedAt,
     DateTimeOffset? DeviceTime,
@@ -65,7 +71,8 @@ public sealed record IntegrityPointDto(
     IReadOnlyList<string> Codes,
     double? Altitude,
     string? ActivityType,
-    DeviceSignalsDto? DeviceSignals);
+    DeviceSignalsDto? DeviceSignals,
+    bool LocationHidden = false);
 
 public sealed record IntegrityVisitDto(
     Guid Id,
@@ -133,6 +140,7 @@ public sealed class LocationIntegrityService(
     IDataScopeResolver scopeResolver,
     IntegrityFlagService flags,
     LocationTrustSettingsService trustSettings,
+    VisitWindowService visitWindows,
     AuditTrail audit,
     TimeProvider time)
 {
@@ -156,8 +164,10 @@ public sealed class LocationIntegrityService(
         var signals = report.DeviceSignals?.Sanitized();
         var deviceCodes = DeviceSignalCodes.From(signals);
         var score = Math.Min(100, AnomalyWeights.MockLocation + deviceCodes.Sum(WeightOf));
+        // Visit-only visibility: flag texts are shown to managers, so they never carry the position.
+        var visitOnly = (await trustSettings.GetAsync(cancellationToken)).VisitOnly;
         var details = $"The app detected a fake location at {detectedAt:u}" +
-                      (report.Lat is { } lat && report.Lng is { } lng ? $" near {lat:0.#####}, {lng:0.#####}." : ".") +
+                      (!visitOnly && report.Lat is { } lat && report.Lng is { } lng ? $" near {lat:0.#####}, {lng:0.#####}." : ".") +
                       (DeviceSignalCodes.Describe(signals) is { } device ? " " + device : string.Empty);
 
         var outcome = await flags.RaiseAsync(new IntegrityFlagRequest(
@@ -253,11 +263,17 @@ public sealed class LocationIntegrityService(
         }
 
         var dto = (await ToDtosAsync([flag], cancellationToken))[0];
+        var visible = await VisibleAsync(flag.UserId, points.Select(p => p.RecordedAt).ToList(), cancellationToken);
         return new IntegrityEventDetailDto(
             dto,
-            points.Select(p => new IntegrityPointDto(
-                p.Id, p.Location.Y, p.Location.X, p.Accuracy, p.RecordedAt, p.DeviceTime, p.IsMock, p.TrustStatus, p.TrustReason,
-                p.AnomalyCodes, p.Altitude, p.ActivityType, DeviceSignalsDto.FromJson(p.DeviceSignals))).ToList(),
+            points.Select(p =>
+            {
+                var shown = visible(p.RecordedAt);
+                return new IntegrityPointDto(
+                    p.Id, shown ? p.Location.Y : null, shown ? p.Location.X : null, p.Accuracy, p.RecordedAt, p.DeviceTime, p.IsMock,
+                    p.TrustStatus, p.TrustReason, p.AnomalyCodes, p.Altitude, p.ActivityType, DeviceSignalsDto.FromJson(p.DeviceSignals),
+                    !shown);
+            }).ToList(),
             visit);
     }
 
@@ -351,9 +367,10 @@ public sealed class LocationIntegrityService(
 
         var pointIds = rows.Where(f => f.LocationPointId != null).Select(f => f.LocationPointId!.Value).Distinct().ToArray();
         var points = (await db.LocationPoints.AsNoTracking().Where(p => pointIds.Contains(p.Id))
-                .Select(p => new { p.Id, p.Location, p.RecordedAt })
+                .Select(p => new { p.Id, p.UserId, p.Location, p.RecordedAt })
                 .ToListAsync(cancellationToken))
             .ToDictionary(p => p.Id);
+        var hidden = await HiddenPointsAsync(points.Values.Select(p => (p.Id, p.UserId, p.RecordedAt)).ToList(), cancellationToken);
 
         var visitIds = rows.Where(f => f.VisitId != null).Select(f => f.VisitId!.Value).Distinct().ToArray();
         var visits = await db.Visits.AsNoTracking().Where(v => visitIds.Contains(v.Id))
@@ -364,13 +381,53 @@ public sealed class LocationIntegrityService(
             {
                 var point = f.LocationPointId is { } pid && points.TryGetValue(pid, out var p) ? p : null;
                 var visit = f.VisitId is { } vid && visits.TryGetValue(vid, out var v) ? v : null;
+                var pointHidden = point is not null && hidden.Contains(point.Id);
                 return new IntegrityEventDto(
                     f.Id, f.UserId, names.GetValueOrDefault(f.UserId, string.Empty), f.Type, f.Status, f.Score, f.Signals, f.Details,
-                    f.CreatedAt, f.LastSeenAt, f.Occurrences, f.LocationPointId, point?.Location.Y, point?.Location.X, point?.RecordedAt,
+                    f.CreatedAt, f.LastSeenAt, f.Occurrences, f.LocationPointId,
+                    pointHidden ? null : point?.Location.Y, pointHidden ? null : point?.Location.X, point?.RecordedAt,
                     f.VisitId, visit?.Name, visit?.NameAr, f.ReviewNote, f.ReviewedAt,
-                    f.ReviewedById is { } reviewer ? names.GetValueOrDefault(reviewer) : null);
+                    f.ReviewedById is { } reviewer ? names.GetValueOrDefault(reviewer) : null,
+                    pointHidden);
             })
             .ToList();
+    }
+
+    /// <summary>Visit-only: which of these points were recorded outside their rep's visit windows.</summary>
+    private async Task<HashSet<long>> HiddenPointsAsync(
+        IReadOnlyList<(long Id, Guid UserId, DateTimeOffset RecordedAt)> points,
+        CancellationToken cancellationToken)
+    {
+        var policy = await visitWindows.PolicyAsync(cancellationToken);
+        if (!policy.VisitOnly || points.Count == 0)
+        {
+            return [];
+        }
+
+        var hidden = new HashSet<long>();
+        foreach (var byUser in points.GroupBy(p => p.UserId))
+        {
+            var windows = (await visitWindows.WindowsAsync(
+                    [byUser.Key], byUser.Min(p => p.RecordedAt), byUser.Max(p => p.RecordedAt), policy.Buffer, cancellationToken))
+                .GetValueOrDefault(byUser.Key);
+            hidden.UnionWith(byUser.Where(p => !VisitWindowService.Inside(windows, p.RecordedAt)).Select(p => p.Id));
+        }
+
+        return hidden;
+    }
+
+    /// <summary>Visit-only: a test for "may this instant's position be shown" for one rep's points.</summary>
+    private async Task<Func<DateTimeOffset, bool>> VisibleAsync(Guid userId, IReadOnlyList<DateTimeOffset> instants, CancellationToken cancellationToken)
+    {
+        var policy = await visitWindows.PolicyAsync(cancellationToken);
+        if (!policy.VisitOnly || instants.Count == 0)
+        {
+            return _ => true;
+        }
+
+        var windows = (await visitWindows.WindowsAsync([userId], instants.Min(), instants.Max(), policy.Buffer, cancellationToken))
+            .GetValueOrDefault(userId);
+        return instant => VisitWindowService.Inside(windows, instant);
     }
 
     private static int WeightOf(string code) => code switch

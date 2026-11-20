@@ -319,12 +319,13 @@ try {
     },
   )
 
-  await check('a customer with no saved location cannot be checked in to', async () => {
+  await check('a customer with no saved location is not blocked: the first visit will save it', async () => {
     await page.geolocation(AHMED)
     await openCheckIn(KARIM)
-    await waitId('proximity-no-location')
-    assert.equal(await page.evaluate(`${byId('check-in-start')}.disabled`), true)
-    await checkScreen('10-check-in-no-location-en-dark')
+    await waitId('proximity-first-visit', 25000)
+    await waitId('proximity-map-card')
+    assert.equal(await page.evaluate(`${byId('check-in-start')}.disabled`), false)
+    await checkScreen('10-check-in-first-visit-en-dark')
     await closeSheet()
   })
 
@@ -414,11 +415,11 @@ try {
     await signIn(page, baseUrl, 'supervisor@demo.local', password)
     await page.goto(`${baseUrl}/admin/visits`)
     await page.waitFor(
-      `[...document.querySelectorAll('tbody tr')].some((r) => r.textContent.includes('Needs review'))`,
+      `[...document.querySelectorAll('tbody tr')].some((r) => r.querySelector('[data-testid=location-badge-flagged]'))`,
       20000,
     )
     await page.evaluate(
-      `[...document.querySelectorAll('tbody tr')].find((r) => r.textContent.includes('Needs review')).click()`,
+      `[...document.querySelectorAll('tbody tr')].find((r) => r.querySelector('[data-testid=location-badge-flagged]')).click()`,
     )
     await waitId('visit-verification', 20000)
     await waitId('visit-review-reasons')

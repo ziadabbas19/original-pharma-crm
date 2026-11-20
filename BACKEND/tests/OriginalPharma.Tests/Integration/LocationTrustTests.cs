@@ -268,7 +268,7 @@ public sealed class LocationTrustTests(PostgresFixture postgres)
         var far = await CheckInAsync(db, p.Rep, clinic, lat: ClinicLat + 0.018);
 
         Assert.True(far.NeedsReview);
-        Assert.Equal([VisitReviewReasons.OutsideGeofence, VisitReviewReasons.FarFromDoctor], far.ReviewReasons);
+        Assert.Equal([VisitReviewReasons.OutsideGeofence, VisitReviewReasons.FarFromDoctor, VisitReviewReasons.LocationDrift], far.ReviewReasons);
         var flag = await db.DbAsync(c => c.TrackingFlags.AsNoTracking().SingleAsync(f => f.VisitId == far.Id, Ct));
         Assert.Equal(TrackingFlagType.VisitOutsideGeofence, flag.Type);
         Assert.Contains(VisitReviewReasons.FarFromDoctor, flag.Signals);
@@ -278,7 +278,8 @@ public sealed class LocationTrustTests(PostgresFixture postgres)
         var weak = await CheckInAsync(db, p.Rep, clinic, accuracy: 0.5, signals: new DeviceSignalsDto(MockLocationAppSelected: true));
 
         Assert.True(weak.CheckInWithinGeofence);
-        Assert.Equal([VisitReviewReasons.LowTrust], weak.ReviewReasons);
+        // The far visit before it had a clean fix, so this one is also 2 km from the previous visit.
+        Assert.Equal([VisitReviewReasons.LowTrust, VisitReviewReasons.LocationDrift], weak.ReviewReasons);
         var lowFlag = await db.DbAsync(c => c.TrackingFlags.AsNoTracking().SingleAsync(f => f.VisitId == weak.Id, Ct));
         Assert.Equal(TrackingFlagType.VisitLowTrust, lowFlag.Type);
         Assert.Contains(AnomalyCodes.MockAppSelected, lowFlag.Signals);
@@ -288,7 +289,7 @@ public sealed class LocationTrustTests(PostgresFixture postgres)
             new CheckOutRequest(ClinicLat + 0.011, ClinicLng, 10, DateTimeOffset.UtcNow, ClientRequestId: Guid.NewGuid()), Ct));
 
         Assert.Equal(Domain.Visits.VisitStatus.Completed, closed.Status);
-        Assert.Equal([VisitReviewReasons.LowTrust, VisitReviewReasons.FarFromDoctor], closed.ReviewReasons);
+        Assert.Equal([VisitReviewReasons.LowTrust, VisitReviewReasons.LocationDrift, VisitReviewReasons.FarFromDoctor], closed.ReviewReasons);
         var detail = await db.As<VisitService, VisitDetailDto>(p.Supervisor, s => s.GetAsync(weak.Id, Ct));
         Assert.Equal(closed.ReviewReasons, detail.ReviewReasons);
     }

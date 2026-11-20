@@ -2,7 +2,7 @@ import type { LocationTrustSettingsDto, UpdateLocationTrustSettingsRequest } fro
 
 /** Location trust settings as typed in the form; mirrors UpdateLocationTrustSettingsRequestValidator. */
 
-export type NumericField = Exclude<keyof UpdateLocationTrustSettingsRequest, 'mockPolicy'>
+export type NumericField = Exclude<keyof UpdateLocationTrustSettingsRequest, 'mockPolicy' | 'visibility'>
 
 export const FIELD_RULES: Record<
   NumericField,
@@ -15,16 +15,21 @@ export const FIELD_RULES: Record<
   perfectAccuracyMeters: { min: 0, max: 10, step: 0.5 },
   repeatedAccuracyRun: { min: 3, max: 50, step: 1, integer: true },
   deviceSignalsRetentionDays: { min: 1, max: 365, step: 1, integer: true },
+  driftFromClinicMeters: { min: 20, max: 10_000, step: 10 },
+  driftFromVisitsMeters: { min: 20, max: 10_000, step: 10 },
+  visitWindowBufferMinutes: { min: 0, max: 60, step: 1, integer: true },
 }
 
 export const NUMERIC_FIELDS = Object.keys(FIELD_RULES) as NumericField[]
 
 export type LocationTrustDraft = Record<NumericField, string> &
-  Pick<UpdateLocationTrustSettingsRequest, 'mockPolicy'>
+  Pick<UpdateLocationTrustSettingsRequest, 'mockPolicy'> & {
+    visibility: NonNullable<UpdateLocationTrustSettingsRequest['visibility']>
+  }
 
 export function draftOf(settings: LocationTrustSettingsDto): LocationTrustDraft {
-  const draft = { mockPolicy: settings.mockPolicy } as LocationTrustDraft
-  for (const field of NUMERIC_FIELDS) draft[field] = String(settings[field])
+  const draft = { mockPolicy: settings.mockPolicy, visibility: settings.visibility } as LocationTrustDraft
+  for (const field of NUMERIC_FIELDS) draft[field] = String(settings[field] ?? '')
   return draft
 }
 
@@ -42,7 +47,10 @@ export function fieldError(field: NumericField, raw: string): 'required' | 'rang
 /** The request to send, or null while a field is wrong. */
 export function requestOf(draft: LocationTrustDraft): UpdateLocationTrustSettingsRequest | null {
   if (NUMERIC_FIELDS.some((field) => fieldError(field, draft[field]) !== null)) return null
-  const request = { mockPolicy: draft.mockPolicy } as UpdateLocationTrustSettingsRequest
+  const request = {
+    mockPolicy: draft.mockPolicy,
+    visibility: draft.visibility,
+  } as UpdateLocationTrustSettingsRequest
   for (const field of NUMERIC_FIELDS) request[field] = Number(draft[field].trim())
   return request
 }

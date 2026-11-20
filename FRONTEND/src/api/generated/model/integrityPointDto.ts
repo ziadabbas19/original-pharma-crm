@@ -7,8 +7,10 @@ import type { LocationTrustStatus } from './locationTrustStatus'
 
 export interface IntegrityPointDto {
   id: number
-  lat: number
-  lng: number
+  /** @nullable */
+  lat: number | null
+  /** @nullable */
+  lng: number | null
   accuracy: number
   recordedAt: string
   /** @nullable */
@@ -23,4 +25,5 @@ export interface IntegrityPointDto {
   /** @nullable */
   activityType: string | null
   deviceSignals: null | DeviceSignalsDto
+  locationHidden?: boolean
 }

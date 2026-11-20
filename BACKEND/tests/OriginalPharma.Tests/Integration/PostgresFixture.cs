@@ -222,6 +222,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         services.AddSingleton<RecordingTrackingNotifier>();
         services.AddSingleton<ITrackingNotifier>(sp => sp.GetRequiredService<RecordingTrackingNotifier>());
         services.AddSingleton<ILatestPositionStore, InMemoryLatestPositionStore>();
+        services.AddSingleton<ILiveViewRegistry, NoLiveViewRegistry>();
         services.AddSingleton<IIpGeolocationService, NullIpGeolocationService>();
         services.AddScoped<ILocationDistanceQuery, LocationDistanceQuery>();
 
@@ -287,6 +288,18 @@ public sealed class InMemoryLatestPositionStore : ILatestPositionStore
         _positions[position.UserId] = position;
         return Task.CompletedTask;
     }
+}
+
+/// <summary>Nobody is watching live in the tests: devices always get the normal profile.</summary>
+public sealed class NoLiveViewRegistry : ILiveViewRegistry
+{
+    public Task<(bool Started, DateTimeOffset LiveUntil)> AddViewerAsync(Guid repId, Guid viewerId, TimeSpan ttl, CancellationToken cancellationToken = default) =>
+        Task.FromResult((true, DateTimeOffset.UtcNow + ttl));
+
+    public Task<bool> RemoveViewerAsync(Guid repId, Guid viewerId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+    public Task<DateTimeOffset?> GetLiveUntilAsync(Guid repId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<DateTimeOffset?>(null);
 }
 
 /// <summary>The caller of one simulated request.</summary>

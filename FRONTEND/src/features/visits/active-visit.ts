@@ -3,6 +3,7 @@ import { visitsGet, visitsList } from '@/api/generated/endpoints'
 import type { VisitFeedbackCategory } from '@/api/generated/model'
 import { currentDeviceSignals } from '@/features/integrity/device-signals-sync'
 import { newClientRequestId } from '@/features/orders/order-math'
+import { applyCollection } from '@/features/tracking/collection'
 import { platform, type GeoFix } from '@/lib/platform'
 import { store } from '@/store'
 import {
@@ -69,6 +70,8 @@ async function replaceActiveVisit(next: ActiveVisit | null): Promise<void> {
   if (mine.length > 0) await db.remove(mine)
   if (next) await db.enqueue(KIND, next)
   notify()
+  // A visit opened or closed: in visit-only mode the tracker runs exactly while a visit is open.
+  if (mine.length > 0 !== (next !== null)) void applyCollection(next !== null)
 }
 
 export const saveActiveVisit = (visit: ActiveVisit) => replaceActiveVisit(visit)

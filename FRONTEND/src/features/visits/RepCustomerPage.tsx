@@ -1,5 +1,5 @@
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { ArrowLeftIcon, ArrowRightIcon, MapPinCheckIcon, MapPinOffIcon, PhoneIcon } from 'lucide-react'
+import { ArrowLeftIcon, ArrowRightIcon, MapPinCheckIcon, MapPinPlusIcon, PhoneIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { EmptyState, LoadingState } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
@@ -57,9 +57,9 @@ export function RepCustomerPage() {
                   {t('visits.customerPage.hasLocation')}
                 </p>
               ) : (
-                <p className="flex items-center gap-1.5 text-sm" data-testid="customer-no-location">
-                  <MapPinOffIcon className="size-4 text-warning" aria-hidden />
-                  {t('visits.checkInFlow.noLocationTitle')}
+                <p className="flex items-start gap-1.5 text-sm" data-testid="customer-no-location">
+                  <MapPinPlusIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                  {t('visits.customerPage.firstVisitSaves')}
                 </p>
               )}
               {customer.notes && (

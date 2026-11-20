@@ -4,6 +4,7 @@
  */
 import type { CustomerType } from './customerType'
 import type { VisitFeedbackCategory } from './visitFeedbackCategory'
+import type { VisitLocationDto } from './visitLocationDto'
 import type { VisitStatus } from './visitStatus'
 
 export interface VisitListItemDto {
@@ -38,4 +39,5 @@ export interface VisitListItemDto {
   replyCount?: number
   /** @nullable */
   archivedAt?: string | null
+  location?: null | VisitLocationDto
 }

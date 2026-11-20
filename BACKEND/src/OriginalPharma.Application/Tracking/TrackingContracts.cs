@@ -59,6 +59,10 @@ public sealed record TestPointRequest(string DeviceId, LocationSource Source, Lo
 public sealed record TestPointResult(bool Received, DateTimeOffset ServerTime, double ClockOffsetSeconds, int AnomalyScore, IReadOnlyList<string> Signals);
 
 /// <summary>Reporting settings the device should apply right now.</summary>
+/// <param name="CollectionMode">
+/// "visitOnly": the app collects locations only while a visit is in progress (and the fix at check-in);
+/// "allDay": for the whole working day. Older apps ignore it and keep collecting all day.
+/// </param>
 public sealed record TrackingConfigDto(
     string Mode,
     int DistanceFilterMeters,
@@ -66,7 +70,14 @@ public sealed record TrackingConfigDto(
     int UploadIntervalSeconds,
     int HeartbeatIntervalSeconds,
     DateTimeOffset? LiveUntil,
-    string ConsentVersion);
+    string ConsentVersion,
+    string CollectionMode = TrackingCollectionModes.AllDay);
+
+public static class TrackingCollectionModes
+{
+    public const string VisitOnly = "visitOnly";
+    public const string AllDay = "allDay";
+}
 
 public sealed record StartShiftRequest(
     string DeviceId,
@@ -136,7 +147,10 @@ public sealed record LivePositionDto(
     LocationSource Source,
     Guid? ShiftId,
     LocationTrustStatus TrustStatus = LocationTrustStatus.Trusted,
-    string? TrustReason = null);
+    string? TrustReason = null,
+    Guid? VisitId = null,
+    string? VisitCustomerName = null,
+    string? VisitCustomerNameAr = null);
 
 public enum PresenceStatus
 {
@@ -144,6 +158,9 @@ public enum PresenceStatus
     Online = 1,
     Idle = 2,
     TrackingLost = 3,
+
+    /// <summary>Visit-only visibility: the day is running but the rep is not on a visit (no position is shown).</summary>
+    NotOnVisit = 4,
 }
 
 public sealed record RepPresenceDto(
@@ -157,7 +174,20 @@ public sealed record RepPresenceDto(
     bool DeviceHealthy,
     IReadOnlyList<string> HealthIssues,
     int OpenFlags,
-    string? AvatarUrl = null);
+    string? AvatarUrl = null,
+    bool OnVisit = false,
+    Guid? VisitId = null,
+    string? VisitCustomerName = null,
+    string? VisitCustomerNameAr = null,
+    DateTimeOffset? VisitStartedAt = null,
+    DateTimeOffset? VisibleUntil = null,
+    DateTimeOffset? LastVisitEndedAt = null,
+    bool LocationHidden = false);
+
+/// <summary>When managers may see reps' positions (for the live map's banner).</summary>
+/// <param name="Mode">visitOnly or allDay.</param>
+/// <param name="BufferMinutes">Visit windows are widened by this on both sides.</param>
+public sealed record LocationVisibilityDto(Integrity.LocationVisibility Mode, int BufferMinutes);
 
 public sealed record PresenceChangeDto(Guid UserId, PresenceStatus Status, DateTimeOffset At);
 

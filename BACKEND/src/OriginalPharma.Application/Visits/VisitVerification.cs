@@ -63,6 +63,12 @@ public static class VisitReviewReasons
     /// <summary>The location evidence is weak: poor or synthetic accuracy, spoofing settings, suspicious points around the visit.</summary>
     public const string LowTrust = "low-trust";
 
+    /// <summary>The check-in is further than the drift settings allow from the clinic, the earlier visits' median or the previous visit.</summary>
+    public const string LocationDrift = "location-drift";
+
+    /// <summary>The customer had no saved location and this check-in's fix was not good enough to become it.</summary>
+    public const string ClinicLocationNotSaved = "clinic-location-not-saved";
+
     /// <param name="trustReasons">Reasons stored on the visit (<see cref="FarFromDoctor"/>, <see cref="LowTrust"/>).</param>
     public static IReadOnlyList<string> For(
         bool withinGeofence,

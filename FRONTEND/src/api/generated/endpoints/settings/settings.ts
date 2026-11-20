@@ -18,7 +18,12 @@ import type {
   UseQueryResult,
 } from '@tanstack/react-query'
 
-import type { LocationTrustSettingsDto, UpdateLocationTrustSettingsRequest } from '../../model'
+import type {
+  LocationTrustSettingsDto,
+  RepHomeSettingsDto,
+  UpdateLocationTrustSettingsRequest,
+  UpdateRepHomeSettingsRequest,
+} from '../../model'
 
 import { apiFetch } from '../../../../lib/api-client'
 
@@ -250,4 +255,192 @@ export const useSettingsUpdateLocationTrust = <TError = unknown, TContext = unkn
   TContext
 > => {
   return useMutation(getSettingsUpdateLocationTrustMutationOptions(options), queryClient)
+}
+export const getRepHomeSettingsGetRepHomeUrl = () => {
+  return `/api/settings/rep-home`
+}
+
+export const repHomeSettingsGetRepHome = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<RepHomeSettingsDto> => {
+  return apiFetch<RepHomeSettingsDto>(getRepHomeSettingsGetRepHomeUrl(), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getRepHomeSettingsGetRepHomeQueryKey = () => {
+  return [`/api/settings/rep-home`] as const
+}
+
+export const getRepHomeSettingsGetRepHomeQueryOptions = <
+  TData = Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>, TError, TData>>
+  request?: SecondParameter<typeof apiFetch>
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getRepHomeSettingsGetRepHomeQueryKey()
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>> = ({ signal }) =>
+    repHomeSettingsGetRepHome({ signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type RepHomeSettingsGetRepHomeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>
+>
+export type RepHomeSettingsGetRepHomeQueryError = unknown
+
+export function useRepHomeSettingsGetRepHome<
+  TData = Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>,
+          TError,
+          Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRepHomeSettingsGetRepHome<
+  TData = Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>,
+          TError,
+          Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRepHomeSettingsGetRepHome<
+  TData = Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRepHomeSettingsGetRepHome<
+  TData = Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof repHomeSettingsGetRepHome>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getRepHomeSettingsGetRepHomeQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getRepHomeSettingsUpdateRepHomeUrl = () => {
+  return `/api/settings/rep-home`
+}
+
+export const repHomeSettingsUpdateRepHome = async (
+  updateRepHomeSettingsRequest: UpdateRepHomeSettingsRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<RepHomeSettingsDto> => {
+  return apiFetch<RepHomeSettingsDto>(getRepHomeSettingsUpdateRepHomeUrl(), {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(updateRepHomeSettingsRequest),
+  })
+}
+
+export const getRepHomeSettingsUpdateRepHomeMutationKey = () => ['repHomeSettingsUpdateRepHome'] as const
+
+export const getRepHomeSettingsUpdateRepHomeMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof repHomeSettingsUpdateRepHome>>,
+    TError,
+    RepHomeSettingsUpdateRepHomeMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof repHomeSettingsUpdateRepHome>>,
+  TError,
+  RepHomeSettingsUpdateRepHomeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRepHomeSettingsUpdateRepHomeMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof repHomeSettingsUpdateRepHome>>,
+    RepHomeSettingsUpdateRepHomeMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return repHomeSettingsUpdateRepHome(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type RepHomeSettingsUpdateRepHomeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof repHomeSettingsUpdateRepHome>>
+>
+export type RepHomeSettingsUpdateRepHomeMutationBody = UpdateRepHomeSettingsRequest
+export type RepHomeSettingsUpdateRepHomeMutationError = unknown
+export type RepHomeSettingsUpdateRepHomeMutationVariables = { data: UpdateRepHomeSettingsRequest }
+
+export const useRepHomeSettingsUpdateRepHome = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof repHomeSettingsUpdateRepHome>>,
+      TError,
+      RepHomeSettingsUpdateRepHomeMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof repHomeSettingsUpdateRepHome>>,
+  TError,
+  RepHomeSettingsUpdateRepHomeMutationVariables,
+  TContext
+> => {
+  return useMutation(getRepHomeSettingsUpdateRepHomeMutationOptions(options), queryClient)
 }

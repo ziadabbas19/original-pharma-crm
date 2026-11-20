@@ -67,12 +67,17 @@ export function VisitContentFields({
         ) : (
           <ul className="grid gap-2">
             {value.products.map((product) => (
-              <li key={product.productId} className="grid gap-2 rounded-lg border p-2">
+              <li key={product.productId} className="grid gap-2 rounded-control border bg-card p-2">
                 <div className="flex items-center gap-2">
-                  <ProductThumb url={product.thumbnailUrl} className="size-10" />
-                  <p className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {productName(product, i18n.resolvedLanguage)}
-                  </p>
+                  <span
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-primary-soft py-1 ps-1 pe-3 text-primary-soft-foreground"
+                    data-testid="visit-product-pill"
+                  >
+                    <ProductThumb url={product.thumbnailUrl} className="size-8 rounded-full" />
+                    <span className="min-w-0 truncate text-sm font-semibold">
+                      {productName(product, i18n.resolvedLanguage)}
+                    </span>
+                  </span>
                   <Button
                     type="button"
                     size="icon"

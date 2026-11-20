@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Organization;
+using OriginalPharma.Application.Tracking.Integrity;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Tracking;
 
@@ -16,6 +17,7 @@ public sealed class ShiftService(
     IPlayIntegrityVerifier integrityVerifier,
     IOrgHierarchy hierarchy,
     ITrackingNotifier notifier,
+    LocationTrustSettingsService trustSettings,
     IOptions<TrackingOptions> options,
     TimeProvider time,
     ILogger<ShiftService> logger)
@@ -58,6 +60,8 @@ public sealed class ShiftService(
             .OrderByDescending(s => s.StartedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+        // Visit-only visibility: where the day starts and ends is outside any visit, so it is not stored.
+        var visitOnly = (await trustSettings.GetAsync(cancellationToken)).VisitOnly;
         if (active is null)
         {
             var territoryId = await db.Users.Where(u => u.Id == userId).Select(u => u.TerritoryId).SingleAsync(cancellationToken);
@@ -68,7 +72,7 @@ public sealed class ShiftService(
                 DeviceId = request.DeviceId,
                 Source = request.Source,
                 StartedAt = now,
-                StartLocation = request is { Lat: { } lat, Lng: { } lng } ? GeoFactory.Point(lat, lng) : null,
+                StartLocation = !visitOnly && request is { Lat: { } lat, Lng: { } lng } ? GeoFactory.Point(lat, lng) : null,
             };
 
             if (!string.IsNullOrWhiteSpace(request.IntegrityToken))
@@ -98,7 +102,8 @@ public sealed class ShiftService(
             logger.LogInformation("Shift {ShiftId} started for user {UserId} on device {DeviceId}", active.Id, userId, request.DeviceId);
 
             var audience = await hierarchy.GetAudienceAsync(userId, cancellationToken);
-            await notifier.PresenceChangedAsync(audience, new PresenceChangeDto(userId, PresenceStatus.Online, now), cancellationToken);
+            await notifier.PresenceChangedAsync(
+                audience, new PresenceChangeDto(userId, visitOnly ? PresenceStatus.NotOnVisit : PresenceStatus.Online, now), cancellationToken);
         }
 
         var config = await configService.GetConfigAsync(userId, cancellationToken);
@@ -118,7 +123,8 @@ public sealed class ShiftService(
 
         active.Status = ShiftStatus.Ended;
         active.EndedAt = now;
-        active.EndLocation = request is { Lat: { } lat, Lng: { } lng } ? GeoFactory.Point(lat, lng) : null;
+        var visitOnly = (await trustSettings.GetAsync(cancellationToken)).VisitOnly;
+        active.EndLocation = !visitOnly && request is { Lat: { } lat, Lng: { } lng } ? GeoFactory.Point(lat, lng) : null;
         await db.SaveChangesAsync(cancellationToken);
 
         var audience = await hierarchy.GetAudienceAsync(userId, cancellationToken);

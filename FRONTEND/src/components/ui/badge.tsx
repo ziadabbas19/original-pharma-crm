@@ -3,16 +3,19 @@ import type * as React from 'react'
 import { cn } from '@/lib/utils'
 
 const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3',
+  'inline-flex w-fit shrink-0 items-center justify-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3',
   {
     variants: {
       variant: {
-        default: 'border-transparent bg-primary text-primary-foreground',
+        /** Soft blue: scheduled, in progress, informative. */
+        default: 'border-transparent bg-primary-soft text-primary-soft-foreground',
         secondary: 'border-transparent bg-secondary text-secondary-foreground',
-        success: 'border-transparent bg-success/15 text-success',
-        warning: 'border-transparent bg-warning/20 text-foreground',
-        destructive: 'border-transparent bg-destructive/15 text-destructive',
-        outline: 'text-foreground',
+        /** Soft green: done, healthy. */
+        success: 'border-transparent bg-success-soft text-success',
+        /** Soft amber: late, needs attention. */
+        warning: 'border-transparent bg-warning-soft text-warning-soft-foreground',
+        destructive: 'border-transparent bg-destructive-soft text-destructive',
+        outline: 'border-border text-foreground',
       },
     },
     defaultVariants: { variant: 'default' },

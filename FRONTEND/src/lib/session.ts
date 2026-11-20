@@ -12,6 +12,7 @@ import {
   userLoaded,
 } from '@/store/slices/authSlice'
 import { permissionsLoaded, serverVersionSeen } from '@/store/slices/permissionsSlice'
+import { stopCollection } from '@/features/tracking/collection'
 
 /**
  * Session handling for both clients:
@@ -129,6 +130,8 @@ export async function logout(): Promise<void> {
 }
 
 async function clearLocalSession(): Promise<void> {
+  // Nothing keeps collecting locations for someone who signed out.
+  await stopCollection()
   await platform().secureStorage.remove(REFRESH_TOKEN_KEY)
   try {
     localStorage.removeItem(ME_CACHE_KEY)

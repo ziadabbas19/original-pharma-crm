@@ -12,10 +12,12 @@ using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Lookups;
 using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Orders;
+using OriginalPharma.Application.Settings;
 using OriginalPharma.Application.Stats;
 using OriginalPharma.Application.Tracking;
 using OriginalPharma.Application.Tracking.Anomalies;
 using OriginalPharma.Application.Tracking.Integrity;
+using OriginalPharma.Application.Tracking.Visibility;
 using OriginalPharma.Application.Visits;
 
 namespace OriginalPharma.Application;
@@ -74,12 +76,17 @@ public static class DependencyInjection
         services.AddScoped<IntegrityFlagService>();
         services.AddScoped<LocationIntegrityService>();
         services.AddScoped<DeviceSignalsRetentionJob>();
+        services.AddScoped<VisitWindowService>();
+        services.AddScoped<OutsideVisitPointsPurgeJob>();
 
         // Visits
         services.AddScoped<VisitService>();
 
         // Statistics
         services.AddScoped<StatsService>();
+
+        // Dashboard settings
+        services.AddScoped<RepHomeSettingsService>();
 
         return services;
     }

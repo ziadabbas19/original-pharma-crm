@@ -87,6 +87,13 @@
               "type": "boolean",
               "default": false
             }
+          },
+          {
+            "name": "locationDrift",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -1394,6 +1401,36 @@
         }
       }
     },
+    "/api/tracking/monitor/visibility": {
+      "get": {
+        "tags": [
+          "TrackingMonitor"
+        ],
+        "operationId": "trackingMonitorGetVisibility",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationVisibilityDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationVisibilityDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationVisibilityDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tracking/monitor/live-view/{repId}": {
       "post": {
         "tags": [
@@ -2292,6 +2329,84 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LocationTrustSettingsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/rep-home": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "repHomeSettingsGetRepHome",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepHomeSettingsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepHomeSettingsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepHomeSettingsDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "operationId": "repHomeSettingsUpdateRepHome",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRepHomeSettingsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRepHomeSettingsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRepHomeSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepHomeSettingsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepHomeSettingsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepHomeSettingsDto"
                 }
               }
             }
@@ -6132,6 +6247,47 @@
         }
       }
     },
+    "/api/doctors/{id}/location-history": {
+      "get": {
+        "tags": [
+          "Doctors"
+        ],
+        "operationId": "doctorsLocationHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorLocationHistoryDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorLocationHistoryDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorLocationHistoryDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/doctors/directory": {
       "get": {
         "tags": [
@@ -7584,6 +7740,20 @@
         ],
         "default": "web"
       },
+      "ClinicLocationOutcome": {
+        "enum": [
+          "compared",
+          "savedAsClinic",
+          "notSaved"
+        ]
+      },
+      "ClinicLocationSource": {
+        "enum": [
+          "managerSet",
+          "firstVisit",
+          null
+        ]
+      },
       "ConsentStatusDto": {
         "required": [
           "currentVersion",
@@ -8495,6 +8665,156 @@
             "type": "integer",
             "format": "int32",
             "default": 150
+          },
+          "locationSource": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ClinicLocationSource"
+              }
+            ]
+          },
+          "locationCapturedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "locationCapturedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "locationAccuracyMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "locationVisitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "DoctorLocationHistoryDto": {
+        "required": [
+          "doctorId",
+          "name",
+          "nameAr",
+          "lat",
+          "lng",
+          "geofenceRadiusMeters",
+          "locationSource",
+          "locationCapturedAt",
+          "locationCapturedByName",
+          "locationAccuracyMeters",
+          "locationVisitId",
+          "medianLat",
+          "medianLng",
+          "visits",
+          "capped"
+        ],
+        "type": "object",
+        "properties": {
+          "doctorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "lng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "geofenceRadiusMeters": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "locationSource": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ClinicLocationSource"
+              }
+            ]
+          },
+          "locationCapturedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "locationCapturedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "locationAccuracyMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "locationVisitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "medianLat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "medianLng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "visits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DoctorVisitLocationDto"
+            }
+          },
+          "capped": {
+            "type": "boolean"
           }
         }
       },
@@ -8597,6 +8917,51 @@
             "items": {
               "$ref": "#/components/schemas/StatRow"
             }
+          }
+        }
+      },
+      "DoctorVisitLocationDto": {
+        "required": [
+          "visitId",
+          "repId",
+          "repName",
+          "checkInAt",
+          "status",
+          "needsReview",
+          "reviewReasons",
+          "location"
+        ],
+        "type": "object",
+        "properties": {
+          "visitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repName": {
+            "type": "string"
+          },
+          "checkInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/VisitStatus"
+          },
+          "needsReview": {
+            "type": "boolean"
+          },
+          "reviewReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "location": {
+            "$ref": "#/components/schemas/VisitLocationDto"
           }
         }
       },
@@ -8868,6 +9233,10 @@
               "null",
               "string"
             ]
+          },
+          "locationHidden": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -8957,11 +9326,17 @@
             "format": "int64"
           },
           "lat": {
-            "type": "number",
+            "type": [
+              "null",
+              "number"
+            ],
             "format": "double"
           },
           "lng": {
-            "type": "number",
+            "type": [
+              "null",
+              "number"
+            ],
             "format": "double"
           },
           "accuracy": {
@@ -9019,6 +9394,10 @@
                 "$ref": "#/components/schemas/DeviceSignalsDto"
               }
             ]
+          },
+          "locationHidden": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -9243,6 +9622,25 @@
               "null",
               "string"
             ]
+          },
+          "visitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "visitCustomerName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "visitCustomerNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -9463,7 +9861,11 @@
           "deviceSignalsRetentionDays",
           "isDefault",
           "updatedAt",
-          "updatedByName"
+          "updatedByName",
+          "driftFromClinicMeters",
+          "driftFromVisitsMeters",
+          "visibility",
+          "visitWindowBufferMinutes"
         ],
         "type": "object",
         "properties": {
@@ -9513,6 +9915,21 @@
               "null",
               "string"
             ]
+          },
+          "driftFromClinicMeters": {
+            "type": "number",
+            "format": "double"
+          },
+          "driftFromVisitsMeters": {
+            "type": "number",
+            "format": "double"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/LocationVisibility"
+          },
+          "visitWindowBufferMinutes": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -9522,6 +9939,28 @@
           "suspicious",
           "rejected"
         ]
+      },
+      "LocationVisibility": {
+        "enum": [
+          "visitOnly",
+          "allDay"
+        ]
+      },
+      "LocationVisibilityDto": {
+        "required": [
+          "mode",
+          "bufferMinutes"
+        ],
+        "type": "object",
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/LocationVisibility"
+          },
+          "bufferMinutes": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
       },
       "LoginRequest": {
         "required": [
@@ -10518,7 +10957,8 @@
           "offShift",
           "online",
           "idle",
-          "trackingLost"
+          "trackingLost",
+          "notOnVisit"
         ]
       },
       "ProblemDetails": {
@@ -10867,6 +11307,82 @@
           }
         }
       },
+      "RepHomeConfigDto": {
+        "required": [
+          "sections",
+          "dailyVisitTarget"
+        ],
+        "type": "object",
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepHomeSectionDto"
+            }
+          },
+          "dailyVisitTarget": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RepHomeSectionDto": {
+        "required": [
+          "key",
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RepHomeSettingsDto": {
+        "required": [
+          "sections",
+          "dailyVisitTarget",
+          "isDefault",
+          "updatedAt",
+          "updatedByName",
+          "defaults"
+        ],
+        "type": "object",
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepHomeSectionDto"
+            }
+          },
+          "dailyVisitTarget": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/RepHomeConfigDto"
+          }
+        }
+      },
       "RepPresenceDto": {
         "required": [
           "userId",
@@ -10941,6 +11457,54 @@
               "null",
               "string"
             ]
+          },
+          "onVisit": {
+            "type": "boolean",
+            "default": false
+          },
+          "visitId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "visitCustomerName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "visitCustomerNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "visitStartedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "visibleUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastVisitEndedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "locationHidden": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -11834,6 +12398,10 @@
           },
           "consentVersion": {
             "type": "string"
+          },
+          "collectionMode": {
+            "type": "string",
+            "default": "allDay"
           }
         }
       },
@@ -12126,6 +12694,37 @@
           "deviceSignalsRetentionDays": {
             "type": "integer",
             "format": "int32"
+          },
+          "driftFromClinicMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "driftFromVisitsMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "visibility": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LocationVisibility"
+              }
+            ]
+          },
+          "visitWindowBufferMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -12179,6 +12778,25 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "UpdateRepHomeSettingsRequest": {
+        "required": [
+          "sections",
+          "dailyVisitTarget"
+        ],
+        "type": "object",
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepHomeSectionDto"
+            }
+          },
+          "dailyVisitTarget": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -12719,6 +13337,44 @@
             "items": {
               "$ref": "#/components/schemas/VisitOrderDto"
             }
+          },
+          "location": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VisitLocationDto"
+              }
+            ]
+          },
+          "checkOutLat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "checkOutLng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "clinicLat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "clinicLng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
           }
         }
       },
@@ -12821,6 +13477,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "clinicLocationOutcome": {
+            "$ref": "#/components/schemas/ClinicLocationOutcome"
           }
         }
       },
@@ -13061,6 +13720,113 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "location": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VisitLocationDto"
+              }
+            ]
+          }
+        }
+      },
+      "VisitLocationDto": {
+        "required": [
+          "lat",
+          "lng",
+          "accuracy",
+          "isMock",
+          "signalCodes",
+          "clinicLocationOutcome",
+          "clinicDistanceMeters",
+          "previousVisitDistanceMeters",
+          "sincePreviousVisitSeconds",
+          "medianDistanceMeters",
+          "nearestVisitDistanceMeters",
+          "referenceVisitCount",
+          "goodFix",
+          "locationDrift",
+          "driftSources"
+        ],
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "format": "double"
+          },
+          "lng": {
+            "type": "number",
+            "format": "double"
+          },
+          "accuracy": {
+            "type": "number",
+            "format": "double"
+          },
+          "isMock": {
+            "type": "boolean"
+          },
+          "signalCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "clinicLocationOutcome": {
+            "$ref": "#/components/schemas/ClinicLocationOutcome"
+          },
+          "clinicDistanceMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "previousVisitDistanceMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "sincePreviousVisitSeconds": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "medianDistanceMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "nearestVisitDistanceMeters": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "referenceVisitCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "goodFix": {
+            "type": "boolean"
+          },
+          "locationDrift": {
+            "type": "boolean"
+          },
+          "driftSources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

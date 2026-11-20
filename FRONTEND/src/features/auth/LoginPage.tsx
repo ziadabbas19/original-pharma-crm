@@ -37,19 +37,19 @@ export function LoginPage() {
   })
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 p-4 pt-safe pb-safe">
-      <div className="flex w-full max-w-sm items-center justify-end gap-1">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-background p-4 pt-safe pb-safe">
+      <div className="flex w-full max-w-md items-center justify-end gap-1">
         <ThemeSwitcher compact />
         <LanguageSwitcher />
       </div>
-      <BrandLogo className="h-24" />
 
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-xl">{t('auth.title')}</CardTitle>
-          <CardDescription>{t('auth.subtitle')}</CardDescription>
+      <Card className="w-full max-w-md gap-6 py-8" data-testid="login-card">
+        <CardHeader className="justify-items-center gap-3 px-6 text-center sm:px-8">
+          <BrandLogo className="mb-2 h-20" />
+          <CardTitle className="text-2xl font-bold">{t('auth.title')}</CardTitle>
+          <CardDescription className="text-[15px]">{t('auth.subtitle')}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-6 sm:px-8">
           <form
             className="grid gap-4"
             noValidate
@@ -122,7 +122,7 @@ export function LoginPage() {
 
             <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
               {([canSubmit, isSubmitting]) => (
-                <Button type="submit" size="lg" disabled={!canSubmit || isSubmitting}>
+                <Button type="submit" size="lg" className="mt-1 w-full" disabled={!canSubmit || isSubmitting}>
                   {isSubmitting ? t('auth.signingIn') : t('auth.signIn')}
                 </Button>
               )}

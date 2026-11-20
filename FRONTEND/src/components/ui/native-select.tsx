@@ -22,10 +22,10 @@ function NativeSelect({
       <select
         data-slot="native-select"
         className={cn(
-          'w-full min-w-0 appearance-none rounded-md border border-input bg-background ps-3 pe-8 text-sm shadow-xs transition-[color,box-shadow] outline-none',
+          'w-full min-w-0 appearance-none rounded-control border border-input bg-card ps-3 pe-8 text-sm shadow-xs transition-[color,box-shadow] outline-none',
           'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
           'disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive',
-          size === 'sm' ? 'h-8 text-xs' : 'h-9',
+          size === 'sm' ? 'h-8 rounded-[10px] text-xs' : 'h-9',
           selectClassName,
         )}
         {...props}

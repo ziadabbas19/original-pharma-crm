@@ -3,14 +3,15 @@ import type * as React from 'react'
 import { cn } from '@/lib/utils'
 
 const alertVariants = cva(
-  'relative grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-lg border px-4 py-3 text-sm has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-[>svg]:gap-x-3 [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current',
+  'relative grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-control border px-4 py-3 text-sm has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-[>svg]:gap-x-3 [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current',
   {
     variants: {
       variant: {
         default: 'bg-card text-card-foreground',
-        warning: 'border-warning/50 bg-warning/10 text-foreground',
-        destructive: 'border-destructive/40 bg-destructive/5 text-destructive [&>svg]:text-current',
-        success: 'border-success/40 bg-success/5 text-foreground [&>svg]:text-success',
+        warning: 'border-transparent bg-warning-soft text-warning-soft-foreground [&>svg]:text-current',
+        destructive: 'border-transparent bg-destructive-soft text-destructive [&>svg]:text-current',
+        success: 'border-transparent bg-green-soft text-green-text [&>svg]:text-current',
+        info: 'border-transparent bg-primary-soft text-primary-soft-foreground [&>svg]:text-current',
       },
     },
     defaultVariants: { variant: 'default' },
@@ -29,7 +30,7 @@ function Alert({
 
 function AlertTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div data-slot="alert-title" className={cn('col-start-2 min-h-4 font-medium', className)} {...props} />
+    <div data-slot="alert-title" className={cn('col-start-2 min-h-4 font-semibold', className)} {...props} />
   )
 }
 

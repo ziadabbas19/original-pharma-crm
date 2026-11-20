@@ -3,7 +3,7 @@ import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-route
 import { LogOutIcon, MenuIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, SmartphoneIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BrandLogo } from '@/components/BrandLogo'
+import { BrandLogo, BrandTile } from '@/components/BrandLogo'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
@@ -74,10 +74,10 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="flex min-h-dvh bg-muted/30">
+    <div className="flex min-h-dvh bg-background">
       <aside
         className={cn(
-          'sticky top-0 hidden h-dvh shrink-0 flex-col border-e bg-card transition-[width] duration-200 md:flex',
+          'sticky top-0 hidden h-dvh shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200 md:flex',
           collapsed ? 'w-16' : 'w-64',
         )}
       >
@@ -85,7 +85,11 @@ export function AdminLayout() {
       </aside>
 
       <Sheet open={open} onOpenChange={(value) => dispatch(sidebarToggled(value))}>
-        <SheetContent side="start" className="w-72 p-0" showCloseButton={false}>
+        <SheetContent
+          side="start"
+          className="w-72 border-sidebar-border bg-sidebar p-0 text-sidebar-foreground"
+          showCloseButton={false}
+        >
           <SheetTitle className="sr-only">{t('nav.menu')}</SheetTitle>
           <SheetDescription className="sr-only">{t('nav.menuHint')}</SheetDescription>
           <SidebarContent onNavigate={() => dispatch(sidebarToggled(false))} />
@@ -93,7 +97,7 @@ export function AdminLayout() {
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-card/95 px-3 backdrop-blur md:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-card/95 px-3 backdrop-blur md:px-6">
           <Button
             variant="ghost"
             size="icon"
@@ -132,7 +136,7 @@ export function AdminLayout() {
             <span className="hidden lg:inline">{t('common.signOut')}</span>
           </Button>
         </header>
-        <main className="min-w-0 flex-1 p-4 md:p-6">
+        <main className="min-w-0 flex-1 p-4 md:p-6 [&>*]:animate-page-in">
           <Outlet />
         </main>
       </div>
@@ -151,21 +155,23 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
 
   return (
     <div className="flex h-full flex-col">
-      <div
-        className={cn('flex h-14 shrink-0 items-center border-b', collapsed ? 'justify-center px-2' : 'px-4')}
-      >
-        {collapsed ? <BrandLogo variant="emblem" className="size-8" /> : <BrandLogo className="h-11" />}
+      <div className={cn('flex shrink-0 items-center py-4', collapsed ? 'justify-center px-2' : 'px-4')}>
+        {collapsed ? (
+          <BrandTile variant="emblem" logoClassName="size-8" />
+        ) : (
+          <BrandTile className="w-full" logoClassName="h-10" />
+        )}
       </div>
       <nav
-        className={cn('flex-1 space-y-5 overflow-y-auto', collapsed ? 'p-2' : 'p-3')}
+        className={cn('flex-1 space-y-5 overflow-y-auto', collapsed ? 'p-2' : 'px-3 pb-3')}
         aria-label={t('nav.menu')}
       >
         {sections.map((section) => (
           <div key={section.title} className="space-y-1">
             {collapsed ? (
-              <div className="mx-2 border-t first:hidden" aria-hidden />
+              <div className="mx-2 border-t border-sidebar-border first:hidden" aria-hidden />
             ) : (
-              <p className="px-3 text-xs font-medium text-muted-foreground">{t(section.title)}</p>
+              <p className="px-3 pb-1 text-xs font-semibold text-sidebar-muted">{t(section.title)}</p>
             )}
             {section.items.map((item) => (
               <NavLink key={item.to} item={item} onNavigate={onNavigate} collapsed={collapsed} />
@@ -174,17 +180,17 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
         ))}
       </nav>
       {hasPermission(granted, P.tracking.report) && (
-        <div className="border-t p-3">
+        <div className="border-t border-sidebar-border p-3">
           <Link
             to="/rep"
             onClick={onNavigate}
             title={collapsed ? t('nav.repApp') : undefined}
             className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              'flex items-center gap-3 rounded-control px-3 py-2.5 text-sm text-sidebar-foreground/90 hover:bg-sidebar-hover',
               collapsed && 'justify-center px-0',
             )}
           >
-            <SmartphoneIcon className="size-4" />
+            <SmartphoneIcon className="size-4 text-sidebar-icon" />
             <span className={cn(collapsed && 'sr-only')}>{t('nav.repApp')}</span>
           </Link>
         </div>
@@ -211,12 +217,15 @@ function NavLink({
       onClick={onNavigate}
       title={collapsed ? t(item.label) : undefined}
       className={cn(
-        'relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+        'group relative flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-medium text-sidebar-foreground/90 transition-colors hover:bg-sidebar-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-active focus-visible:outline-none',
         collapsed && 'justify-center px-0',
       )}
-      activeProps={{ className: 'bg-accent font-medium text-accent-foreground' }}
+      activeProps={{
+        className:
+          'bg-sidebar-active! font-semibold text-sidebar-active-foreground! shadow-card [&>svg]:text-sidebar-active-foreground!',
+      }}
     >
-      <item.icon className="size-4 shrink-0" />
+      <item.icon className="size-[18px] shrink-0 text-sidebar-icon" />
       <span className={cn('flex-1 truncate', collapsed && 'sr-only')}>{t(item.label)}</span>
       {count > 0 &&
         (collapsed ? (
@@ -225,7 +234,7 @@ function NavLink({
             aria-hidden
           />
         ) : (
-          <span className="min-w-5 rounded-full bg-destructive/15 px-1.5 text-center text-xs font-medium text-destructive tabular-nums">
+          <span className="min-w-5 rounded-full bg-destructive px-1.5 text-center text-xs font-semibold text-destructive-foreground tabular-nums">
             {count}
           </span>
         ))}

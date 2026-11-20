@@ -38,7 +38,13 @@ import { useAppSelector } from '@/store'
 import { liveLocationsSelectors } from '@/store/slices/liveLocationsSlice'
 
 const DAY_MS = 86_400_000
-const ATTENTION_ORDER: Record<LiveStatus, number> = { lost: 0, stale: 1, online: 2, offShift: 3 }
+const ATTENTION_ORDER: Record<LiveStatus, number> = {
+  lost: 0,
+  stale: 1,
+  online: 2,
+  notOnVisit: 3,
+  offShift: 4,
+}
 
 function todayRange(): { from: string; to: string } {
   const start = new Date()
@@ -63,7 +69,7 @@ export function DashboardPage() {
       />
       <div className="space-y-4">
         {canViewLive && <LiveStats canReviewFlags={canReviewFlags} canReadDevices={canReadDevices} />}
-        <div className="grid gap-4 xl:grid-cols-3">
+        <div className="grid stagger-children gap-4 xl:grid-cols-3">
           {canViewLive && <NeedsAttention />}
           {canReviewFlags && <LatestFlags />}
           {canReadVisits && <TodayVisits />}
@@ -87,7 +93,7 @@ function LiveStats({ canReviewFlags, canReadDevices }: { canReviewFlags: boolean
   const loading = presence.isLoading && reps.length === 0
 
   const counts = useMemo(() => {
-    const byStatus: Record<LiveStatus, number> = { online: 0, stale: 0, lost: 0, offShift: 0 }
+    const byStatus: Record<LiveStatus, number> = { online: 0, stale: 0, lost: 0, notOnVisit: 0, offShift: 0 }
     for (const rep of reps) byStatus[liveStatusOf(rep, now)] += 1
     return {
       ...byStatus,
@@ -101,7 +107,7 @@ function LiveStats({ canReviewFlags, canReadDevices }: { canReviewFlags: boolean
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+    <div className="grid stagger-children grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
       <Stat
         icon={UsersIcon}
         tone="success"
@@ -147,9 +153,16 @@ function LiveStats({ canReviewFlags, canReadDevices }: { canReviewFlags: boolean
 }
 
 const TONE: Record<'success' | 'warning' | 'destructive', string> = {
-  success: 'bg-success/15 text-success',
-  warning: 'bg-warning/20 text-foreground',
-  destructive: 'bg-destructive/15 text-destructive',
+  success: 'bg-success-soft text-success',
+  warning: 'bg-warning-soft text-warning-soft-foreground',
+  destructive: 'bg-destructive-soft text-destructive',
+}
+
+/** The short line under a KPI value: green when all is well, amber when it needs a look. */
+const TONE_LINE: Record<keyof typeof TONE, string> = {
+  success: 'bg-green',
+  warning: 'bg-warning',
+  destructive: 'bg-destructive',
 }
 
 function Stat({
@@ -170,29 +183,30 @@ function Stat({
   const body = (
     <Card
       className={cn(
-        'h-full gap-3 py-4',
-        to && 'transition-colors hover:border-primary/40 hover:bg-accent/30',
+        'h-full gap-2 py-4',
+        to && 'transition-colors hover:border-primary/40 hover:bg-accent/40',
       )}
     >
-      <CardHeader className="px-4">
-        <CardDescription className="flex items-center gap-2">
-          <span className={cn('flex size-7 items-center justify-center rounded-md', TONE[tone])}>
+      <CardHeader className="gap-2 px-4">
+        <CardDescription className="flex items-center gap-2 text-label font-semibold">
+          <span className={cn('flex size-8 items-center justify-center rounded-[10px]', TONE[tone])}>
             <Icon className="size-4" />
           </span>
           <span className="truncate">{label}</span>
         </CardDescription>
         {loading ? (
-          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-10 w-16" />
         ) : (
-          <CardTitle className="text-3xl tabular-nums">{formatNumber(value)}</CardTitle>
+          <CardTitle className="text-kpi font-bold tabular-nums">{formatNumber(value)}</CardTitle>
         )}
+        <span className={cn('h-1 w-10 rounded-full', TONE_LINE[tone])} aria-hidden />
       </CardHeader>
     </Card>
   )
   return to ? (
     <Link
       to={to}
-      className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="rounded-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     >
       {body}
     </Link>
@@ -413,9 +427,11 @@ function TodayVisits() {
               ['review', counts.review, counts.review > 0 ? 'text-destructive' : ''],
             ] as const
           ).map(([key, value, tone]) => (
-            <div key={key} className="rounded-lg border p-3">
-              <dt className="text-xs text-muted-foreground">{t(`admin.visitCounts.${key}`)}</dt>
-              <dd className={cn('text-2xl font-semibold tabular-nums', tone)}>{formatNumber(value)}</dd>
+            <div key={key} className="rounded-control border p-3">
+              <dt className="text-label font-semibold text-muted-foreground">
+                {t(`admin.visitCounts.${key}`)}
+              </dt>
+              <dd className={cn('text-2xl font-bold tabular-nums', tone)}>{formatNumber(value)}</dd>
             </div>
           ))}
         </dl>

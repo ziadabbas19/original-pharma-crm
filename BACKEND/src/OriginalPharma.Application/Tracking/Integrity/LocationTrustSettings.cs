@@ -14,6 +14,16 @@ using OriginalPharma.Domain.Tracking;
 
 namespace OriginalPharma.Application.Tracking.Integrity;
 
+/// <summary>When managers may see where a rep is.</summary>
+public enum LocationVisibility
+{
+    /// <summary>Only from the start to the end of each visit (plus the buffer); no position outside visits.</summary>
+    VisitOnly = 1,
+
+    /// <summary>Whenever the rep's day is running, as before.</summary>
+    AllDay = 2,
+}
+
 /// <summary>Configuration defaults for location trust (appsettings "Tracking:Trust").</summary>
 public sealed class LocationTrustOptions
 {
@@ -36,6 +46,27 @@ public sealed class LocationTrustOptions
 
     /// <summary>How long one API instance keeps the settings in memory before reading them again.</summary>
     public int SettingsCacheSeconds { get; set; } = 30;
+
+    /// <summary>Default for <see cref="LocationTrustSettings.DriftFromClinicMeters"/>.</summary>
+    public double DriftFromClinicMeters { get; set; } = 150;
+
+    /// <summary>Default for <see cref="LocationTrustSettings.DriftFromVisitsMeters"/>.</summary>
+    public double DriftFromVisitsMeters { get; set; } = 150;
+
+    /// <summary>The location history of a doctor compares a new visit with at most this many earlier ones.</summary>
+    public int MaxReferenceVisits { get; set; } = 50;
+
+    /// <summary>Default for <see cref="LocationTrustSettings.Visibility"/>.</summary>
+    public LocationVisibility LocationVisibility { get; set; } = LocationVisibility.VisitOnly;
+
+    /// <summary>Default for <see cref="LocationTrustSettings.VisitWindowBufferMinutes"/>.</summary>
+    public int VisitWindowBufferMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// Visit-only mode: a point recorded outside every visit window is kept this long (a check-in queued offline
+    /// may still arrive and cover it), never shown, then deleted.
+    /// </summary>
+    public int OutsideVisitGraceHours { get; set; } = 12;
 }
 
 /// <summary>
@@ -50,6 +81,11 @@ public sealed class LocationTrustOptions
 /// <param name="RepeatedAccuracyRun">This many fixes in a row with exactly the same accuracy look synthetic.</param>
 /// <param name="MockPolicy">Whether mock locations are only flagged or also left out of distance and attendance.</param>
 /// <param name="DeviceSignalsRetentionDays">Device signals stored with location points are cleared after this many days.</param>
+/// <param name="DriftFromClinicMeters">A check-in further than this from the saved clinic location (after the accuracy allowance) is "location drift".</param>
+/// <param name="DriftFromVisitsMeters">
+/// A check-in further than this from the median of the earlier good visits (with at least two of them), or
+/// from the previous good visit, is "location drift".
+/// </param>
 public sealed record LocationTrustSettings(
     double MaxSpeedKmh,
     double MaxDistanceFromDoctorMeters,
@@ -58,9 +94,26 @@ public sealed record LocationTrustSettings(
     double PerfectAccuracyMeters,
     int RepeatedAccuracyRun,
     MockLocationPolicy MockPolicy,
-    int DeviceSignalsRetentionDays)
+    int DeviceSignalsRetentionDays,
+    double DriftFromClinicMeters = 0,
+    double DriftFromVisitsMeters = 0,
+    LocationVisibility Visibility = 0,
+    int VisitWindowBufferMinutes = -1)
 {
     public const string Key = "location-trust";
+
+    public bool VisitOnly => Visibility == LocationVisibility.VisitOnly;
+
+    public TimeSpan VisitWindowBuffer => TimeSpan.FromMinutes(Math.Max(0, VisitWindowBufferMinutes));
+
+    /// <summary>Values saved before a setting existed are missing (0, or -1 for the buffer): they take the configured default.</summary>
+    public LocationTrustSettings WithDefaultsFrom(LocationTrustSettings defaults) => this with
+    {
+        DriftFromClinicMeters = DriftFromClinicMeters > 0 ? DriftFromClinicMeters : defaults.DriftFromClinicMeters,
+        DriftFromVisitsMeters = DriftFromVisitsMeters > 0 ? DriftFromVisitsMeters : defaults.DriftFromVisitsMeters,
+        Visibility = Enum.IsDefined(Visibility) ? Visibility : defaults.Visibility,
+        VisitWindowBufferMinutes = VisitWindowBufferMinutes >= 0 ? VisitWindowBufferMinutes : defaults.VisitWindowBufferMinutes,
+    };
 
     public bool ExcludeMock => MockPolicy == MockLocationPolicy.FlagAndExclude;
 
@@ -87,8 +140,16 @@ public sealed record LocationTrustSettingsDto(
     int DeviceSignalsRetentionDays,
     bool IsDefault,
     DateTimeOffset? UpdatedAt,
-    string? UpdatedByName);
+    string? UpdatedByName,
+    double DriftFromClinicMeters,
+    double DriftFromVisitsMeters,
+    LocationVisibility Visibility,
+    int VisitWindowBufferMinutes);
 
+/// <param name="DriftFromClinicMeters">Optional: left out, the current value is kept.</param>
+/// <param name="DriftFromVisitsMeters">Optional: left out, the current value is kept.</param>
+/// <param name="Visibility">Optional: left out, the current value is kept.</param>
+/// <param name="VisitWindowBufferMinutes">Optional: left out, the current value is kept.</param>
 public sealed record UpdateLocationTrustSettingsRequest(
     double MaxSpeedKmh,
     double MaxDistanceFromDoctorMeters,
@@ -97,7 +158,11 @@ public sealed record UpdateLocationTrustSettingsRequest(
     double PerfectAccuracyMeters,
     int RepeatedAccuracyRun,
     MockLocationPolicy MockPolicy,
-    int DeviceSignalsRetentionDays);
+    int DeviceSignalsRetentionDays,
+    double? DriftFromClinicMeters = null,
+    double? DriftFromVisitsMeters = null,
+    LocationVisibility? Visibility = null,
+    int? VisitWindowBufferMinutes = null);
 
 public sealed class UpdateLocationTrustSettingsRequestValidator : AbstractValidator<UpdateLocationTrustSettingsRequest>
 {
@@ -111,6 +176,10 @@ public sealed class UpdateLocationTrustSettingsRequestValidator : AbstractValida
         RuleFor(x => x.RepeatedAccuracyRun).InclusiveBetween(3, 50);
         RuleFor(x => x.MockPolicy).IsInEnum();
         RuleFor(x => x.DeviceSignalsRetentionDays).InclusiveBetween(1, 365);
+        RuleFor(x => x.DriftFromClinicMeters).InclusiveBetween(20, 10_000).When(x => x.DriftFromClinicMeters is not null);
+        RuleFor(x => x.DriftFromVisitsMeters).InclusiveBetween(20, 10_000).When(x => x.DriftFromVisitsMeters is not null);
+        RuleFor(x => x.Visibility).IsInEnum().When(x => x.Visibility is not null);
+        RuleFor(x => x.VisitWindowBufferMinutes).InclusiveBetween(0, 60).When(x => x.VisitWindowBufferMinutes is not null);
     }
 }
 
@@ -146,7 +215,11 @@ public sealed class LocationTrustSettingsService(
             anomalies.SuspiciousAccuracyMeters,
             anomalies.RepeatedAccuracyRun,
             trust.MockPolicy,
-            trust.DeviceSignalsRetentionDays);
+            trust.DeviceSignalsRetentionDays,
+            trust.DriftFromClinicMeters,
+            trust.DriftFromVisitsMeters,
+            Enum.IsDefined(trust.LocationVisibility) ? trust.LocationVisibility : LocationVisibility.VisitOnly,
+            Math.Clamp(trust.VisitWindowBufferMinutes, 0, 60));
     }
 
     public async Task<LocationTrustSettings> GetAsync(CancellationToken cancellationToken = default)
@@ -157,7 +230,7 @@ public sealed class LocationTrustSettingsService(
         }
 
         var row = await db.AppSettings.AsNoTracking().SingleOrDefaultAsync(s => s.Key == LocationTrustSettings.Key, cancellationToken);
-        var settings = Parse(row) ?? Defaults();
+        var settings = Parse(row)?.WithDefaultsFrom(Defaults()) ?? Defaults();
         cache.Set(CacheKey, settings, TimeSpan.FromSeconds(Math.Max(0, trustOptions.Value.SettingsCacheSeconds)));
         return settings;
     }
@@ -165,7 +238,7 @@ public sealed class LocationTrustSettingsService(
     public async Task<LocationTrustSettingsDto> GetDtoAsync(CancellationToken cancellationToken = default)
     {
         var row = await db.AppSettings.AsNoTracking().SingleOrDefaultAsync(s => s.Key == LocationTrustSettings.Key, cancellationToken);
-        return await ToDtoAsync(Parse(row) ?? Defaults(), row, cancellationToken);
+        return await ToDtoAsync(Parse(row)?.WithDefaultsFrom(Defaults()) ?? Defaults(), row, cancellationToken);
     }
 
     /// <summary>Saves the settings (settings:manage). Applies to new data at once on this instance.</summary>
@@ -173,16 +246,22 @@ public sealed class LocationTrustSettingsService(
     {
         var me = currentUser.RequireUserId();
         var row = await db.AppSettings.SingleOrDefaultAsync(s => s.Key == LocationTrustSettings.Key, cancellationToken);
-        var before = Parse(row) ?? Defaults();
-        var after = new LocationTrustSettings(
-            request.MaxSpeedKmh,
-            request.MaxDistanceFromDoctorMeters,
-            request.AccuracyAllowanceMeters,
-            request.LowTrustAccuracyMeters,
-            request.PerfectAccuracyMeters,
-            request.RepeatedAccuracyRun,
-            request.MockPolicy,
-            request.DeviceSignalsRetentionDays);
+        var before = Parse(row)?.WithDefaultsFrom(Defaults()) ?? Defaults();
+        var after = before with
+        {
+            MaxSpeedKmh = request.MaxSpeedKmh,
+            MaxDistanceFromDoctorMeters = request.MaxDistanceFromDoctorMeters,
+            AccuracyAllowanceMeters = request.AccuracyAllowanceMeters,
+            LowTrustAccuracyMeters = request.LowTrustAccuracyMeters,
+            PerfectAccuracyMeters = request.PerfectAccuracyMeters,
+            RepeatedAccuracyRun = request.RepeatedAccuracyRun,
+            MockPolicy = request.MockPolicy,
+            DeviceSignalsRetentionDays = request.DeviceSignalsRetentionDays,
+            DriftFromClinicMeters = request.DriftFromClinicMeters ?? before.DriftFromClinicMeters,
+            DriftFromVisitsMeters = request.DriftFromVisitsMeters ?? before.DriftFromVisitsMeters,
+            Visibility = request.Visibility ?? before.Visibility,
+            VisitWindowBufferMinutes = request.VisitWindowBufferMinutes ?? before.VisitWindowBufferMinutes,
+        };
 
         if (row is null)
         {
@@ -225,6 +304,7 @@ public sealed class LocationTrustSettingsService(
         return new LocationTrustSettingsDto(
             s.MaxSpeedKmh, s.MaxDistanceFromDoctorMeters, s.AccuracyAllowanceMeters, s.LowTrustAccuracyMeters,
             s.PerfectAccuracyMeters, s.RepeatedAccuracyRun, s.MockPolicy, s.DeviceSignalsRetentionDays,
-            row is null, row?.UpdatedAt, updatedBy);
+            row is null, row?.UpdatedAt, updatedBy, s.DriftFromClinicMeters, s.DriftFromVisitsMeters,
+            s.Visibility, s.VisitWindowBufferMinutes);
     }
 }

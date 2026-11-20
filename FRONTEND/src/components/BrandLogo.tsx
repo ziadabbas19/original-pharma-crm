@@ -18,20 +18,48 @@ export function BrandLogo({
   variant = 'full',
   className,
   decorative = false,
+  tile = false,
 }: {
   variant?: 'full' | 'emblem'
   className?: string
   /** Hide from screen readers when the app name is written next to it. */
   decorative?: boolean
+  /** On the white logo tile: always the light artwork, whatever the theme. */
+  tile?: boolean
 }) {
   const { theme } = useTheme()
   return (
     <img
-      src={SOURCES[variant][theme]}
+      src={SOURCES[variant][tile ? 'light' : theme]}
       alt={decorative ? '' : 'Original Pharma'}
       aria-hidden={decorative || undefined}
       draggable={false}
       className={cn('w-auto shrink-0 select-none', variant === 'full' ? 'h-10' : 'size-8', className)}
     />
+  )
+}
+
+/** The logo on a white rounded tile (dashboard sidebar, rep app header). */
+export function BrandTile({
+  variant = 'full',
+  className,
+  logoClassName,
+  decorative,
+}: {
+  variant?: 'full' | 'emblem'
+  className?: string
+  logoClassName?: string
+  decorative?: boolean
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center rounded-control bg-tile shadow-card',
+        variant === 'full' ? 'px-3 py-1.5' : 'p-1.5',
+        className,
+      )}
+    >
+      <BrandLogo variant={variant} tile decorative={decorative} className={logoClassName} />
+    </span>
   )
 }

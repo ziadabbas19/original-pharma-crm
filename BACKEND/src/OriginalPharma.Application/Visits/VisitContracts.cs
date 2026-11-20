@@ -76,7 +76,37 @@ public sealed record VisitDto(
     IReadOnlyList<VisitPhotoDto> Photos,
     double CheckInAccuracy,
     int GeofenceRadiusMeters,
-    IReadOnlyList<string> ReviewReasons);
+    IReadOnlyList<string> ReviewReasons,
+    ClinicLocationOutcome ClinicLocationOutcome = ClinicLocationOutcome.Compared);
+
+/// <summary>
+/// Where a visit was recorded and how it compares with the clinic and the earlier visits to the same
+/// customer. The numbers are stored when the check-in arrives and do not change afterwards.
+/// </summary>
+/// <param name="ClinicDistanceMeters">Distance from the saved clinic location (null when the customer had none).</param>
+/// <param name="PreviousVisitDistanceMeters">Distance from the latest earlier visit with a good fix (any rep).</param>
+/// <param name="SincePreviousVisitSeconds">Time since that visit.</param>
+/// <param name="MedianDistanceMeters">Distance from the median position of the earlier good visits (with at least two).</param>
+/// <param name="NearestVisitDistanceMeters">Distance to the closest earlier good visit.</param>
+/// <param name="ReferenceVisitCount">How many earlier good visits were compared.</param>
+/// <param name="GoodFix">The check-in fix itself counts as a reference for later visits.</param>
+/// <param name="DriftSources">Which comparisons exceeded the drift settings: clinic, median, previous.</param>
+public sealed record VisitLocationDto(
+    double Lat,
+    double Lng,
+    double Accuracy,
+    bool IsMock,
+    IReadOnlyList<string> SignalCodes,
+    ClinicLocationOutcome ClinicLocationOutcome,
+    double? ClinicDistanceMeters,
+    double? PreviousVisitDistanceMeters,
+    double? SincePreviousVisitSeconds,
+    double? MedianDistanceMeters,
+    double? NearestVisitDistanceMeters,
+    int ReferenceVisitCount,
+    bool GoodFix,
+    bool LocationDrift,
+    IReadOnlyList<string> DriftSources);
 
 /// <summary>One row of the visit lists (dashboard and rep app).</summary>
 public sealed record VisitListItemDto(
@@ -105,7 +135,8 @@ public sealed record VisitListItemDto(
     VisitFeedbackCategory? FeedbackCategory = null,
     int ProductCount = 0,
     int ReplyCount = 0,
-    DateTimeOffset? ArchivedAt = null);
+    DateTimeOffset? ArchivedAt = null,
+    VisitLocationDto? Location = null);
 
 public sealed record VisitFeedbackSeenDto(Guid UserId, string UserName, DateTimeOffset SeenAt);
 
@@ -165,7 +196,12 @@ public sealed record VisitDetailDto(
     int GeofenceRadiusMeters,
     IReadOnlyList<string> ReviewReasons,
     IReadOnlyList<VisitPhotoDto> Photos,
-    IReadOnlyList<VisitOrderDto> Orders);
+    IReadOnlyList<VisitOrderDto> Orders,
+    VisitLocationDto? Location = null,
+    double? CheckOutLat = null,
+    double? CheckOutLng = null,
+    double? ClinicLat = null,
+    double? ClinicLng = null);
 
 public sealed record VisitFeedbackInput(string Text, VisitFeedbackCategory? Category = null);
 

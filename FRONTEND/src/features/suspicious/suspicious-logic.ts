@@ -21,6 +21,8 @@ export const REASON_CODES = [
   'far-from-doctor',
   'outside-geofence',
   'low-trust',
+  'location-drift',
+  'clinic-location-not-saved',
   'rooted-device',
   'spoofing-app-installed',
   'auto-time-off',
@@ -134,10 +136,14 @@ export function groupByRepAndDay(events: readonly IntegrityEventDto[]): RepDayGr
 
 /** Where "open the evidence" goes: the visit, or the rep's route on that day around the point. */
 export type EventTarget =
-  { kind: 'visit'; visitId: string } | { kind: 'map'; userId: string; day: string; at: string | null }
+  | { kind: 'visit'; visitId: string }
+  | { kind: 'map'; userId: string; day: string; at: string | null }
+  /** Recorded outside the rep's visits in visit-only mode: only the time and reasons are shown. */
+  | { kind: 'hidden' }
 
 export function eventTarget(event: IntegrityEventDto): EventTarget {
   if (event.visitId) return { kind: 'visit', visitId: event.visitId }
+  if (event.locationHidden) return { kind: 'hidden' }
   const at = event.pointRecordedAt ?? null
   return { kind: 'map', userId: event.userId, day: localDay(at ?? event.createdAt), at }
 }

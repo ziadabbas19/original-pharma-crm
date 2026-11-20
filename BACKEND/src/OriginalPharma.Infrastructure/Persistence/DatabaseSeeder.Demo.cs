@@ -63,6 +63,8 @@ internal sealed partial class DatabaseSeeder
                 TerritoryId = town.Id,
                 Location = GeoFactory.Point(30.0561, 31.3301),
                 GeofenceRadiusMeters = 150,
+                LocationSource = ClinicLocationSource.ManagerSet,
+                LocationCapturedAt = time.GetUtcNow(),
                 QrCode = "DEMO-CLINIC-001",
                 CreatedAt = time.GetUtcNow(),
             },
@@ -74,6 +76,8 @@ internal sealed partial class DatabaseSeeder
                 TerritoryId = town.Id,
                 Location = GeoFactory.Point(30.0626, 31.3451),
                 GeofenceRadiusMeters = 100,
+                LocationSource = ClinicLocationSource.ManagerSet,
+                LocationCapturedAt = time.GetUtcNow(),
                 QrCode = "DEMO-PHARMACY-001",
                 CreatedAt = time.GetUtcNow(),
             });
@@ -642,6 +646,8 @@ internal sealed partial class DatabaseSeeder
             if (doctors.TryGetValue(name, out var doctor) && doctor.Location is null)
             {
                 doctor.Location = GeoFactory.Point(lat, lng);
+                doctor.LocationSource = ClinicLocationSource.ManagerSet;
+                doctor.LocationCapturedAt = time.GetUtcNow();
             }
         }
 
@@ -670,6 +676,25 @@ internal sealed partial class DatabaseSeeder
             });
         }
 
+        // The week of demo visits was recorded before the clinics had locations: put each one at its clinic,
+        // so the location history of a doctor starts from believable reference points.
+        foreach (var visit in await db.Visits.Include(v => v.Customer).Where(v => v.ArchivedAt == null).ToListAsync(cancellationToken))
+        {
+            if (visit.Customer?.Location is not { } clinic)
+            {
+                visit.ClinicLocationOutcome = ClinicLocationOutcome.NotSaved;
+                visit.ClinicDistanceMeters = null;
+                visit.CheckInGoodFix = false;
+                continue;
+            }
+
+            visit.CheckInLocation = GeoFactory.Point(clinic.Y + (visit.CheckInDistanceMeters / 111_320), clinic.X);
+            visit.CheckOutLocation = visit.CheckOutDistanceMeters is { } outMeters ? GeoFactory.Point(clinic.Y - (outMeters / 111_320), clinic.X) : visit.CheckOutLocation;
+            visit.ClinicLocationOutcome = ClinicLocationOutcome.Compared;
+            visit.ClinicDistanceMeters = visit.CheckInDistanceMeters;
+            visit.CheckInGoodFix = !visit.CheckInIsMock;
+        }
+
         var visits = await db.Visits.Include(v => v.Customer).Where(v => v.UserId == rep.Id).ToListAsync(cancellationToken);
         Visit? VisitAt(string doctor) => visits.Where(v => v.Customer?.Name == doctor).MaxBy(v => v.CheckInAt);
 
@@ -678,8 +703,10 @@ internal sealed partial class DatabaseSeeder
             var clinic = visit.Customer?.Location;
             visit.CheckInLocation = clinic is null ? visit.CheckInLocation : GeoFactory.Point(clinic.Y + (distance / 111_320), clinic.X);
             visit.CheckInDistanceMeters = distance;
+            visit.ClinicDistanceMeters = clinic is null ? null : distance;
             visit.CheckInWithinGeofence = inside;
             visit.CheckInIsMock = mock;
+            visit.CheckInGoodFix = !mock && clinic is not null;
             visit.NeedsReview = true;
             db.TrackingFlags.Add(new TrackingFlag
             {

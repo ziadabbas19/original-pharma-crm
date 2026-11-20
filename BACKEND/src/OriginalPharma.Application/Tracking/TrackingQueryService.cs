@@ -5,21 +5,33 @@ using OriginalPharma.Application.Common.Auditing;
 using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Tracking.Integrity;
+using OriginalPharma.Application.Tracking.Visibility;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Tracking;
 
 namespace OriginalPharma.Application.Tracking;
 
-/// <summary>Dashboard reads: presence, flags and history. Every query is scope filtered.</summary>
+/// <summary>
+/// Dashboard reads: presence, flags and history. Every query is scope filtered, and in visit-only mode
+/// positions are only returned inside the reps' visit windows.
+/// </summary>
 public sealed class TrackingQueryService(
     IAppDbContext db,
     ICurrentUser currentUser,
     IDataScopeResolver scopeResolver,
     ILatestPositionStore latestPositions,
+    VisitWindowService visitWindows,
     IOptions<TrackingOptions> options,
     AuditTrail audit,
     TimeProvider time)
 {
+    public async Task<LocationVisibilityDto> GetVisibilityAsync(CancellationToken cancellationToken = default)
+    {
+        var policy = await visitWindows.PolicyAsync(cancellationToken);
+        return new LocationVisibilityDto(policy.Mode, (int)policy.Buffer.TotalMinutes);
+    }
+
     private const int MaxHistoryPoints = 5000;
 
     public async Task<IReadOnlyList<RepPresenceDto>> GetPresenceAsync(CancellationToken cancellationToken = default)
@@ -56,26 +68,51 @@ public sealed class TrackingQueryService(
             .ToDictionaryAsync(x => x.UserId, x => x.Count, cancellationToken);
 
         var positions = await latestPositions.GetManyAsync(userIds, cancellationToken);
+        var policy = await visitWindows.PolicyAsync(cancellationToken);
+        var visits = await visitWindows.CurrentAsync(userIds, policy.Buffer, cancellationToken);
+        var lastVisitEnds = policy.VisitOnly
+            ? await visitWindows.LastVisitEndAsync(userIds, cancellationToken)
+            : new Dictionary<Guid, DateTimeOffset>();
 
         return users.Select(u =>
             {
                 var shift = shifts.Where(s => s.UserId == u.Id).MaxBy(s => s.StartedAt);
                 positions.TryGetValue(u.Id, out var position);
+                visits.TryGetValue(u.Id, out var visit);
                 var latestDevice = devices.Where(d => d.UserId == u.Id).MaxBy(d => d.LastReportedAt)!;
                 var lastSeen = position?.ReceivedAt ?? shift?.LastPointAt;
+
+                // Visit-only: a position is shown only while the rep is on a visit (or within the buffer after
+                // it), and only when it was recorded inside that visit's window.
+                var hidden = false;
+                if (policy.VisitOnly && position is not null)
+                {
+                    var window = visit is null ? (TimeWindow?)null : new TimeWindow(visit.StartedAt - policy.Buffer, visit.VisibleUntil ?? now);
+                    if (window is not { } w || !w.Contains(position.RecordedAt))
+                    {
+                        position = null;
+                        hidden = true;
+                    }
+                }
 
                 var status = shift switch
                 {
                     null => PresenceStatus.OffShift,
+                    _ when policy.VisitOnly && visit is null => PresenceStatus.NotOnVisit,
                     { TrackingLostAt: not null } => PresenceStatus.TrackingLost,
                     _ when lastSeen is { } seen && now - seen <= TimeSpan.FromMinutes(settings.OnlineWindowMinutes) => PresenceStatus.Online,
                     _ => PresenceStatus.Idle,
                 };
 
                 return new RepPresenceDto(
-                    u.Id, u.FullName, u.TerritoryId, status, shift?.Id, lastSeen, position,
+                    u.Id, u.FullName, u.TerritoryId, status, shift?.Id, lastSeen,
+                    position is null ? null : position with { VisitId = visit?.VisitId, VisitCustomerName = visit?.CustomerName, VisitCustomerNameAr = visit?.CustomerNameAr },
                     latestDevice.IsHealthy, latestDevice.Issues, openFlags.GetValueOrDefault(u.Id),
-                    Common.Images.ImageService.Url(u.AvatarKey, Common.Images.ImageService.Thumbnail));
+                    Common.Images.ImageService.Url(u.AvatarKey, Common.Images.ImageService.Thumbnail),
+                    visit is not null, visit?.VisitId, visit?.CustomerName, visit?.CustomerNameAr, visit?.StartedAt,
+                    visit?.VisibleUntil,
+                    lastVisitEnds.TryGetValue(u.Id, out var ended) ? ended : null,
+                    hidden);
             })
             .OrderBy(p => p.FullName)
             .ToList();
@@ -210,9 +247,33 @@ public sealed class TrackingQueryService(
         var fromUtc = from.ToUniversalTime();
         var toUtc = to.ToUniversalTime();
 
-        var rows = await db.LocationPoints.AsNoTracking()
+        var query = db.LocationPoints.AsNoTracking()
             .WhereInScope(scope)
-            .Where(p => p.UserId == userId && p.RecordedAt >= fromUtc && p.RecordedAt <= toUtc)
+            .Where(p => p.UserId == userId && p.RecordedAt >= fromUtc && p.RecordedAt <= toUtc);
+
+        // Visit-only: the trail is made of the visit windows of that range, nothing in between. The windows
+        // decide (a check-in queued offline may arrive after its points); in all-day mode points that were
+        // recorded outside visits while visit-only was on stay hidden until the purge job removes them.
+        var policy = await visitWindows.PolicyAsync(cancellationToken);
+        IReadOnlyList<TimeWindow>? windows = null;
+        if (!policy.VisitOnly)
+        {
+            query = query.Where(p => !p.OutsideVisitWindow);
+        }
+        else
+        {
+            windows = (await visitWindows.WindowsAsync([userId], fromUtc, toUtc, policy.Buffer, cancellationToken)).GetValueOrDefault(userId) ?? [];
+            if (windows.Count == 0)
+            {
+                return [];
+            }
+
+            var first = windows[0].From;
+            var last = windows.Max(w => w.To);
+            query = query.Where(p => p.RecordedAt >= first && p.RecordedAt <= last);
+        }
+
+        var rows = await query
             .OrderBy(p => p.RecordedAt)
             .Take(MaxHistoryPoints)
             .Select(p => new { p.Location, p.Accuracy, p.RecordedAt, p.Speed, p.IsMock, p.AnomalyScore })
@@ -220,6 +281,7 @@ public sealed class TrackingQueryService(
 
         // Coordinates are read after loading: PostGIS has no ST_X/ST_Y for geography columns.
         return rows
+            .Where(p => windows is null || VisitWindowService.Inside(windows, p.RecordedAt))
             .Select(p => new HistoryPointDto(p.Location.Y, p.Location.X, p.Accuracy, p.RecordedAt, p.Speed, p.IsMock, p.AnomalyScore))
             .ToList();
     }

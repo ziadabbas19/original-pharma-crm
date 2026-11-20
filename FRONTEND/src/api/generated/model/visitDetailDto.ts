@@ -4,6 +4,7 @@
  */
 import type { CustomerType } from './customerType'
 import type { VisitFeedbackDto } from './visitFeedbackDto'
+import type { VisitLocationDto } from './visitLocationDto'
 import type { VisitOrderDto } from './visitOrderDto'
 import type { VisitPhotoDto } from './visitPhotoDto'
 import type { VisitProductDto } from './visitProductDto'
@@ -55,4 +56,13 @@ export interface VisitDetailDto {
   reviewReasons: string[]
   photos: VisitPhotoDto[]
   orders: VisitOrderDto[]
+  location?: null | VisitLocationDto
+  /** @nullable */
+  checkOutLat?: number | null
+  /** @nullable */
+  checkOutLng?: number | null
+  /** @nullable */
+  clinicLat?: number | null
+  /** @nullable */
+  clinicLng?: number | null
 }

@@ -4,16 +4,16 @@ import { useTranslation } from 'react-i18next'
 import { UserAvatar } from '@/components/UserAvatar'
 import { SearchInput } from '@/components/data-table/toolbar'
 import { EmptyState } from '@/components/states'
-import { formatRelative } from '@/lib/format'
+import { formatRelative, formatTime, localizedName } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { LiveRep } from '@/store/slices/liveLocationsSlice'
-import { LIVE_STATUS_DOT, LIVE_STATUSES, type LiveStatus } from '../live-status'
+import { LIVE_STATUSES, liveStatusDot, liveStatusLabelKey, type LiveStatus } from '../live-status'
 import { LiveStatusDot } from '../LiveStatusBadge'
 
 export type LiveRepView = LiveRep & { liveStatus: LiveStatus }
 
 /** Problems first, so a supervisor sees who needs a call. */
-const ORDER: Record<LiveStatus, number> = { lost: 0, stale: 1, online: 2, offShift: 3 }
+const ORDER: Record<LiveStatus, number> = { lost: 0, stale: 1, online: 2, notOnVisit: 3, offShift: 4 }
 
 export function RepList({
   reps,
@@ -24,8 +24,11 @@ export function RepList({
   onSearch,
   statusFilter,
   onStatusFilter,
+  visitOnly = false,
 }: {
   reps: LiveRepView[]
+  /** Visit-only visibility: "online" reads "on a visit", and the visit's doctor is shown. */
+  visitOnly?: boolean
   now: number
   selectedId: string | null
   onSelect: (userId: string) => void
@@ -37,7 +40,7 @@ export function RepList({
   const { t } = useTranslation()
 
   const counts = useMemo(() => {
-    const result: Record<LiveStatus, number> = { online: 0, stale: 0, lost: 0, offShift: 0 }
+    const result: Record<LiveStatus, number> = { online: 0, stale: 0, lost: 0, notOnVisit: 0, offShift: 0 }
     for (const rep of reps) result[rep.liveStatus] += 1
     return result
   }, [reps])
@@ -62,7 +65,7 @@ export function RepList({
           className="sm:w-full"
         />
         <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('liveMap.filterByStatus')}>
-          {LIVE_STATUSES.map((status) => {
+          {LIVE_STATUSES.filter((status) => visitOnly || status !== 'notOnVisit').map((status) => {
             const active = statusFilter === status
             return (
               <button
@@ -75,8 +78,8 @@ export function RepList({
                   active && 'border-primary bg-primary/10 text-foreground',
                 )}
               >
-                <span className={cn('size-2 rounded-full', LIVE_STATUS_DOT[status])} aria-hidden />
-                {t(`liveMap.status.${status}`)}
+                <span className={cn('size-2 rounded-full', liveStatusDot(status, visitOnly))} aria-hidden />
+                {t(liveStatusLabelKey(status, visitOnly))}
                 <span className="font-medium tabular-nums">{counts[status]}</span>
               </button>
             )
@@ -117,8 +120,16 @@ export function RepList({
                       </span>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                      <span>{t(`liveMap.status.${rep.liveStatus}`)}</span>
-                      {!rep.position && (
+                      <span>{t(liveStatusLabelKey(rep.liveStatus, visitOnly))}</span>
+                      {rep.onVisit && rep.visitCustomerName && (
+                        <span className="font-medium text-foreground" data-testid="rep-visit-customer">
+                          {localizedName(rep.visitCustomerName, rep.visitCustomerNameAr)}
+                        </span>
+                      )}
+                      {visitOnly && !rep.onVisit && rep.lastVisitEndedAt && (
+                        <span>{t('liveMap.lastVisitEnded', { time: formatTime(rep.lastVisitEndedAt) })}</span>
+                      )}
+                      {!rep.position && !(visitOnly && !rep.onVisit) && (
                         <span className="inline-flex items-center gap-1">
                           <MapPinOffIcon className="size-3" />
                           {t('liveMap.noPosition')}

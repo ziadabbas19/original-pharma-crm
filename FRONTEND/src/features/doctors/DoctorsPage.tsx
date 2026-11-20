@@ -1,5 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertTriangleIcon, ArrowRightLeftIcon, PencilIcon, StethoscopeIcon, Trash2Icon } from 'lucide-react'
+import {
+  AlertTriangleIcon,
+  ArrowRightLeftIcon,
+  MapPinCheckIcon,
+  MapPinPlusIcon,
+  MapPinnedIcon,
+  PencilIcon,
+  StethoscopeIcon,
+  Trash2Icon,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -29,6 +38,7 @@ import { P } from '@/lib/permissions'
 import { AssignDoctorsDialog, type RepOption } from './AssignDoctorsDialog'
 import { SpecialtySelect, TownSelect } from './doctor-fields'
 import { DoctorEditDialog } from './DoctorEditDialog'
+import { DoctorLocationSheet } from './DoctorLocationSheet'
 
 const column = dataTableColumns<DoctorDto>()
 const doctorId = (d: DoctorDto) => d.id
@@ -51,6 +61,7 @@ export function DoctorsPage() {
   const [unassigned, setUnassigned] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [editing, setEditing] = useState<DoctorDto | null>(null)
+  const [locating, setLocating] = useState<string | null>(null)
   const term = useDebouncedValue(search.trim(), 300)
 
   const params = {
@@ -141,6 +152,28 @@ export function DoctorsPage() {
           header: () => t('doctors.town'),
           meta: { className: 'hidden @[41rem]:table-cell' },
         }),
+        column.accessor((d) => (d.lat != null ? (d.locationSource ?? 'managerSet') : ''), {
+          id: 'location',
+          header: () => t('doctors.locationHistory.column'),
+          cell: ({ row }) =>
+            row.original.lat != null ? (
+              <span className="inline-flex items-center gap-1.5 text-sm" data-testid="doctor-has-location">
+                <MapPinCheckIcon className="size-4 text-success" aria-hidden />
+                {row.original.locationSource
+                  ? t(`doctors.locationSources.${row.original.locationSource}`)
+                  : t('doctors.locationHistory.saved')}
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
+                data-testid="doctor-location-pending"
+              >
+                <MapPinPlusIcon className="size-4" aria-hidden />
+                {t('doctors.locationHistory.pendingShort')}
+              </span>
+            ),
+          meta: { className: 'hidden @[60rem]:table-cell' },
+        }),
         column.accessor((d) => d.reps.length, {
           id: 'reps',
           header: () => t('doctors.reps'),
@@ -163,13 +196,23 @@ export function DoctorsPage() {
             ),
           meta: { className: 'hidden @[33rem]:table-cell' },
         }),
-        ...((canEdit || canDelete) && !archived
+        ...(!archived
           ? [
               column.display({
                 id: 'actions',
                 header: () => <span className="sr-only">{t('table.actions')}</span>,
                 cell: ({ row }) => (
                   <div className="flex justify-end gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={t('doctors.locationHistory.open')}
+                      title={t('doctors.locationHistory.open')}
+                      onClick={() => setLocating(row.original.id)}
+                      data-testid="doctor-location-open"
+                    >
+                      <MapPinnedIcon />
+                    </Button>
                     {canEdit && (
                       <Button
                         size="sm"
@@ -344,6 +387,9 @@ export function DoctorsPage() {
         />
       )}
       {editing && <DoctorEditDialog key={editing.id} doctor={editing} onClose={() => setEditing(null)} />}
+      {locating && (
+        <DoctorLocationSheet key={locating} doctorId={locating} onClose={() => setLocating(null)} />
+      )}
     </>
   )
 }

@@ -54,6 +54,8 @@ import {
 import { invalidateApi } from '@/lib/invalidate-api'
 import { P } from '@/lib/permissions'
 import { CATEGORY_BADGE, FEEDBACK_CATEGORIES, STATUS_BADGE } from './visit-labels'
+import { distanceCells, locationBadges, mapLink } from './visit-location'
+import { LocationBadges } from './VisitLocationBadges'
 import { VisitDetailSheet } from './VisitDetailSheet'
 
 const route = getRouteApi('/admin/visits')
@@ -75,6 +77,7 @@ export function VisitsPage() {
   const [range, setRange] = useState(lastWeek)
   const [status, setStatus] = useState<'' | VisitStatus>('')
   const [reviewOnly, setReviewOnly] = useState(false)
+  const [driftOnly, setDriftOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<'' | NonNullable<VisitFeedbackCategory>>('')
   const [productId, setProductId] = useState('')
@@ -98,6 +101,7 @@ export function VisitsPage() {
     to: end.toISOString(),
     ...(status ? { status } : {}),
     ...(reviewOnly ? { needsReview: true } : {}),
+    ...(driftOnly ? { locationDrift: true } : {}),
     ...(category ? { feedbackCategory: category } : {}),
     ...(productId ? { productId } : {}),
     ...(archived ? { archived: true } : {}),
@@ -214,21 +218,46 @@ export function VisitsPage() {
             meta: { className: 'hidden @[60rem]:table-cell' },
           },
         ),
-        column.accessor('checkInDistanceMeters', {
-          header: () => t('visits.distance'),
-          cell: ({ row }) => (
-            <span className="inline-flex items-center gap-1.5 tabular-nums">
-              {row.original.checkInWithinGeofence ? (
-                <MapPinCheckIcon className="size-4 text-success" aria-label={t('visits.inside')} />
-              ) : (
-                <MapPinXIcon className="size-4 text-destructive" aria-label={t('visits.outside')} />
-              )}
-              {formatDistance(row.original.checkInDistanceMeters)}
-              <span className="text-xs text-muted-foreground">
-                ±{formatDistance(Math.round(row.original.checkInAccuracy))}
-              </span>
-            </span>
-          ),
+        column.accessor((v) => v.location?.clinicDistanceMeters ?? v.checkInDistanceMeters, {
+          id: 'location',
+          header: () => t('visits.location.column'),
+          cell: ({ row }) => {
+            const v = row.original
+            const cells = distanceCells(v.location)
+            return (
+              <div className="grid gap-0.5 text-xs" data-testid="visit-location-cell">
+                <span className="inline-flex items-center gap-1.5 text-sm tabular-nums">
+                  {v.checkInWithinGeofence ? (
+                    <MapPinCheckIcon className="size-4 text-success" aria-label={t('visits.inside')} />
+                  ) : (
+                    <MapPinXIcon className="size-4 text-destructive" aria-label={t('visits.outside')} />
+                  )}
+                  {v.location ? (
+                    <a
+                      href={mapLink(v.location.lat, v.location.lng)}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="underline-offset-2 hover:underline"
+                      title={t('visits.location.openMap')}
+                    >
+                      ±{formatDistance(Math.round(v.checkInAccuracy))}
+                    </a>
+                  ) : (
+                    <span>±{formatDistance(Math.round(v.checkInAccuracy))}</span>
+                  )}
+                </span>
+                <span className="flex flex-wrap gap-x-2 text-muted-foreground tabular-nums">
+                  {cells.map((cell) => (
+                    <span key={cell.key} className={cell.exceeded ? 'font-semibold text-warning' : undefined}>
+                      {t(`visits.location.short.${cell.key}`)}{' '}
+                      {cell.meters == null ? '—' : formatDistance(cell.meters)}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            )
+          },
           meta: { className: 'hidden @[66rem]:table-cell' },
         }),
         column.display({
@@ -258,17 +287,13 @@ export function VisitsPage() {
         }),
         column.accessor('needsReview', {
           header: () => t('visits.review'),
-          cell: (info) =>
-            info.getValue() ? (
-              <Badge
-                variant="destructive"
-                title={info.row.original.reviewReasons.map((r) => t(`visits.reviewReasons.${r}`)).join(' · ')}
-              >
-                {t('visits.needsReview')}
-              </Badge>
-            ) : (
-              <span className="text-muted-foreground">—</span>
-            ),
+          cell: (info) => (
+            <span
+              title={info.row.original.reviewReasons.map((r) => t(`visits.reviewReasons.${r}`)).join(' · ')}
+            >
+              <LocationBadges badges={locationBadges(info.row.original.location, info.getValue())} />
+            </span>
+          ),
           meta: { className: 'hidden @[44.5rem]:table-cell' },
         }),
       ]),
@@ -286,11 +311,14 @@ export function VisitsPage() {
         onRetry={() => void visits.refetch()}
         getRowId={(v) => v.id}
         initialSorting={[{ id: 'checkInAt', desc: true }]}
-        filtered={search !== '' || status !== '' || reviewOnly || category !== '' || productId !== ''}
+        filtered={
+          search !== '' || status !== '' || reviewOnly || driftOnly || category !== '' || productId !== ''
+        }
         onClearFilters={() => {
           setSearch('')
           setStatus('')
           setReviewOnly(false)
+          setDriftOnly(false)
           setCategory('')
           setProductId('')
         }}
@@ -408,6 +436,16 @@ export function VisitsPage() {
               />
               <Label htmlFor="visits-review-only" className="font-normal">
                 {t('visits.reviewOnly')}
+              </Label>
+            </div>
+            <div className="flex h-9 items-center gap-2">
+              <Checkbox
+                id="visits-drift-only"
+                checked={driftOnly}
+                onCheckedChange={(checked) => setDriftOnly(checked === true)}
+              />
+              <Label htmlFor="visits-drift-only" className="font-normal">
+                {t('visits.location.driftOnly')}
               </Label>
             </div>
             <ToolbarSpacer />

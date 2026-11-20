@@ -99,7 +99,7 @@ export function VisitDetailSheet({ visitId, onClose }: { visitId: string; onClos
                 )}
               </dl>
 
-              <VisitVerificationCard visit={data} />
+              <VisitVerificationCard visit={data} showHistory />
 
               <VisitOrdersList orders={data.orders} app="admin" />
 

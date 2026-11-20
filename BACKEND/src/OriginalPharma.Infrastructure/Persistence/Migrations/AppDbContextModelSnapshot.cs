@@ -431,6 +431,26 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("geography (point, 4326)")
                         .HasColumnName("location");
 
+                    b.Property<double?>("LocationAccuracyMeters")
+                        .HasColumnType("double precision")
+                        .HasColumnName("location_accuracy_meters");
+
+                    b.Property<DateTimeOffset?>("LocationCapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("location_captured_at");
+
+                    b.Property<Guid?>("LocationCapturedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_captured_by_id");
+
+                    b.Property<int?>("LocationSource")
+                        .HasColumnType("integer")
+                        .HasColumnName("location_source");
+
+                    b.Property<Guid?>("LocationVisitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_visit_id");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1795,6 +1815,10 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("geography (point, 4326)")
                         .HasColumnName("location");
 
+                    b.Property<bool>("OutsideVisitWindow")
+                        .HasColumnType("boolean")
+                        .HasColumnName("outside_visit_window");
+
                     b.Property<DateTimeOffset>("ReceivedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("received_at");
@@ -1848,6 +1872,10 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "RecordedAt")
                         .IsUnique()
                         .HasDatabaseName("ix_location_points_user_id_recorded_at");
+
+                    b.HasIndex(new[] { "RecordedAt" }, "PointsOutsideVisits")
+                        .HasDatabaseName("ix_location_points_outside_visit_window")
+                        .HasFilter("outside_visit_window");
 
                     b.HasIndex(new[] { "RecordedAt" }, "PointsWithDeviceSignals")
                         .HasDatabaseName("ix_location_points_device_signals")
@@ -2119,9 +2147,17 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("check_in_at");
 
+                    b.Property<DateTimeOffset?>("CheckInDeviceTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("check_in_device_time");
+
                     b.Property<double>("CheckInDistanceMeters")
                         .HasColumnType("double precision")
                         .HasColumnName("check_in_distance_meters");
+
+                    b.Property<bool>("CheckInGoodFix")
+                        .HasColumnType("boolean")
+                        .HasColumnName("check_in_good_fix");
 
                     b.Property<bool>("CheckInIsMock")
                         .HasColumnType("boolean")
@@ -2135,6 +2171,13 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CheckInReceivedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("check_in_received_at");
+
+                    b.PrimitiveCollection<List<string>>("CheckInSignalCodes")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("check_in_signal_codes")
+                        .HasDefaultValueSql("'{}'::text[]");
 
                     b.Property<bool>("CheckInWithinGeofence")
                         .HasColumnType("boolean")
@@ -2152,6 +2195,10 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("check_out_client_request_id");
 
+                    b.Property<DateTimeOffset?>("CheckOutDeviceTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("check_out_device_time");
+
                     b.Property<double?>("CheckOutDistanceMeters")
                         .HasColumnType("double precision")
                         .HasColumnName("check_out_distance_meters");
@@ -2168,9 +2215,26 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("check_out_received_at");
 
+                    b.PrimitiveCollection<List<string>>("CheckOutSignalCodes")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("check_out_signal_codes")
+                        .HasDefaultValueSql("'{}'::text[]");
+
                     b.Property<bool?>("CheckOutWithinGeofence")
                         .HasColumnType("boolean")
                         .HasColumnName("check_out_within_geofence");
+
+                    b.Property<double?>("ClinicDistanceMeters")
+                        .HasColumnType("double precision")
+                        .HasColumnName("clinic_distance_meters");
+
+                    b.Property<int>("ClinicLocationOutcome")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("clinic_location_outcome");
 
                     b.Property<DateTimeOffset?>("ContentUpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2186,6 +2250,25 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("device_id");
 
+                    b.PrimitiveCollection<List<string>>("DriftSources")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("drift_sources")
+                        .HasDefaultValueSql("'{}'::text[]");
+
+                    b.Property<bool>("LocationDrift")
+                        .HasColumnType("boolean")
+                        .HasColumnName("location_drift");
+
+                    b.Property<double?>("MedianDistanceMeters")
+                        .HasColumnType("double precision")
+                        .HasColumnName("median_distance_meters");
+
+                    b.Property<double?>("NearestVisitDistanceMeters")
+                        .HasColumnType("double precision")
+                        .HasColumnName("nearest_visit_distance_meters");
+
                     b.Property<bool>("NeedsReview")
                         .HasColumnType("boolean")
                         .HasColumnName("needs_review");
@@ -2195,13 +2278,29 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("notes");
 
+                    b.Property<double?>("PreviousVisitDistanceMeters")
+                        .HasColumnType("double precision")
+                        .HasColumnName("previous_visit_distance_meters");
+
+                    b.Property<Guid?>("PreviousVisitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("previous_visit_id");
+
                     b.Property<bool>("QrVerified")
                         .HasColumnType("boolean")
                         .HasColumnName("qr_verified");
 
+                    b.Property<int>("ReferenceVisitCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("reference_visit_count");
+
                     b.Property<Guid?>("ShiftId")
                         .HasColumnType("uuid")
                         .HasColumnName("shift_id");
+
+                    b.Property<double?>("SincePreviousVisitSeconds")
+                        .HasColumnType("double precision")
+                        .HasColumnName("since_previous_visit_seconds");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer")
@@ -2232,6 +2331,9 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_visits_one_in_progress_per_user")
                         .HasFilter("status = 1 AND archived_at IS NULL");
+
+                    b.HasIndex("CustomerId", "CheckInAt")
+                        .HasDatabaseName("ix_visits_customer_id_check_in_at");
 
                     b.HasIndex("TerritoryId", "CheckInAt")
                         .HasDatabaseName("ix_visits_territory_id_check_in_at");

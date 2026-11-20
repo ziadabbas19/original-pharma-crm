@@ -41,6 +41,10 @@ internal sealed class VisitConfiguration : IEntityTypeConfiguration<Visit>
         builder.Property(v => v.CheckOutLocation).HasColumnType(GeoColumn.Point);
         builder.Property(v => v.Notes).HasMaxLength(2000);
         builder.Property(v => v.TrustReasons).HasDefaultValueSql("'{}'::text[]");
+        builder.Property(v => v.CheckInSignalCodes).HasDefaultValueSql("'{}'::text[]");
+        builder.Property(v => v.CheckOutSignalCodes).HasDefaultValueSql("'{}'::text[]");
+        builder.Property(v => v.DriftSources).HasDefaultValueSql("'{}'::text[]");
+        builder.Property(v => v.ClinicLocationOutcome).HasDefaultValue(ClinicLocationOutcome.Compared).HasSentinel(0);
         builder.HasOne(v => v.Customer).WithMany().HasForeignKey(v => v.CustomerId).OnDelete(DeleteBehavior.Restrict);
         builder.HasMany(v => v.Photos).WithOne().HasForeignKey(p => p.VisitId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(v => v.Feedback).WithOne().HasForeignKey<VisitFeedback>(f => f.VisitId).OnDelete(DeleteBehavior.Cascade);
@@ -56,6 +60,9 @@ internal sealed class VisitConfiguration : IEntityTypeConfiguration<Visit>
             .HasDatabaseName("ux_visits_one_in_progress_per_user");
         builder.HasIndex(v => new { v.TerritoryId, v.CheckInAt });
         builder.HasIndex(v => v.CustomerId);
+
+        // Location history of a doctor: earlier visits with a good fix, in time order.
+        builder.HasIndex(v => new { v.CustomerId, v.CheckInAt });
     }
 }
 

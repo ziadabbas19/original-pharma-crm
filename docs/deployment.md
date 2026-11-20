@@ -62,6 +62,12 @@ is missing, unsafe or still a placeholder, and names each variable to fix.
 | `Tracking__Trust__MockPolicy` | `FlagOnly` | Default policy: `FlagOnly` or `FlagAndExclude` |
 | `Tracking__Trust__DeviceSignalsRetentionDays` | `30` | Default retention of the device signals stored with location points |
 | `Tracking__Trust__NotificationThrottleMinutes` | `60` | A supervisor is told about the same rep at most once in this window |
+| `Tracking__Trust__DriftFromClinicMeters` | `150` | Default "location drift" distance from the saved clinic location. See [location-trust.md](location-trust.md#clinic-locations-and-visit-history) |
+| `Tracking__Trust__DriftFromVisitsMeters` | `150` | Default "location drift" distance from the median of the earlier visits and from the previous visit |
+| `Tracking__Trust__MaxReferenceVisits` | `50` | A new visit is compared with at most this many earlier visits to the same doctor |
+| `Tracking__Trust__LocationVisibility` | `VisitOnly` | Default visibility: `VisitOnly` (positions only during visits) or `AllDay`. See [location-trust.md](location-trust.md#location-visibility-visits-only) |
+| `Tracking__Trust__VisitWindowBufferMinutes` | `5` | Default buffer before check-in and after check-out (0 to 60) |
+| `Tracking__Trust__OutsideVisitGraceHours` | `12` | Visit-only: points recorded outside visits are deleted after this many hours (a late offline check-in can still cover them) |
 
 The location trust settings saved from the dashboard are stored in the database and win over these defaults. None of
 them is required.

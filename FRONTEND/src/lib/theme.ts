@@ -13,7 +13,7 @@ export type ResolvedTheme = 'light' | 'dark'
 const STORAGE_KEY = 'op.theme'
 
 /** Browser / status bar colour per theme: the header (card) colour, so the bars blend in. */
-export const THEME_COLORS: Record<ResolvedTheme, string> = { light: '#ffffff', dark: '#1c1d21' }
+export const THEME_COLORS: Record<ResolvedTheme, string> = { light: '#ffffff', dark: '#212835' }
 
 const media = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null
 const listeners = new Set<() => void>()

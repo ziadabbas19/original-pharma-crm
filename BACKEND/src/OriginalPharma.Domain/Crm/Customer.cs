@@ -9,6 +9,16 @@ public enum CustomerType
     Pharmacy = 2,
 }
 
+/// <summary>Where the saved clinic / pharmacy location came from.</summary>
+public enum ClinicLocationSource
+{
+    /// <summary>Typed in or changed by a manager (customers:manage).</summary>
+    ManagerSet = 1,
+
+    /// <summary>Taken from the first visit with a good fix, when no location was saved yet.</summary>
+    FirstVisit = 2,
+}
+
 /// <summary>
 /// Doctor or pharmacy a rep visits. Doctors are kept once and linked to the reps that
 /// cover them (<see cref="RepDoctor"/>).
@@ -38,6 +48,20 @@ public class Customer : Entity, IArchivable
 
     /// <summary>Clinic / pharmacy location used for geofence checks.</summary>
     public Point? Location { get; set; }
+
+    /// <summary>How <see cref="Location"/> was set (null when there is none, or for locations saved before this was kept).</summary>
+    public ClinicLocationSource? LocationSource { get; set; }
+
+    /// <summary>The rep (first visit) or manager who set the location.</summary>
+    public Guid? LocationCapturedById { get; set; }
+
+    public DateTimeOffset? LocationCapturedAt { get; set; }
+
+    /// <summary>Reported accuracy of the fix the location was taken from (first visit only).</summary>
+    public double? LocationAccuracyMeters { get; set; }
+
+    /// <summary>The visit whose check-in became the location (first visit only).</summary>
+    public Guid? LocationVisitId { get; set; }
 
     public int GeofenceRadiusMeters { get; set; } = 150;
 

@@ -89,7 +89,9 @@
     "statistics": "Statistics",
     "notifications": "Notifications",
     "activity": "Activity log",
-    "suspicious": "Suspicious activity"
+    "suspicious": "Suspicious activity",
+    "account": "Account",
+    "needsAttention": "needs attention"
   },
   "admin": {
     "welcome": "Welcome, {{name}}",
@@ -439,7 +441,8 @@
       "empty": "No pharmacies in your area."
     },
     "customerPage": {
-      "hasLocation": "Location saved for visit check-in"
+      "hasLocation": "Location saved for visit check-in",
+      "firstVisitSaves": "No clinic location yet. Your first visit will save it."
     },
     "checkInFlow": {
       "title": "Start visit",
@@ -449,8 +452,6 @@
       "outsideTitle": "You are {{distance}} from the customer",
       "outsideBody": "Allowed range is {{allowed}} (accuracy {{accuracy}}). You can still start, and your supervisor will review this visit.",
       "outsideRefused": "Allowed range is {{allowed}} (accuracy {{accuracy}}). Move closer to start the visit.",
-      "noLocationTitle": "No location saved for this customer",
-      "noLocationBody": "The visit cannot be verified without it. Ask your supervisor to save the customer's location.",
       "lowAccuracyTitle": "Location is not accurate enough",
       "lowAccuracyBody": "Accuracy is {{accuracy}} m and at most {{max}} m is needed. Move outdoors and try again.",
       "unavailable": {
@@ -480,7 +481,13 @@
       "alreadyOpenBody": "Check out of your visit at {{customer}} before starting another one.",
       "openActive": "Open current visit",
       "noDayTitle": "Your day has not started",
-      "noDayBody": "Start your day before checking in to a visit."
+      "noDayBody": "Start your day before checking in to a visit.",
+      "firstVisitTitle": "First visit: no clinic location saved yet",
+      "firstVisitBody": "Start the visit as usual. This visit's location (accuracy {{accuracy}}) will be saved as the clinic location.",
+      "firstVisitWeakBody": "You can start the visit. The signal is weak (accuracy {{accuracy}}), so this location will not be saved as the clinic location and your supervisor will review the visit. The next visit will try again.",
+      "firstVisitMockBody": "You can start the visit. This phone reported a simulated location, so it will not be saved as the clinic location and your supervisor will review the visit.",
+      "mapAllowed": "from the clinic · allowed range {{allowed}}",
+      "mapFirstVisit": "This visit sets the clinic location"
     },
     "active": {
       "elapsed": "Visit duration",
@@ -527,7 +534,42 @@
       "mock-location": "The phone reported a simulated location",
       "no-check-out-location": "No location at check-out",
       "far-from-doctor": "Checked in or out far from the doctor's saved location",
-      "low-trust": "Weak location evidence (accuracy, phone settings or suspicious points around the visit)"
+      "low-trust": "Weak location evidence (accuracy, phone settings or suspicious points around the visit)",
+      "location-drift": "Recorded far from the clinic or from the earlier visits to this doctor",
+      "clinic-location-not-saved": "First visit with a weak or simulated location: the clinic location was not saved",
+      "impossible-speed": "Too far from the previous visit for the time between them"
+    },
+    "location": {
+      "mapLabel": "Map of the saved locations",
+      "column": "Location",
+      "accuracy": "Accuracy",
+      "fromClinic": "From clinic",
+      "fromPrevious": "From previous visit",
+      "fromMedian": "From earlier visits (median)",
+      "short": {
+        "clinic": "Clinic",
+        "previous": "Prev.",
+        "median": "Median"
+      },
+      "openMap": "Open the location on a map",
+      "driftOnly": "Location drift only",
+      "badges": {
+        "drift": "Drift",
+        "flagged": "Flagged",
+        "firstVisit": "Saved clinic",
+        "notSaved": "Clinic not saved"
+      },
+      "outcomes": {
+        "savedAsClinic": "This visit's location became the clinic location (first visit).",
+        "notSaved": "The doctor had no clinic location and this location was not good enough to save."
+      },
+      "gap": "{{days}} d {{hours}} h {{minutes}} min apart",
+      "nearest": "Nearest earlier visit",
+      "references_one": "{{value}} earlier visit compared",
+      "references_other": "{{value}} earlier visits compared",
+      "point": "Check-in point",
+      "checkInPoint": "Check-in",
+      "checkOutPoint": "Check-out"
     }
   },
   "liveMap": {
@@ -549,7 +591,9 @@
       "online": "Online",
       "stale": "Not reporting",
       "lost": "Tracking lost",
-      "offShift": "Off shift"
+      "offShift": "Off shift",
+      "notOnVisit": "Not on a visit",
+      "onVisit": "On a visit"
     },
     "searchPlaceholder": "Search reps",
     "filterByStatus": "Filter by status",
@@ -580,7 +624,18 @@
     "fitRoute": "Show whole route",
     "mapLabel": "Map of rep positions",
     "routeExcluded_one": "{{count}} point left out of the distance (grey)",
-    "routeExcluded_other": "{{count}} points left out of the distance (grey)"
+    "routeExcluded_other": "{{count}} points left out of the distance (grey)",
+    "showDoctors": "Doctors",
+    "onVisitWith": "On a visit: {{name}}",
+    "lastVisitEnded": "last visit ended {{time}}",
+    "notOnVisitHint": "Not on a visit: the position is not shown.",
+    "positionDuringVisits": "Shown only during visits",
+    "routeDuringVisits": "Only the time of visits is shown.",
+    "noRepOnVisit": "No rep is on a visit right now",
+    "visibility": {
+      "visitOnly": "Reps' locations are visible only while they are on a visit, and for {{minutes}} minutes before and after it. Outside visits only their status is shown.",
+      "allDay": "Reps' locations are visible for the whole working day."
+    }
   },
   "rep": {
     "greeting": "Hello, {{name}}",
@@ -600,7 +655,8 @@
       "consent-required": "Please accept the tracking consent in the setup first.",
       "device-not-ready": "Please finish the tracking setup on this phone first.",
       "no-active-shift": "Your day is not running."
-    }
+    },
+    "dayRunningVisitOnly": "Your day is running. Your location is shared only during visits."
   },
   "settings": {
     "title": "Settings",
@@ -611,7 +667,20 @@
     "language": "Language",
     "appVersion": "App version {{version}}",
     "device": "Device",
-    "deviceId": "Device ID"
+    "deviceId": "Device ID",
+    "status": {
+      "location": "Location tracking",
+      "notifications": "Notifications",
+      "ok": "Ready",
+      "attention": "Needs attention",
+      "unknown": "Checking…",
+      "note": "Keep location on \"Allow all the time\" and turn off battery optimization for this app, so visits are recorded reliably."
+    },
+    "ordersHint": "Orders you took and their status",
+    "ordersWaiting_one": "{{count}} order waiting to be sent",
+    "ordersWaiting_other": "{{count}} orders waiting to be sent",
+    "statsHint": "Your visits and sales over time",
+    "visitOnlyNote": "Your location is shared with the company only during your visits."
   },
   "health": {
     "title": "Tracking health",
@@ -1352,7 +1421,33 @@
     "lat": "Latitude",
     "lng": "Longitude",
     "radius": "Range (m)",
-    "locationHint": "Used to verify visits. Range is 20 to 2000 metres; leave both coordinates empty for no location."
+    "locationHint": "Used to verify visits. Range is 20 to 2000 metres; leave both coordinates empty for no location.",
+    "locationFromFirstVisit": "No location is needed now: the clinic location is saved from the first visit.",
+    "locationSources": {
+      "managerSet": "Set by a manager",
+      "firstVisit": "From the first visit"
+    },
+    "locationHistory": {
+      "title": "Clinic location",
+      "hint": "The saved clinic location and where each visit was recorded. Distances are stored when the visit arrives and never change.",
+      "open": "Clinic location and visit points",
+      "column": "Clinic location",
+      "saved": "Saved",
+      "pendingShort": "Saved at first visit",
+      "pending": "No clinic location yet. The first visit with a good GPS fix will save it, or enter the coordinates.",
+      "clinic": "Clinic",
+      "source": "Source",
+      "capturedBy": "Saved by",
+      "capturedAt": "Saved on",
+      "sourceLine": "{{source}} · {{name}} · {{time}}",
+      "median": "Median of the visits",
+      "visitPoint": "Visit (numbered by date)",
+      "flaggedPoint": "Drift or flagged visit",
+      "numbersHint": "1 is the oldest visit.",
+      "visits": "Visits",
+      "noVisits": "No visits in your scope yet.",
+      "capped": "Showing the latest 300 visits."
+    }
   },
   "orders": {
     "title": "Orders",
@@ -1770,7 +1865,8 @@
       "none": "No suspicious points around this event.",
       "deviceTime": "Phone clock {{time}}",
       "altitude": "Altitude {{value}} m",
-      "accuracyOf": "accuracy {{value}}"
+      "accuracyOf": "accuracy {{value}}",
+      "hidden": "Not shown (outside a visit)"
     },
     "device": {
       "title": "Phone settings at that time",
@@ -1803,7 +1899,8 @@
         "flagOnly": "Fake locations are flagged and still counted.",
         "flagAndExclude": "Fake locations are flagged and left out of distance and attendance."
       }
-    }
+    },
+    "locationHidden": "Recorded outside a visit: only the time and the reasons are shown."
   },
   "adminSettings": {
     "title": "Settings",
@@ -1838,7 +1935,10 @@
         "lowTrustAccuracyMeters": "Weak fix from (m)",
         "perfectAccuracyMeters": "Unrealistic accuracy up to (m)",
         "repeatedAccuracyRun": "Same accuracy in a row (fixes)",
-        "deviceSignalsRetentionDays": "Keep phone settings for (days)"
+        "deviceSignalsRetentionDays": "Keep phone settings for (days)",
+        "driftFromClinicMeters": "Drift from the clinic from (m)",
+        "driftFromVisitsMeters": "Drift from earlier visits from (m)",
+        "visitWindowBufferMinutes": "Visit buffer (minutes)"
       },
       "hints": {
         "maxSpeedKmh": "Faster movement between two locations is physically impossible: the point is rejected (kept, never counted).",
@@ -1847,8 +1947,76 @@
         "lowTrustAccuracyMeters": "Visit locations less accurate than this are marked as weak evidence.",
         "perfectAccuracyMeters": "Real phones rarely report better than 3 m; fake GPS apps often report 0 to 1 m.",
         "repeatedAccuracyRun": "This many locations in a row with exactly the same accuracy look generated.",
-        "deviceSignalsRetentionDays": "Phone settings saved with each location (developer options, fake GPS apps, root) are deleted after this many days."
+        "deviceSignalsRetentionDays": "Phone settings saved with each location (developer options, fake GPS apps, root) are deleted after this many days.",
+        "driftFromClinicMeters": "A check-in further than this from the saved clinic location (after the accuracy allowance) is marked \"location drift\" for review. The rep is never blocked.",
+        "driftFromVisitsMeters": "Further than this from the median of the earlier visits (with at least two) or from the previous visit is also \"location drift\".",
+        "visitWindowBufferMinutes": "Positions stay visible this long before check-in and after check-out."
+      },
+      "history": "Visit location history",
+      "visibility": "Who sees where reps are",
+      "visibilities": {
+        "visitOnly": "During visits only",
+        "visitOnlyHint": "Managers see a rep's position only from the start to the end of each visit (plus the buffer). The app collects locations only during visits; points outside visits are not kept.",
+        "allDay": "All working day",
+        "allDayHint": "Positions and routes are visible from \"Start my day\" to \"End my day\"."
+      }
+    },
+    "tabs": {
+      "locationTrust": "Location trust",
+      "repHome": "Rep home"
+    },
+    "repHome": {
+      "title": "Rep home screen",
+      "description": "Choose the blocks reps see on the Home screen of the app and their order. The app reads this when it opens; offline it keeps the last copy.",
+      "order": "Home blocks in order",
+      "moveUp": "Move {{name}} up",
+      "moveDown": "Move {{name}} down",
+      "target": "Daily visit target",
+      "targetHint": "Shown as \"done / target\" in today's progress.",
+      "reset": "Reset to defaults",
+      "preview": "Preview of the rep Home",
+      "hints": {
+        "todayProgress": "Ring with the visits done against the daily target",
+        "upcomingVisits": "Doctors not visited yet today, then today's visits",
+        "startNextVisit": "One button for the next doctor on the list",
+        "weeklySummary": "Not available yet: shows an empty state",
+        "targetsAndSales": "Not available yet: shows an empty state",
+        "managerAlerts": "Unread replies and decisions from managers"
       }
     }
+  },
+  "repHome": {
+    "sections": {
+      "todayProgress": "Today's progress",
+      "upcomingVisits": "Next visits",
+      "startNextVisit": "Start next visit",
+      "weeklySummary": "Weekly summary",
+      "targetsAndSales": "Targets and sales",
+      "managerAlerts": "Messages from your managers"
+    },
+    "progress": {
+      "title": "Today's visits",
+      "summary": "{{done}} of {{target}} visits done today"
+    },
+    "status": {
+      "inProgress": "In progress",
+      "waiting": "Not visited",
+      "done": "Done"
+    },
+    "upcoming": {
+      "empty": "No doctors on your list yet."
+    },
+    "startNext": {
+      "label": "Start next visit",
+      "withName": "Start next visit: {{name}}",
+      "noDay": "Start your day first.",
+      "allVisited": "Everyone on your list was visited today."
+    },
+    "notYet": "Not available yet. It will show here once your company turns it on.",
+    "alerts": {
+      "all": "All",
+      "empty": "No new messages."
+    },
+    "noSections": "Your company has not chosen anything to show here."
   }
 }

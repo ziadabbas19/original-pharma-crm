@@ -1,10 +1,16 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
   ActivityIcon,
+  BarChart3Icon,
+  BellIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  InfoIcon,
   KeyRoundIcon,
   LogOutIcon,
+  MapPinIcon,
+  ReceiptTextIcon,
+  ShieldCheckIcon,
   WrenchIcon,
   type LucideIcon,
 } from 'lucide-react'
@@ -15,10 +21,17 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { AvatarEditor } from '@/features/profile/AvatarEditor'
 import { ChangePasswordForm } from '@/features/profile/ChangePasswordForm'
 import { roleName } from '@/features/roles/role-rules'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { platform, type AppInfo } from '@/lib/platform'
+import { usePermission } from '@/features/auth/usePermission'
+import { useOrderOutbox } from '@/features/orders/order-outbox'
+import { P } from '@/lib/permissions'
+import { accountStatus } from './account-status'
+import { collectionMode } from './collection'
 import { logout } from '@/lib/session'
 import { useAppSelector } from '@/store'
 
@@ -28,6 +41,15 @@ export function RepSettingsPage() {
   const navigate = useNavigate()
   const shift = useAppSelector((s) => s.tracking.shift)
   const user = useAppSelector((s) => s.auth.user)
+  const issues = useAppSelector((s) => s.tracking.healthIssues)
+  const checked = useAppSelector((s) => s.tracking.healthCheckedAt !== null)
+  const status = accountStatus(issues, checked)
+  const outbox = useOrderOutbox()
+  const ordersWaiting = outbox.pending.length + outbox.failed.length
+  const canSeeStats = usePermission(P.stats.read)
+  // Re-read when the server's config arrives (collectionMode falls back to the copy on the device).
+  const configMode = useAppSelector((s) => s.tracking.config?.collectionMode)
+  const visitOnly = (configMode ?? collectionMode()) === 'visitOnly'
   const [changingPassword, setChangingPassword] = useState(false)
   const [info, setInfo] = useState<AppInfo | null>(null)
   const Chevron = i18n.dir() === 'rtl' ? ChevronLeftIcon : ChevronRightIcon
@@ -43,26 +65,74 @@ export function RepSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">{t('settings.title')}</h1>
+      <h1 className="text-2xl font-bold">{t('nav.account')}</h1>
 
       {user && (
-        <Card className="gap-3 py-4">
-          <CardContent className="grid gap-3 px-5">
-            <div>
-              <p className="font-semibold">{user.fullName}</p>
-              <p className="text-sm text-muted-foreground" dir="ltr">
-                {user.email}
-              </p>
-              {user.roles.length > 0 && (
-                <p className="text-xs text-muted-foreground">{user.roles.map(roleName).join(' · ')}</p>
-              )}
+        <Card className="gap-3 py-4" data-testid="account-profile">
+          <CardContent className="grid gap-4 px-5">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-section font-bold">{user.fullName}</p>
+                <p className="truncate text-sm text-muted-foreground" dir="ltr">
+                  {user.email}
+                </p>
+                {user.roles.length > 0 && (
+                  <Badge className="mt-1">{user.roles.map(roleName).join(' · ')}</Badge>
+                )}
+              </div>
             </div>
             <AvatarEditor />
           </CardContent>
         </Card>
       )}
 
-      <Card className="gap-0 py-0">
+      <Card className="gap-0 py-0" data-testid="account-status">
+        <StatusRow icon={MapPinIcon} label={t('settings.status.location')} state={status.location} />
+        <Separator />
+        <StatusRow icon={BellIcon} label={t('settings.status.notifications')} state={status.notifications} />
+      </Card>
+
+      {visitOnly && (
+        <p
+          className="flex items-start gap-2 px-1 text-sm text-muted-foreground"
+          data-testid="visit-only-note"
+        >
+          <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-green-text" aria-hidden />
+          {t('settings.visitOnlyNote')}
+        </p>
+      )}
+
+      <Alert variant="info">
+        <InfoIcon />
+        <AlertDescription>{t('settings.status.note')}</AlertDescription>
+      </Alert>
+
+      <Card className="gap-0 py-0" data-testid="account-menu">
+        <MenuLink
+          to="/rep/orders"
+          icon={ReceiptTextIcon}
+          title={t('nav.myOrders')}
+          hint={
+            ordersWaiting > 0
+              ? t('settings.ordersWaiting', { count: ordersWaiting })
+              : t('settings.ordersHint')
+          }
+          chevron={Chevron}
+          attention={ordersWaiting > 0}
+        />
+        <Separator />
+        {canSeeStats && (
+          <>
+            <MenuLink
+              to="/rep/statistics"
+              icon={BarChart3Icon}
+              title={t('stats.mine')}
+              hint={t('settings.statsHint')}
+              chevron={Chevron}
+            />
+            <Separator />
+          </>
+        )}
         <MenuLink
           to="/rep/onboarding"
           icon={WrenchIcon}
@@ -77,6 +147,7 @@ export function RepSettingsPage() {
           title={t('settings.trackingHealth')}
           hint={t('settings.trackingHealthHint')}
           chevron={Chevron}
+          attention={issues.length > 0}
         />
       </Card>
 
@@ -109,7 +180,13 @@ export function RepSettingsPage() {
         </CardContent>
       </Card>
 
-      <Button variant="outline" className="w-full" disabled={shift !== null} onClick={() => void signOut()}>
+      <Button
+        variant="outlineDestructive"
+        size="lg"
+        className="w-full"
+        disabled={shift !== null}
+        onClick={() => void signOut()}
+      >
         <LogOutIcon />
         {t('common.signOut')}
       </Button>
@@ -127,26 +204,55 @@ export function RepSettingsPage() {
   )
 }
 
+function StatusRow({
+  icon: Icon,
+  label,
+  state,
+}: {
+  icon: LucideIcon
+  label: string
+  state: 'ok' | 'attention' | 'unknown'
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-center gap-3 px-5 py-3.5">
+      <span className="flex size-9 items-center justify-center rounded-[10px] bg-primary-soft text-primary-soft-foreground">
+        <Icon className="size-[18px]" aria-hidden />
+      </span>
+      <span className="flex-1 font-medium">{label}</span>
+      <Badge variant={state === 'ok' ? 'success' : state === 'attention' ? 'warning' : 'secondary'}>
+        {t(`settings.status.${state}`)}
+      </Badge>
+    </div>
+  )
+}
+
 function MenuLink({
   to,
   icon: Icon,
   title,
   hint,
   chevron: Chevron,
+  attention = false,
 }: {
-  to: '/rep/onboarding' | '/rep/tracking-health'
+  to: '/rep/onboarding' | '/rep/tracking-health' | '/rep/orders' | '/rep/statistics'
   icon: LucideIcon
   title: string
   hint: string
   chevron: LucideIcon
+  /** A small amber dot: something here needs the rep. */
+  attention?: boolean
 }) {
   return (
     <Link to={to} className="flex items-center gap-3 px-5 py-4 hover:bg-accent">
-      <Icon className="size-5 text-primary" />
+      <span className="flex size-9 items-center justify-center rounded-[10px] bg-primary-soft text-primary-soft-foreground">
+        <Icon className="size-[18px]" />
+      </span>
       <span className="flex-1">
         <span className="block font-medium">{title}</span>
         <span className="block text-sm text-muted-foreground">{hint}</span>
       </span>
+      {attention && <span className="size-2 rounded-full bg-warning" aria-hidden />}
       <Chevron className="size-4 text-muted-foreground" />
     </Link>
   )

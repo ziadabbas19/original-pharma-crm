@@ -14,6 +14,17 @@ export interface LiveRep {
   healthIssues: string[]
   openFlags: number
   avatarUrl?: string | null
+  /** A visit is in progress (or just ended within the buffer). */
+  onVisit?: boolean
+  visitCustomerName?: string | null
+  visitCustomerNameAr?: string | null
+  /** Visit-only: the position may be shown until then (a visit that just ended). */
+  visibleUntil?: string | null
+  /** Visit-only: when the live channel said the visit ended (before the next snapshot). */
+  visitEndedAt?: string | null
+  lastVisitEndedAt?: string | null
+  /** Visit-only: there is a position, but it was recorded outside a visit. */
+  locationHidden?: boolean
 }
 
 /** ISO timestamps from the API vary in fractional digits, so compare instants rather than strings. */
@@ -50,6 +61,13 @@ const liveLocationsSlice = createSlice({
             healthIssues: p.healthIssues,
             openFlags: p.openFlags,
             avatarUrl: p.avatarUrl,
+            onVisit: p.onVisit ?? false,
+            visitCustomerName: p.visitCustomerName,
+            visitCustomerNameAr: p.visitCustomerNameAr,
+            visibleUntil: p.visibleUntil,
+            visitEndedAt: null,
+            lastVisitEndedAt: p.lastVisitEndedAt,
+            locationHidden: p.locationHidden ?? false,
           }
         }),
       )
@@ -68,10 +86,24 @@ const liveLocationsSlice = createSlice({
         deviceHealthy: existing?.deviceHealthy ?? true,
         healthIssues: existing?.healthIssues ?? [],
         openFlags: existing?.openFlags ?? 0,
+        avatarUrl: existing?.avatarUrl,
+        // Visit-only mode only pushes positions during a visit, with the visit's customer.
+        onVisit: p.visitId ? true : (existing?.onVisit ?? false),
+        visitCustomerName: p.visitId ? p.visitCustomerName : existing?.visitCustomerName,
+        visitCustomerNameAr: p.visitId ? p.visitCustomerNameAr : existing?.visitCustomerNameAr,
+        visibleUntil: p.visitId ? null : existing?.visibleUntil,
+        visitEndedAt: p.visitId ? null : existing?.visitEndedAt,
+        lastVisitEndedAt: existing?.lastVisitEndedAt,
+        locationHidden: false,
       })
     },
     presenceChanged(state, action: PayloadAction<PresenceChangeDto>) {
-      adapter.updateOne(state, { id: action.payload.userId, changes: { status: action.payload.status } })
+      const { userId, status, at } = action.payload
+      const ended = status === 'notOnVisit' || status === 'offShift'
+      adapter.updateOne(state, {
+        id: userId,
+        changes: ended ? { status, onVisit: false, visitEndedAt: at, lastVisitEndedAt: at } : { status },
+      })
     },
     deviceHealthChanged(state, action: PayloadAction<DeviceHealthChangeDto>) {
       adapter.updateOne(state, {

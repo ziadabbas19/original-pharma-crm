@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   canStartVisit,
+  checkInReading,
   DEFAULT_VISIT_RULES,
   evaluateProximity,
   locationFailureOf,
@@ -47,11 +48,32 @@ test('a server that refuses check-ins outside the range blocks the start', () =>
   assert.equal(canStartVisit(result), false)
 })
 
-test('a customer with no saved location is reported before the phone location matters', () => {
+test('a customer with no saved location never blocks the visit: a clean fix becomes the clinic', () => {
   const noLocation = { lat: null, lng: null, geofenceRadiusMeters: 150 }
-  assert.equal(evaluateProximity(noLocation, null, DEFAULT_VISIT_RULES).state, 'noCustomerLocation')
-  assert.equal(evaluateProximity(noLocation, fixAt(30), DEFAULT_VISIT_RULES).state, 'noCustomerLocation')
-  assert.equal(canStartVisit(evaluateProximity(noLocation, null, DEFAULT_VISIT_RULES)), false)
+  const result = evaluateProximity(noLocation, fixAt(30.06, 20), DEFAULT_VISIT_RULES)
+  assert.deepEqual(result, { state: 'firstVisit', accuracy: 20, isMock: false, willSave: true })
+  assert.equal(canStartVisit(result), true)
+  assert.equal(willNeedReview(result), false)
+  assert.deepEqual(checkInReading(result), { distance: 0, inside: true })
+})
+
+test('a first visit with a weak or simulated fix still starts, is not saved and goes to review', () => {
+  const noLocation = { lat: null, lng: null, geofenceRadiusMeters: 150 }
+  const rules = { ...DEFAULT_VISIT_RULES, lowTrustAccuracyMeters: 40 }
+  const weak = evaluateProximity(noLocation, fixAt(30.06, 60), rules)
+  const mock = evaluateProximity(noLocation, fixAt(30.06, 10, true), rules)
+  assert.equal(weak.state, 'firstVisit')
+  assert.equal(weak.willSave, false)
+  assert.equal(mock.willSave, false)
+  assert.equal(canStartVisit(weak), true)
+  assert.equal(willNeedReview(weak), true)
+  assert.equal(willNeedReview(mock), true)
+})
+
+test('a first visit still needs a fix, and one the server accepts', () => {
+  const noLocation = { lat: null, lng: null, geofenceRadiusMeters: 150 }
+  assert.equal(evaluateProximity(noLocation, null, DEFAULT_VISIT_RULES).state, 'locationUnavailable')
+  assert.equal(evaluateProximity(noLocation, fixAt(30.06, 150), DEFAULT_VISIT_RULES).state, 'lowAccuracy')
 })
 
 test('no fix reports why, and blocks the start', () => {

@@ -19,7 +19,7 @@ const SIDE_CLASSES = {
   end: 'inset-y-0 inset-e-0 h-full w-full border-s sm:max-w-xl ltr:data-[state=closed]:slide-out-to-right ltr:data-[state=open]:slide-in-from-right rtl:data-[state=closed]:slide-out-to-left rtl:data-[state=open]:slide-in-from-left',
   /** Phone-style sheet from the bottom edge (rep app pickers). */
   bottom:
-    'inset-x-0 bottom-0 mx-auto max-h-[90dvh] w-full max-w-lg rounded-t-xl border-t pb-safe data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+    'inset-x-0 bottom-0 mx-auto max-h-[90dvh] w-full max-w-lg rounded-t-[20px] border-t pb-safe data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
 } as const
 
 function SheetContent({
@@ -42,7 +42,7 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          'fixed z-50 flex flex-col bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:animate-in data-[state=open]:duration-300',
+          'fixed z-50 flex flex-col bg-card shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:animate-in data-[state=open]:duration-300',
           SIDE_CLASSES[side],
           className,
         )}

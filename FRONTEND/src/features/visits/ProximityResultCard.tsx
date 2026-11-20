@@ -1,4 +1,4 @@
-import { CheckCircle2Icon, LocateOffIcon, MapPinOffIcon, MapPinXIcon, RadarIcon } from 'lucide-react'
+import { CheckCircle2Icon, LocateOffIcon, MapPinPlusIcon, MapPinXIcon, RadarIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { formatDistance, formatNumber } from '@/lib/format'
@@ -38,12 +38,21 @@ export function ProximityResultCard({ result }: { result: ProximityResult }) {
           </AlertDescription>
         </Alert>
       )
-    case 'noCustomerLocation':
+    case 'firstVisit':
       return (
-        <Alert variant="warning" data-testid="proximity-no-location">
-          <MapPinOffIcon />
-          <AlertTitle>{t('visits.checkInFlow.noLocationTitle')}</AlertTitle>
-          <AlertDescription>{t('visits.checkInFlow.noLocationBody')}</AlertDescription>
+        <Alert variant={result.willSave ? 'info' : 'warning'} data-testid="proximity-first-visit">
+          <MapPinPlusIcon />
+          <AlertTitle>{t('visits.checkInFlow.firstVisitTitle')}</AlertTitle>
+          <AlertDescription>
+            {result.willSave
+              ? t('visits.checkInFlow.firstVisitBody', { accuracy: accuracyText(result.accuracy) })
+              : t(
+                  result.isMock
+                    ? 'visits.checkInFlow.firstVisitMockBody'
+                    : 'visits.checkInFlow.firstVisitWeakBody',
+                  { accuracy: accuracyText(result.accuracy) },
+                )}
+          </AlertDescription>
         </Alert>
       )
     case 'lowAccuracy':

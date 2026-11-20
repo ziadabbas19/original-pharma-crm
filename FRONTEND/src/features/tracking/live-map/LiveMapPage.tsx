@@ -1,10 +1,19 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useTrackingMonitorGetHistory, useTrackingMonitorGetPresence } from '@/api/generated/endpoints'
+import { EyeOffIcon, InfoIcon } from 'lucide-react'
+import {
+  useDoctorsList,
+  useTrackingMonitorGetHistory,
+  useTrackingMonitorGetPresence,
+  useTrackingMonitorGetVisibility,
+} from '@/api/generated/endpoints'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PageHeader } from '@/components/PageHeader'
 import { ErrorState, Spinner } from '@/components/states'
 import { Card } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { localizedName } from '@/lib/format'
 import { usePermission } from '@/features/auth/usePermission'
 import { useNow } from '@/hooks/use-now'
 import { fromDateInputValue, toDateInputValue } from '@/lib/format'
@@ -13,11 +22,18 @@ import { P } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/store'
 import { liveLocationsSelectors, repWatched } from '@/store/slices/liveLocationsSlice'
-import { LIVE_STATUS_DOT, LIVE_STATUSES, liveStatusOf, type LiveStatus } from '../live-status'
+import {
+  LIVE_STATUSES,
+  liveStatusDot,
+  liveStatusLabelKey,
+  liveStatusOf,
+  positionVisible,
+  type LiveStatus,
+} from '../live-status'
 import { useLiveView } from '../useLiveView'
 import { RepDetailPanel, type RouteSummary } from './RepDetailPanel'
 import { RepList, type LiveRepView } from './RepList'
-import { RepMap, type MapRep, type RoutePoint } from './RepMap'
+import { RepMap, type MapDoctor, type MapRep, type RoutePoint } from './RepMap'
 
 const route = getRouteApi('/admin/live-map')
 const DAY_MS = 86_400_000
@@ -41,10 +57,28 @@ export function LiveMapPage() {
 
   // Same query the layout polls; read here for its loading and error state.
   const presence = useTrackingMonitorGetPresence({ query: { staleTime: 15_000 } })
+  const visibility = useTrackingMonitorGetVisibility({ query: { staleTime: 60_000 } })
+  const visitOnly = visibility.data?.mode === 'visitOnly'
   const reps = useAppSelector((s) => liveLocationsSelectors.selectAll(s.liveLocations))
   const watched = useAppSelector((s) => s.liveLocations.watchedRepId)
   const canViewHistory = usePermission(P.tracking.history)
   const canReviewFlags = usePermission(P.tracking.reviewFlags)
+  const canReadDoctors = usePermission(P.customers.read)
+  const [showDoctors, setShowDoctors] = useState(false)
+  const doctorList = useDoctorsList(undefined, {
+    query: { enabled: showDoctors && canReadDoctors, staleTime: 5 * 60_000 },
+  })
+  const doctors = useMemo<MapDoctor[]>(
+    () =>
+      showDoctors
+        ? (doctorList.data ?? []).flatMap((d) =>
+            d.lat != null && d.lng != null
+              ? [{ id: d.id, name: localizedName(d.name, d.nameAr), lat: d.lat, lng: d.lng }]
+              : [],
+          )
+        : [],
+    [showDoctors, doctorList.data],
+  )
 
   // A link to a past day or a point shows that route instead of following the rep live.
   const [following, setFollowing] = useState(selectedId !== null && !linkedDay && !linkedAt)
@@ -57,17 +91,31 @@ export function LiveMapPage() {
   useLiveView(watched)
   useEffect(() => () => void dispatch(repWatched(null)), [dispatch])
 
+  // Visit-only: a position is only shown during a visit and for the buffer after it.
   const views = useMemo<LiveRepView[]>(
-    () => reps.map((r) => ({ ...r, liveStatus: liveStatusOf(r, now) })),
-    [reps, now],
+    () =>
+      reps.map((r) => ({
+        ...r,
+        position: positionVisible(r, now, visibility.data) ? r.position : null,
+        liveStatus: liveStatusOf(r, now),
+      })),
+    [reps, now, visibility.data],
   )
   const mapReps = useMemo<MapRep[]>(
     () =>
       views
         .filter((r) => !statusFilter || r.liveStatus === statusFilter || r.userId === selectedId)
-        .map((r) => ({ userId: r.userId, fullName: r.fullName, status: r.liveStatus, position: r.position })),
-    [views, statusFilter, selectedId],
+        .map((r) => ({
+          userId: r.userId,
+          fullName: r.fullName,
+          status: r.liveStatus,
+          position: r.position,
+          visitCustomer:
+            visitOnly && r.onVisit ? localizedName(r.visitCustomerName, r.visitCustomerNameAr) || null : null,
+        })),
+    [views, statusFilter, selectedId, visitOnly],
   )
+  const nobodyOnVisit = visitOnly && reps.length > 0 && !views.some((r) => r.position)
   const selected = views.find((r) => r.userId === selectedId) ?? null
 
   const select = useCallback(
@@ -156,11 +204,22 @@ export function LiveMapPage() {
   return (
     <div className="flex flex-col gap-3 lg:h-[calc(100dvh-6.5rem)]">
       <PageHeader className="mb-0" title={t('liveMap.title')} />
+      {visibility.data && (
+        <Alert variant={visitOnly ? 'info' : 'default'} className="py-2" data-testid="visibility-banner">
+          <InfoIcon />
+          <AlertDescription>
+            {visitOnly
+              ? t('liveMap.visibility.visitOnly', { minutes: visibility.data.bufferMinutes })
+              : t('liveMap.visibility.allDay')}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_380px]">
         <Card className="relative h-[55dvh] min-h-80 overflow-hidden p-0 lg:h-auto">
           <RepMap
             reps={mapReps}
+            doctors={doctors}
             selectedId={selectedId}
             following={following}
             route={routePoints}
@@ -168,13 +227,39 @@ export function LiveMapPage() {
             onSelect={select}
             onUserPan={stopFollowing}
           />
-          <div className="pointer-events-none absolute inset-s-2 top-2 z-10 flex flex-col gap-1 rounded-md bg-card/90 px-2.5 py-2 text-xs shadow">
-            {LIVE_STATUSES.map((status) => (
+          {nobodyOnVisit && (
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-6 z-10 mx-auto flex w-fit max-w-[90%] items-center gap-2 rounded-full bg-card/95 px-4 py-2 text-sm font-medium shadow-card"
+              role="status"
+              data-testid="no-rep-on-visit"
+            >
+              <EyeOffIcon className="size-4 text-icon" aria-hidden />
+              {t('liveMap.noRepOnVisit')}
+            </div>
+          )}
+          <div className="pointer-events-none absolute inset-s-2 top-2 z-10 flex flex-col gap-1 rounded-control bg-card/90 px-2.5 py-2 text-xs shadow">
+            {LIVE_STATUSES.filter((status) => visitOnly || status !== 'notOnVisit').map((status) => (
               <span key={status} className="flex items-center gap-1.5">
-                <span className={cn('size-2.5 rounded-full ring-2 ring-card', LIVE_STATUS_DOT[status])} />
-                {t(`liveMap.status.${status}`)}
+                <span
+                  className={cn('size-2.5 rounded-full ring-2 ring-card', liveStatusDot(status, visitOnly))}
+                />
+                {t(liveStatusLabelKey(status, visitOnly))}
               </span>
             ))}
+            {canReadDoctors && (
+              <label className="pointer-events-auto mt-1 flex cursor-pointer items-center gap-1.5 border-t pt-1.5">
+                <Checkbox
+                  checked={showDoctors}
+                  onCheckedChange={(value) => setShowDoctors(value === true)}
+                  data-testid="live-map-doctors"
+                />
+                <span className="size-2.5 rounded-full bg-success ring-2 ring-card" aria-hidden />
+                {t('liveMap.showDoctors')}
+                {showDoctors && doctorList.data && (
+                  <span className="text-muted-foreground tabular-nums">({doctors.length})</span>
+                )}
+              </label>
+            )}
           </div>
         </Card>
 
@@ -211,6 +296,7 @@ export function LiveMapPage() {
                 refetch: () => void history.refetch(),
               }}
               summary={summary}
+              visitOnly={visitOnly}
               onFitRoute={() => {
                 setFollowing(false)
                 setFitCount((c) => c + 1)
@@ -226,6 +312,7 @@ export function LiveMapPage() {
               onSearch={setSearch}
               statusFilter={statusFilter}
               onStatusFilter={setStatusFilter}
+              visitOnly={visitOnly}
             />
           )}
         </Card>

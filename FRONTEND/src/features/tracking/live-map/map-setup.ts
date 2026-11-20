@@ -23,8 +23,12 @@ export const DEFAULT_CENTER: [number, number] = [31.2357, 30.0444]
 export const DEFAULT_ZOOM = 9
 
 export const ROUTE_COLOR = '#0063ad'
-export const FLAGGED_COLOR = '#dc2626'
-export const START_COLOR = '#16a34a'
+/** White outline of pins and clinics on the map. */
+export const PIN_STROKE_COLOR = '#ffffff'
+export const FLAGGED_COLOR = '#b42318'
+export const START_COLOR = '#5e8c1f'
+/** Clinics of the doctors layer: the brand green, darker so it reads on light tiles. */
+export const DOCTOR_COLOR = '#3f6212'
 /** Points left out of the route (physically impossible, or mock under the exclude policy). */
 export const EXCLUDED_COLOR = '#64748b'
 

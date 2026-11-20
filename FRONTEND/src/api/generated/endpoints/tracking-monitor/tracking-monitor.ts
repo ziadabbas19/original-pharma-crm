@@ -24,6 +24,7 @@ import type {
   DeviceDto,
   HistoryPointDto,
   LiveViewResponse,
+  LocationVisibilityDto,
   RepPresenceDto,
   ReviewFlagRequest,
   TrackingFlagDto,
@@ -175,6 +176,116 @@ export function useTrackingMonitorGetPresence<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getTrackingMonitorGetPresenceQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getTrackingMonitorGetVisibilityUrl = () => {
+  return `/api/tracking/monitor/visibility`
+}
+
+export const trackingMonitorGetVisibility = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<LocationVisibilityDto> => {
+  return apiFetch<LocationVisibilityDto>(getTrackingMonitorGetVisibilityUrl(), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getTrackingMonitorGetVisibilityQueryKey = () => {
+  return [`/api/tracking/monitor/visibility`] as const
+}
+
+export const getTrackingMonitorGetVisibilityQueryOptions = <
+  TData = Awaited<ReturnType<typeof trackingMonitorGetVisibility>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof trackingMonitorGetVisibility>>, TError, TData>>
+  request?: SecondParameter<typeof apiFetch>
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getTrackingMonitorGetVisibilityQueryKey()
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof trackingMonitorGetVisibility>>> = ({ signal }) =>
+    trackingMonitorGetVisibility({ signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof trackingMonitorGetVisibility>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type TrackingMonitorGetVisibilityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof trackingMonitorGetVisibility>>
+>
+export type TrackingMonitorGetVisibilityQueryError = unknown
+
+export function useTrackingMonitorGetVisibility<
+  TData = Awaited<ReturnType<typeof trackingMonitorGetVisibility>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof trackingMonitorGetVisibility>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof trackingMonitorGetVisibility>>,
+          TError,
+          Awaited<ReturnType<typeof trackingMonitorGetVisibility>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrackingMonitorGetVisibility<
+  TData = Awaited<ReturnType<typeof trackingMonitorGetVisibility>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof trackingMonitorGetVisibility>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof trackingMonitorGetVisibility>>,
+          TError,
+          Awaited<ReturnType<typeof trackingMonitorGetVisibility>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrackingMonitorGetVisibility<
+  TData = Awaited<ReturnType<typeof trackingMonitorGetVisibility>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof trackingMonitorGetVisibility>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrackingMonitorGetVisibility<
+  TData = Awaited<ReturnType<typeof trackingMonitorGetVisibility>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof trackingMonitorGetVisibility>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getTrackingMonitorGetVisibilityQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>

@@ -110,6 +110,11 @@ function EventCard({ event, onAcknowledge }: { event: IntegrityEventDto; onAckno
             </Link>
           </Button>
         )}
+        {target.kind === 'hidden' && (
+          <p className="text-xs text-muted-foreground" data-testid="event-location-hidden">
+            {t('suspicious.locationHidden')}
+          </p>
+        )}
         {target.kind === 'map' && canViewLive && (
           <Button asChild size="sm" variant="outline">
             <Link
@@ -199,7 +204,13 @@ function EventEvidence({ eventId }: { eventId: string }) {
                     )}
                   </td>
                   <td className="py-1.5 pe-3 font-mono text-xs" dir="ltr">
-                    {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
+                    {point.lat != null && point.lng != null ? (
+                      `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`
+                    ) : (
+                      <span className="font-sans text-muted-foreground" dir="auto">
+                        {t('suspicious.points.hidden')}
+                      </span>
+                    )}
                     {point.altitude != null && (
                       <span className="block text-muted-foreground">
                         {t('suspicious.points.altitude', { value: Math.round(point.altitude) })}

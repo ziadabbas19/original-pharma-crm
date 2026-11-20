@@ -39,6 +39,8 @@ public sealed class EndpointPermissionTests
         ("GET", "api/stats/orders", Permissions.Stats.Read),
         ("GET", "api/stats/export", Permissions.Stats.Export),
         ("GET", "api/audit", Permissions.Audit.Read),
+        ("PUT", "api/settings/rep-home", Permissions.Settings.Manage),
+        ("PUT", "api/settings/location-trust", Permissions.Settings.Manage),
     ];
 
     [Fact]

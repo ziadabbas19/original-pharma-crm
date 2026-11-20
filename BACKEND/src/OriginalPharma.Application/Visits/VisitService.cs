@@ -42,6 +42,8 @@ public sealed class VisitService(
     LocationTrustSettingsService trustSettings,
     IntegrityFlagService flags,
     IOptions<LocationTrustOptions> trustOptions,
+    IOptions<AnomalyDetectionOptions> anomalyOptions,
+    ITrackingNotifier notifier,
     TimeProvider time)
 {
     /// <summary>How many levels of the reporting line are notified of new feedback (supervisor and their manager).</summary>
@@ -95,20 +97,27 @@ public sealed class VisitService(
         var customer = await db.Customers.AsNoTracking().SingleOrDefaultAsync(c => c.Id == request.CustomerId && c.IsActive && c.ArchivedAt == null, cancellationToken)
                        ?? throw new NotFoundException("Customer", request.CustomerId);
 
-        if (customer.Location is null)
-        {
-            throw new BusinessRuleException("customer-location-missing", "This customer has no saved location yet.");
-        }
-
         if (request.Accuracy > settings.MaxAccuracyMeters)
         {
             throw new BusinessRuleException("accuracy-too-low", $"Location accuracy is {request.Accuracy:0} m. Move outdoors or wait for a better GPS fix.");
         }
 
         var trust = await trustSettings.GetAsync(cancellationToken);
-        var geofence = GeofenceEvaluator.Evaluate(
-            customer.Location.Y, customer.Location.X, customer.GeofenceRadiusMeters,
-            request.Lat, request.Lng, request.Accuracy, trust.AccuracyAllowanceMeters);
+        var signals = request.DeviceSignals?.Sanitized();
+        var window = TimeSpan.FromMinutes(trustOptions.Value.VisitPointWindowMinutes);
+        var suspiciousNearby = await SuspiciousPointsAsync(userId, checkInAt - window, checkInAt + TimeSpan.FromMinutes(5), cancellationToken);
+        var quality = VisitLocationHistory.QualityOf(request.IsMock, request.Accuracy, signals, suspiciousNearby, trust);
+
+        // A customer without a saved location never blocks the visit: a good first fix becomes the clinic
+        // location, otherwise the visit goes to review and the next visit tries again.
+        var outcome = customer.Location is not null ? ClinicLocationOutcome.Compared
+            : quality.IsGood ? ClinicLocationOutcome.SavedAsClinic
+            : ClinicLocationOutcome.NotSaved;
+        var geofence = customer.Location is { } location
+            ? GeofenceEvaluator.Evaluate(
+                location.Y, location.X, customer.GeofenceRadiusMeters,
+                request.Lat, request.Lng, request.Accuracy, trust.AccuracyAllowanceMeters)
+            : new GeofenceResult(0, customer.GeofenceRadiusMeters, true);
 
         if (!geofence.Inside && settings.RejectOutsideGeofence)
         {
@@ -125,15 +134,35 @@ public sealed class VisitService(
             }
         }
 
+        var visitId = request.ClientRequestId ?? Guid.CreateVersion7();
         var territoryId = await db.Users.Where(u => u.Id == userId).Select(u => u.TerritoryId).SingleAsync(cancellationToken);
-        var signals = request.DeviceSignals?.Sanitized();
-        var window = TimeSpan.FromMinutes(trustOptions.Value.VisitPointWindowMinutes);
         var visitTrust = VisitTrustEvaluator.Evaluate(
-            new VisitTrustInput(geofence.DistanceMeters, request.Accuracy, signals,
-                await SuspiciousPointsAsync(userId, checkInAt - window, checkInAt + TimeSpan.FromMinutes(5), cancellationToken)),
-            trust);
+            new VisitTrustInput(geofence.DistanceMeters, request.Accuracy, signals, suspiciousNearby), trust);
+        double? clinicDistance = outcome == ClinicLocationOutcome.NotSaved ? null : Math.Round(geofence.DistanceMeters, 1);
+        var comparison = VisitLocationHistory.Compare(
+            request.Lat, request.Lng, checkInAt, await ReferenceFixesAsync(customer.Id, visitId, checkInAt, cancellationToken));
+        var drift = VisitLocationHistory.Drift(comparison, clinicDistance, request.Accuracy, trust);
+
+        var reasons = visitTrust.Reasons.ToList();
+        var travel = await TravelFromPreviousVisitAsync(userId, visitId, checkInAt, request.Lat, request.Lng, request.Accuracy, trust, cancellationToken);
+        if (travel is not null)
+        {
+            reasons.Add(AnomalyCodes.ImpossibleSpeed);
+        }
+
+        if (drift.IsDrift)
+        {
+            reasons.Add(VisitReviewReasons.LocationDrift);
+        }
+
+        if (outcome == ClinicLocationOutcome.NotSaved)
+        {
+            reasons.Add(VisitReviewReasons.ClinicLocationNotSaved);
+        }
+
         var visit = new Visit
         {
+            Id = visitId,
             UserId = userId,
             TerritoryId = territoryId,
             CustomerId = customer.Id,
@@ -141,25 +170,41 @@ public sealed class VisitService(
             DeviceId = request.DeviceId,
             CheckInAt = checkInAt,
             CheckInReceivedAt = now,
+            CheckInDeviceTime = request.Timestamp.ToUniversalTime(),
             CheckInLocation = GeoFactory.Point(request.Lat, request.Lng),
             CheckInAccuracy = request.Accuracy,
             CheckInDistanceMeters = Math.Round(geofence.DistanceMeters, 1),
             CheckInWithinGeofence = geofence.Inside,
             CheckInIsMock = request.IsMock,
+            CheckInSignalCodes = DeviceSignalCodes.From(signals).ToList(),
+            CheckInGoodFix = quality.IsGood,
+            ClinicLocationOutcome = outcome,
+            ClinicDistanceMeters = clinicDistance,
+            PreviousVisitId = comparison.PreviousVisitId,
+            PreviousVisitDistanceMeters = comparison.PreviousDistanceMeters,
+            SincePreviousVisitSeconds = comparison.SincePreviousSeconds,
+            MedianDistanceMeters = comparison.MedianDistanceMeters,
+            NearestVisitDistanceMeters = comparison.NearestDistanceMeters,
+            ReferenceVisitCount = comparison.ReferenceCount,
+            LocationDrift = drift.IsDrift,
+            DriftSources = drift.Sources.ToList(),
             QrVerified = qrVerified,
-            TrustReasons = visitTrust.Reasons.ToList(),
-            NeedsReview = request.IsMock || !geofence.Inside || visitTrust.Reasons.Count > 0,
+            TrustReasons = reasons,
+            NeedsReview = request.IsMock || !geofence.Inside || reasons.Count > 0,
         };
-        if (request.ClientRequestId is { } clientRequestId)
-        {
-            visit.Id = clientRequestId;
-        }
 
         db.Visits.Add(visit);
 
+        var details = outcome switch
+        {
+            ClinicLocationOutcome.NotSaved =>
+                $"Visit check-in at {customer.Name}: no clinic location saved yet, and this fix was not kept as one. " + string.Join(" ", quality.Problems),
+            ClinicLocationOutcome.SavedAsClinic => $"Visit check-in at {customer.Name}: first visit, its location became the clinic location.",
+            _ => $"Visit check-in at {customer.Name}: {geofence.DistanceMeters:0} m from location.",
+        };
         var flag = await RaiseVisitFlagAsync(
             visit, territoryId, request.IsMock, geofence.Inside, visitTrust, signals,
-            $"Visit check-in at {customer.Name}: {geofence.DistanceMeters:0} m from location.", cancellationToken);
+            string.Join(" ", new[] { details }.Concat(drift.Details).Concat(travel is null ? [] : [travel])), cancellationToken);
 
         try
         {
@@ -181,12 +226,159 @@ public sealed class VisitService(
             throw;
         }
 
+        if (outcome == ClinicLocationOutcome.SavedAsClinic)
+        {
+            await SaveFirstVisitLocationAsync(customer, visit, request, now, trust, cancellationToken);
+        }
+
         if (flag is not null)
         {
             await flags.PublishAsync([flag], cancellationToken);
         }
 
+        if (trust.VisitOnly)
+        {
+            // Points that arrived before this check-in (queued offline) belong to the visit after all.
+            await ClaimPointsAsync(userId, checkInAt - trust.VisitWindowBuffer, now + trust.VisitWindowBuffer, cancellationToken);
+
+            // The live map shows the rep from now on (visit-only visibility).
+            await PresenceAsync(userId, PresenceStatus.Online, now, cancellationToken);
+        }
+
         return ToDto(visit, customer.Name, customer.GeofenceRadiusMeters);
+    }
+
+    /// <summary>
+    /// The speed check between visits: from where the rep's previous visit ended (or started) to this check-in.
+    /// With visit-only visibility the phone sends no points between visits, so this keeps the "impossible
+    /// speed" check working from the visits themselves. Returns the evidence, or null when plausible.
+    /// </summary>
+    private async Task<string?> TravelFromPreviousVisitAsync(
+        Guid userId,
+        Guid visitId,
+        DateTimeOffset checkInAt,
+        double lat,
+        double lng,
+        double accuracy,
+        LocationTrustSettings trust,
+        CancellationToken cancellationToken)
+    {
+        var previous = await db.Visits.AsNoTracking()
+            .Where(v => v.UserId == userId && v.Id != visitId && v.ArchivedAt == null && v.CheckInAt < checkInAt)
+            .OrderByDescending(v => v.CheckInAt)
+            .Select(v => new { v.CheckInAt, v.CheckInLocation, v.CheckInAccuracy, v.CheckOutAt, v.CheckOutLocation, v.CheckOutAccuracy })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (previous is null)
+        {
+            return null;
+        }
+
+        // The check-out is the later point, unless it reached the server after this check-in's time.
+        var useCheckOut = previous.CheckOutLocation is not null && previous.CheckOutAt is { } outAt && outAt <= checkInAt;
+        var from = useCheckOut ? previous.CheckOutLocation! : previous.CheckInLocation;
+        var fromAt = useCheckOut ? previous.CheckOutAt!.Value : previous.CheckInAt;
+        var fromAccuracy = useCheckOut ? previous.CheckOutAccuracy ?? 0 : previous.CheckInAccuracy;
+        var meters = Common.GeoMath.DistanceMeters(from.Y, from.X, lat, lng);
+        var seconds = (checkInAt - fromAt).TotalSeconds;
+        if (meters <= Math.Max(anomalyOptions.Value.MinJumpMeters, fromAccuracy + accuracy))
+        {
+            return null;
+        }
+
+        var kmh = seconds <= 0 ? double.PositiveInfinity : meters / seconds * 3.6;
+        return kmh > trust.MaxSpeedKmh
+            ? $"{meters / 1000:0.#} km from the previous visit in {Math.Max(0, seconds) / 60:0} min ({(double.IsInfinity(kmh) ? "no time elapsed" : $"{kmh:0} km/h")})."
+            : null;
+    }
+
+    /// <summary>Visit-only: points of the rep inside this visit's window are visit points, not waiting for deletion.</summary>
+    private Task<int> ClaimPointsAsync(Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) =>
+        db.LocationPoints
+            .Where(p => p.UserId == userId && p.OutsideVisitWindow && p.RecordedAt >= from && p.RecordedAt <= to)
+            .ExecuteUpdateAsync(set => set.SetProperty(p => p.OutsideVisitWindow, false), cancellationToken);
+
+    /// <summary>Tells the dashboards about a visit starting or ending (visit-only visibility). Never throws.</summary>
+    private async Task PresenceAsync(Guid userId, PresenceStatus status, DateTimeOffset at, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var audience = await hierarchy.GetAudienceAsync(userId, cancellationToken);
+            await notifier.PresenceChangedAsync(audience, new PresenceChangeDto(userId, status, at), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The map catches up with its next presence refresh.
+        }
+    }
+
+    /// <summary>
+    /// Makes the first good check-in the customer's clinic location, unless someone else saved one in the
+    /// meantime (another rep's first visit, or a manager): then this visit is measured against that one.
+    /// A saved location is never moved by a later visit; only a manager edit changes it.
+    /// </summary>
+    private async Task SaveFirstVisitLocationAsync(
+        Domain.Crm.Customer customer,
+        Visit visit,
+        CheckInRequest request,
+        DateTimeOffset now,
+        LocationTrustSettings trust,
+        CancellationToken cancellationToken)
+    {
+        var point = GeoFactory.Point(request.Lat, request.Lng);
+        var claimed = await db.Customers
+            .Where(c => c.Id == customer.Id && c.Location == null)
+            .ExecuteUpdateAsync(set => set
+                .SetProperty(c => c.Location, point)
+                .SetProperty(c => c.LocationSource, Domain.Crm.ClinicLocationSource.FirstVisit)
+                .SetProperty(c => c.LocationCapturedById, visit.UserId)
+                .SetProperty(c => c.LocationCapturedAt, visit.CheckInAt)
+                .SetProperty(c => c.LocationAccuracyMeters, request.Accuracy)
+                .SetProperty(c => c.LocationVisitId, visit.Id)
+                .SetProperty(c => c.UpdatedAt, now), cancellationToken);
+
+        if (claimed == 1)
+        {
+            await audit.AddAsync(AuditEntities.Customer, customer.Id, AuditAction.Updated, new
+            {
+                locationSource = Domain.Crm.ClinicLocationSource.FirstVisit,
+                visitId = visit.Id,
+                lat = request.Lat,
+                lng = request.Lng,
+                accuracy = request.Accuracy,
+            }, cancellationToken: cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        var saved = await db.Customers.AsNoTracking().Where(c => c.Id == customer.Id).Select(c => c.Location).SingleAsync(cancellationToken);
+        if (saved is null)
+        {
+            return;
+        }
+
+        var geofence = GeofenceEvaluator.Evaluate(
+            saved.Y, saved.X, customer.GeofenceRadiusMeters, request.Lat, request.Lng, request.Accuracy, trust.AccuracyAllowanceMeters);
+        visit.ClinicLocationOutcome = ClinicLocationOutcome.Compared;
+        visit.ClinicDistanceMeters = Math.Round(geofence.DistanceMeters, 1);
+        visit.CheckInDistanceMeters = Math.Round(geofence.DistanceMeters, 1);
+        visit.CheckInWithinGeofence = geofence.Inside;
+        visit.NeedsReview |= !geofence.Inside;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>Earlier visits to the customer whose check-in fix was good, newest first (any rep).</summary>
+    private async Task<IReadOnlyList<ReferenceFix>> ReferenceFixesAsync(
+        Guid customerId, Guid visitId, DateTimeOffset before, CancellationToken cancellationToken)
+    {
+        var rows = await db.Visits.AsNoTracking()
+            .Where(v => v.CustomerId == customerId && v.Id != visitId && v.CheckInGoodFix && v.ArchivedAt == null && v.CheckInAt < before)
+            .OrderByDescending(v => v.CheckInAt)
+            .Take(Math.Max(1, trustOptions.Value.MaxReferenceVisits))
+            .Select(v => new { v.Id, v.CheckInAt, v.CheckInLocation })
+            .ToListAsync(cancellationToken);
+
+        // Coordinates are read after loading: PostGIS has no ST_X/ST_Y for geography columns.
+        return rows.Select(v => new ReferenceFix(v.Id, v.CheckInAt, v.CheckInLocation.Y, v.CheckInLocation.X)).ToList();
     }
 
     /// <summary>
@@ -238,6 +430,8 @@ public sealed class VisitService(
         visit.CheckOutDistanceMeters = geofence is null ? null : Math.Round(geofence.DistanceMeters, 1);
         visit.CheckOutWithinGeofence = geofence?.Inside;
         visit.CheckOutIsMock = request.IsMock;
+        visit.CheckOutDeviceTime = request.Timestamp.ToUniversalTime();
+        visit.CheckOutSignalCodes = DeviceSignalCodes.From(signals).ToList();
         visit.CheckOutClientRequestId = request.ClientRequestId;
         visit.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
         visit.TrustReasons = visit.TrustReasons.Union(visitTrust.Reasons).ToList();
@@ -252,6 +446,14 @@ public sealed class VisitService(
         if (flag is not null)
         {
             await flags.PublishAsync([flag], cancellationToken);
+        }
+
+        if (trust.VisitOnly)
+        {
+            await ClaimPointsAsync(userId, visit.CheckInAt - trust.VisitWindowBuffer, visit.CheckOutAt!.Value + trust.VisitWindowBuffer, cancellationToken);
+
+            // The marker stays for the buffer after the visit; the map hides it then.
+            await PresenceAsync(userId, PresenceStatus.NotOnVisit, now, cancellationToken);
         }
 
         return ToDto(visit, visit.Customer?.Name, visit.Customer?.GeofenceRadiusMeters ?? 0);
@@ -273,7 +475,12 @@ public sealed class VisitService(
     {
         var far = trust.Reasons.Contains(VisitReviewReasons.FarFromDoctor);
         var low = trust.Reasons.Contains(VisitReviewReasons.LowTrust);
-        if (!isMock && inside && !far && !low)
+        // Drift and a missing clinic location are decided at check-in; the check-out does not repeat them.
+        var atCheckIn = visit.CheckOutAt is null;
+        var drift = atCheckIn && visit.LocationDrift;
+        var notSaved = atCheckIn && visit.ClinicLocationOutcome == ClinicLocationOutcome.NotSaved;
+        var travel = atCheckIn && visit.TrustReasons.Contains(AnomalyCodes.ImpossibleSpeed);
+        if (!isMock && inside && !far && !low && !drift && !notSaved && !travel)
         {
             return null;
         }
@@ -303,11 +510,29 @@ public sealed class VisitService(
             score += 30;
         }
 
+        if (drift)
+        {
+            codes.Add(VisitReviewReasons.LocationDrift);
+            score += 30;
+        }
+
+        if (notSaved)
+        {
+            codes.Add(VisitReviewReasons.ClinicLocationNotSaved);
+            score += 10;
+        }
+
+        if (travel)
+        {
+            codes.Add(AnomalyCodes.ImpossibleSpeed);
+            score += AnomalyWeights.ImpossibleSpeed;
+        }
+
         codes.AddRange(DeviceSignalCodes.From(signals));
         var type = isMock ? TrackingFlagType.MockLocation
             : far || !inside ? TrackingFlagType.VisitOutsideGeofence
             : TrackingFlagType.VisitLowTrust;
-        var text = string.Join(" ", new[] { details }.Concat(trust.Details).Append(DeviceSignalCodes.Describe(signals) ?? string.Empty)).Trim();
+        var text = string.Join(" ", new[] { details }.Concat(trust.Details).Append(DeviceSignalCodes.Describe(signals) ?? string.Empty).Distinct()).Trim();
 
         return await flags.RaiseAsync(
             new IntegrityFlagRequest(visit.UserId, territoryId, visit.ShiftId, type, Math.Min(100, score), codes, text, VisitId: visit.Id),
@@ -706,7 +931,12 @@ public sealed class VisitService(
             visit.Customer?.GeofenceRadiusMeters ?? 0,
             ReasonsFor(visit),
             photos.Select(ToPhotoDto).ToList(),
-            orders);
+            orders,
+            LocationOf(visit),
+            visit.CheckOutLocation?.Y,
+            visit.CheckOutLocation?.X,
+            visit.Customer?.Location?.Y,
+            visit.Customer?.Location?.X);
     }
 
     private async Task ApplyProductsAsync(Visit visit, IReadOnlyList<VisitProductInput> requested, Guid repId, CancellationToken cancellationToken)
@@ -827,7 +1057,8 @@ public sealed class VisitService(
         Guid? productId = null,
         Domain.Visits.VisitFeedbackCategory? feedbackCategory = null,
         bool? hasFeedback = null,
-        bool archived = false)
+        bool archived = false,
+        bool? locationDrift = null)
     {
         var toUtc = (to ?? time.GetUtcNow()).ToUniversalTime();
         var fromUtc = (from ?? toUtc.AddDays(-7)).ToUniversalTime();
@@ -878,6 +1109,11 @@ public sealed class VisitService(
             query = query.Where(v => v.NeedsReview == needsReview);
         }
 
+        if (locationDrift is not null)
+        {
+            query = query.Where(v => v.LocationDrift == locationDrift);
+        }
+
         var rows = await query
             .OrderByDescending(v => v.CheckInAt)
             .Take(MaxListRows)
@@ -911,6 +1147,18 @@ public sealed class VisitService(
                 ProductCount = v.Products.Count,
                 ReplyCount = v.Replies.Count,
                 v.ArchivedAt,
+                v.CheckInLocation,
+                v.CheckInSignalCodes,
+                v.ClinicLocationOutcome,
+                v.ClinicDistanceMeters,
+                v.PreviousVisitDistanceMeters,
+                v.SincePreviousVisitSeconds,
+                v.MedianDistanceMeters,
+                v.NearestVisitDistanceMeters,
+                v.ReferenceVisitCount,
+                v.CheckInGoodFix,
+                v.LocationDrift,
+                v.DriftSources,
             })
             .ToListAsync(cancellationToken);
 
@@ -921,7 +1169,12 @@ public sealed class VisitService(
                 v.CheckOutWithinGeofence, v.QrVerified, v.NeedsReview, v.PhotoCount, v.CheckInAccuracy, v.CheckInIsMock,
                 v.ProductIds,
                 VisitReviewReasons.For(v.CheckInWithinGeofence, v.CheckInIsMock, v.CheckOutIsMock, v.CheckOutAt is not null, v.HasCheckOutLocation, v.TrustReasons),
-                v.HasFeedback, v.FeedbackCategory, v.ProductCount, v.ReplyCount, v.ArchivedAt))
+                v.HasFeedback, v.FeedbackCategory, v.ProductCount, v.ReplyCount, v.ArchivedAt,
+                new VisitLocationDto(
+                    v.CheckInLocation.Y, v.CheckInLocation.X, v.CheckInAccuracy, v.CheckInIsMock, v.CheckInSignalCodes,
+                    v.ClinicLocationOutcome, v.ClinicDistanceMeters, v.PreviousVisitDistanceMeters, v.SincePreviousVisitSeconds,
+                    v.MedianDistanceMeters, v.NearestVisitDistanceMeters, v.ReferenceVisitCount, v.CheckInGoodFix,
+                    v.LocationDrift, v.DriftSources)))
             .ToList();
     }
 
@@ -937,5 +1190,11 @@ public sealed class VisitService(
         v.CheckOutAt, v.CheckOutDistanceMeters, v.CheckOutWithinGeofence,
         v.QrVerified, v.NeedsReview,
         v.Photos.Select(ToPhotoDto).ToList(),
-        v.CheckInAccuracy, geofenceRadiusMeters, ReasonsFor(v));
+        v.CheckInAccuracy, geofenceRadiusMeters, ReasonsFor(v), v.ClinicLocationOutcome);
+
+    private static VisitLocationDto LocationOf(Visit v) => new(
+        v.CheckInLocation.Y, v.CheckInLocation.X, v.CheckInAccuracy, v.CheckInIsMock, v.CheckInSignalCodes,
+        v.ClinicLocationOutcome, v.ClinicDistanceMeters, v.PreviousVisitDistanceMeters, v.SincePreviousVisitSeconds,
+        v.MedianDistanceMeters, v.NearestVisitDistanceMeters, v.ReferenceVisitCount, v.CheckInGoodFix, v.LocationDrift,
+        v.DriftSources);
 }

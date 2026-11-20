@@ -2,6 +2,7 @@
  * Original Pharma CRM API v1.
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
+import type { LocationVisibility } from './locationVisibility'
 import type { MockLocationPolicy } from './mockLocationPolicy'
 
 export interface LocationTrustSettingsDto {
@@ -18,4 +19,8 @@ export interface LocationTrustSettingsDto {
   updatedAt: string | null
   /** @nullable */
   updatedByName: string | null
+  driftFromClinicMeters: number
+  driftFromVisitsMeters: number
+  visibility: LocationVisibility
+  visitWindowBufferMinutes: number
 }

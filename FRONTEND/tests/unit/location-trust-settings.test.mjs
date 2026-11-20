@@ -11,6 +11,10 @@ const saved = {
   repeatedAccuracyRun: 6,
   mockPolicy: 'flagOnly',
   deviceSignalsRetentionDays: 30,
+  driftFromClinicMeters: 150,
+  driftFromVisitsMeters: 150,
+  visibility: 'visitOnly',
+  visitWindowBufferMinutes: 5,
   isDefault: true,
   updatedAt: null,
   updatedByName: null,
@@ -27,6 +31,10 @@ test('the saved settings round-trip through the form unchanged', () => {
     perfectAccuracyMeters: 1.5,
     repeatedAccuracyRun: 6,
     deviceSignalsRetentionDays: 30,
+    driftFromClinicMeters: 150,
+    driftFromVisitsMeters: 150,
+    visibility: 'visitOnly',
+    visitWindowBufferMinutes: 5,
   })
 })
 
@@ -47,4 +55,18 @@ test('the stricter policy is sent as chosen', () => {
   })
   assert.equal(request.mockPolicy, 'flagAndExclude')
   assert.equal(request.maxDistanceFromDoctorMeters, 300)
+})
+
+test('the drift limits follow the server limits', () => {
+  assert.equal(fieldError('driftFromClinicMeters', '10'), 'range')
+  assert.equal(fieldError('driftFromVisitsMeters', '150'), null)
+  assert.equal(requestOf({ ...draftOf(saved), driftFromVisitsMeters: '' }), null)
+})
+
+test('the visibility mode and the visit buffer are sent with the other settings', () => {
+  const request = requestOf({ ...draftOf(saved), visibility: 'allDay', visitWindowBufferMinutes: '0' })
+  assert.equal(request.visibility, 'allDay')
+  assert.equal(request.visitWindowBufferMinutes, 0)
+  assert.equal(fieldError('visitWindowBufferMinutes', '61'), 'range')
+  assert.equal(fieldError('visitWindowBufferMinutes', '2.5'), 'integer')
 })

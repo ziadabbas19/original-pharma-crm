@@ -6,10 +6,12 @@ using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Visits;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Domain.Visits;
 
 namespace OriginalPharma.Application.Crm;
 
@@ -39,7 +41,46 @@ public sealed record DoctorDto(
     DateTimeOffset? ArchivedAt = null,
     double? Lat = null,
     double? Lng = null,
-    int GeofenceRadiusMeters = 150);
+    int GeofenceRadiusMeters = 150,
+    ClinicLocationSource? LocationSource = null,
+    DateTimeOffset? LocationCapturedAt = null,
+    string? LocationCapturedByName = null,
+    double? LocationAccuracyMeters = null,
+    Guid? LocationVisitId = null);
+
+/// <summary>A visit to the doctor as the location history shows it.</summary>
+public sealed record DoctorVisitLocationDto(
+    Guid VisitId,
+    Guid RepId,
+    string RepName,
+    DateTimeOffset CheckInAt,
+    VisitStatus Status,
+    bool NeedsReview,
+    IReadOnlyList<string> ReviewReasons,
+    VisitLocationDto Location);
+
+/// <summary>
+/// The clinic location of a doctor with every visit in the caller's visits:read scope, newest first
+/// (at most <see cref="DoctorService.MaxLocationHistoryVisits"/>).
+/// </summary>
+/// <param name="MedianLat">Median position of the visits with a good fix (null with fewer than two).</param>
+/// <param name="Capped">More visits exist than are listed.</param>
+public sealed record DoctorLocationHistoryDto(
+    Guid DoctorId,
+    string Name,
+    string? NameAr,
+    double? Lat,
+    double? Lng,
+    int GeofenceRadiusMeters,
+    ClinicLocationSource? LocationSource,
+    DateTimeOffset? LocationCapturedAt,
+    string? LocationCapturedByName,
+    double? LocationAccuracyMeters,
+    Guid? LocationVisitId,
+    double? MedianLat,
+    double? MedianLng,
+    IReadOnlyList<DoctorVisitLocationDto> Visits,
+    bool Capped);
 
 /// <param name="Mine">Only the caller's own list (the rep app).</param>
 /// <param name="RepId">Only this rep's list (must be in the caller's scope).</param>
@@ -123,6 +164,7 @@ public sealed class DoctorService(
 {
     public const int MaxRows = 1000;
     public const int DirectoryRows = 30;
+    public const int MaxLocationHistoryVisits = 300;
 
     public async Task<IReadOnlyList<DoctorDto>> ListAsync(DoctorQuery query, CancellationToken cancellationToken = default)
     {
@@ -206,6 +248,71 @@ public sealed class DoctorService(
     }
 
     /// <summary>
+    /// The clinic location and where every visit to the doctor was recorded, with the distances stored on
+    /// each visit. The doctor must be visible to the caller (customers:read) and only visits inside the
+    /// caller's visits:read scope are listed.
+    /// </summary>
+    public async Task<DoctorLocationHistoryDto> LocationHistoryAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var doctor = await GetAsync(id, cancellationToken);
+        var visitScope = await scopeResolver.ResolveAsync(Permissions.Visits.Read, cancellationToken);
+        var rows = await db.Visits.AsNoTracking()
+            .WhereInScope(visitScope)
+            .Where(v => v.CustomerId == id && v.ArchivedAt == null)
+            .OrderByDescending(v => v.CheckInAt)
+            .Take(MaxLocationHistoryVisits + 1)
+            .Select(v => new
+            {
+                v.Id,
+                v.UserId,
+                RepName = db.Users.Where(u => u.Id == v.UserId).Select(u => u.FullName).FirstOrDefault() ?? string.Empty,
+                v.CheckInAt,
+                v.Status,
+                v.NeedsReview,
+                v.CheckInWithinGeofence,
+                v.CheckInIsMock,
+                v.CheckOutIsMock,
+                v.CheckOutAt,
+                HasCheckOutLocation = v.CheckOutLocation != null,
+                v.TrustReasons,
+                v.CheckInLocation,
+                v.CheckInAccuracy,
+                v.CheckInSignalCodes,
+                v.ClinicLocationOutcome,
+                v.ClinicDistanceMeters,
+                v.PreviousVisitDistanceMeters,
+                v.SincePreviousVisitSeconds,
+                v.MedianDistanceMeters,
+                v.NearestVisitDistanceMeters,
+                v.ReferenceVisitCount,
+                v.CheckInGoodFix,
+                v.LocationDrift,
+                v.DriftSources,
+            })
+            .ToListAsync(cancellationToken);
+
+        var visits = rows.Take(MaxLocationHistoryVisits)
+            .Select(v => new DoctorVisitLocationDto(
+                v.Id, v.UserId, v.RepName, v.CheckInAt, v.Status, v.NeedsReview,
+                VisitReviewReasons.For(v.CheckInWithinGeofence, v.CheckInIsMock, v.CheckOutIsMock, v.CheckOutAt is not null, v.HasCheckOutLocation, v.TrustReasons),
+                new VisitLocationDto(
+                    v.CheckInLocation.Y, v.CheckInLocation.X, v.CheckInAccuracy, v.CheckInIsMock, v.CheckInSignalCodes,
+                    v.ClinicLocationOutcome, v.ClinicDistanceMeters, v.PreviousVisitDistanceMeters, v.SincePreviousVisitSeconds,
+                    v.MedianDistanceMeters, v.NearestVisitDistanceMeters, v.ReferenceVisitCount, v.CheckInGoodFix,
+                    v.LocationDrift, v.DriftSources)))
+            .ToList();
+        var good = visits.Where(v => v.Location.GoodFix)
+            .Select(v => new ReferenceFix(v.VisitId, v.CheckInAt, v.Location.Lat, v.Location.Lng))
+            .ToList();
+        (double Lat, double Lng)? median = good.Count >= VisitLocationHistory.MinVisitsForMedian ? VisitLocationHistory.MedianOf(good) : null;
+
+        return new DoctorLocationHistoryDto(
+            doctor.Id, doctor.Name, doctor.NameAr, doctor.Lat, doctor.Lng, doctor.GeofenceRadiusMeters,
+            doctor.LocationSource, doctor.LocationCapturedAt, doctor.LocationCapturedByName, doctor.LocationAccuracyMeters,
+            doctor.LocationVisitId, median?.Lat, median?.Lng, visits, rows.Count > MaxLocationHistoryVisits);
+    }
+
+    /// <summary>
     /// Search all active doctors (name, town, specialty only) so a rep can pick an existing doctor
     /// instead of creating a duplicate.
     /// </summary>
@@ -238,7 +345,11 @@ public sealed class DoctorService(
 
         // Other reps' names are not part of the directory; phone and notes neither.
         return (await ToDtosAsync(rows, me, [me], tree, cancellationToken))
-            .Select(d => d with { Phone = null, Notes = null, Lat = null, Lng = null })
+            .Select(d => d with
+            {
+                Phone = null, Notes = null, Lat = null, Lng = null, LocationSource = null, LocationCapturedAt = null,
+                LocationCapturedByName = null, LocationAccuracyMeters = null, LocationVisitId = null,
+            })
             .ToList();
     }
 
@@ -384,8 +495,13 @@ public sealed class DoctorService(
         doctor.IsActive = request.IsActive;
         if (request.Location is { } location)
         {
+            var moved = location.Lat != before.Lat || location.Lng != before.Lng;
             doctor.Location = location is { Lat: { } lat, Lng: { } lng } ? GeoFactory.Point(lat, lng) : null;
             doctor.GeofenceRadiusMeters = location.GeofenceRadiusMeters;
+            if (moved)
+            {
+                ClinicLocationStamp.ManagerSet(doctor, me, time.GetUtcNow());
+            }
         }
 
         var after = new
@@ -542,7 +658,12 @@ public sealed class DoctorService(
             c.IsActive,
             c.ArchivedAt,
             c.Location,
-            c.GeofenceRadiusMeters));
+            c.GeofenceRadiusMeters,
+            c.LocationSource,
+            c.LocationCapturedAt,
+            db.Users.Where(u => u.Id == c.LocationCapturedById).Select(u => u.FullName).FirstOrDefault(),
+            c.LocationAccuracyMeters,
+            c.LocationVisitId));
 
     private async Task<List<DoctorDto>> ToDtosAsync(
         IReadOnlyList<DoctorRow> rows,
@@ -573,7 +694,12 @@ public sealed class DoctorService(
                 r.ArchivedAt,
                 r.Location?.Y,
                 r.Location?.X,
-                r.GeofenceRadiusMeters))
+                r.GeofenceRadiusMeters,
+                r.Location is null ? null : r.LocationSource,
+                r.Location is null ? null : r.LocationCapturedAt,
+                r.Location is null ? null : r.LocationCapturedByName,
+                r.Location is null ? null : r.LocationAccuracyMeters,
+                r.Location is null ? null : r.LocationVisitId))
             .ToList();
     }
 
@@ -594,7 +720,27 @@ public sealed class DoctorService(
         bool IsActive,
         DateTimeOffset? ArchivedAt,
         NetTopologySuite.Geometries.Point? Location,
-        int GeofenceRadiusMeters);
+        int GeofenceRadiusMeters,
+        ClinicLocationSource? LocationSource,
+        DateTimeOffset? LocationCapturedAt,
+        string? LocationCapturedByName,
+        double? LocationAccuracyMeters,
+        Guid? LocationVisitId);
+}
+
+/// <summary>Records who set a customer's saved location and how.</summary>
+internal static class ClinicLocationStamp
+{
+    /// <summary>A manager typed, moved or cleared the location: it is theirs now (cleared: no metadata).</summary>
+    public static void ManagerSet(Customer customer, Guid managerId, DateTimeOffset at)
+    {
+        var has = customer.Location is not null;
+        customer.LocationSource = has ? ClinicLocationSource.ManagerSet : null;
+        customer.LocationCapturedById = has ? managerId : null;
+        customer.LocationCapturedAt = has ? at : null;
+        customer.LocationAccuracyMeters = null;
+        customer.LocationVisitId = null;
+    }
 }
 
 public sealed class CreateDoctorRequestValidator : AbstractValidator<CreateDoctorRequest>

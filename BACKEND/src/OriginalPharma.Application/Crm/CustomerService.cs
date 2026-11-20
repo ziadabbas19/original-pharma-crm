@@ -128,6 +128,11 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
         customer.GeofenceRadiusMeters = request.GeofenceRadiusMeters;
         customer.IsActive = request.IsActive;
         var after = Snapshot(customer);
+        if (before.Lat != after.Lat || before.Lng != after.Lng)
+        {
+            ClinicLocationStamp.ManagerSet(customer, currentUser.RequireUserId(), time.GetUtcNow());
+        }
+
         if (before != after)
         {
             customer.UpdatedAt = time.GetUtcNow();

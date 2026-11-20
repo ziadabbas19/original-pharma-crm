@@ -18,6 +18,7 @@ import { localizedName } from '@/lib/format'
 import { platform, type GeoFix } from '@/lib/platform'
 import { useAppSelector } from '@/store'
 import { startVisit, useActiveVisit } from './active-visit'
+import { ProximityMapCard } from './ProximityMapCard'
 import { ProximityResultCard } from './ProximityResultCard'
 import type { VisitCustomer } from './use-rep-customers'
 import { useVisitRulesData } from './use-visit-rules'
@@ -25,6 +26,7 @@ import { captureVisitFix } from './visit-checkin'
 import { compressPhoto } from './visit-photo'
 import {
   canStartVisit,
+  checkInReading,
   evaluateProximity,
   locationFailureOf,
   willNeedReview,
@@ -46,7 +48,6 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
   const rules = useVisitRulesData()
   const shift = useAppSelector((s) => s.tracking.shift)
   const { visit: active, loaded } = useActiveVisit()
-  const hasLocation = customer.lat != null && customer.lng != null
   const [reading, setReading] = useState<Reading | null>(null)
   const [photo, setPhoto] = useState<string | null>(null)
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -55,10 +56,10 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
   const fileInput = useRef<HTMLInputElement>(null)
   const online = typeof navigator === 'undefined' || navigator.onLine !== false
 
-  const [locating, setLocating] = useState(hasLocation)
+  // A fresh fix is always taken: a customer without a saved location gets one from this visit.
+  const [locating, setLocating] = useState(true)
 
   useEffect(() => {
-    if (!hasLocation) return
     let active = true
     void readLocation().then((value) => {
       if (!active) return
@@ -68,7 +69,7 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
     return () => {
       active = false
     }
-  }, [hasLocation])
+  }, [])
 
   const locate = async () => {
     setLocating(true)
@@ -77,10 +78,9 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
     setLocating(false)
   }
 
-  const result =
-    hasLocation && !reading
-      ? null
-      : evaluateProximity(customer, reading?.fix ?? null, rules, reading?.failure ?? 'unavailable')
+  const result = !reading
+    ? null
+    : evaluateProximity(customer, reading.fix ?? null, rules, reading.failure ?? 'unavailable')
 
   const pickPhoto = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -98,15 +98,16 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
   }
 
   const start = async () => {
-    if (!reading?.fix || !result || (result.state !== 'inside' && result.state !== 'outside')) return
+    const measured = result ? checkInReading(result) : null
+    if (!reading?.fix || !measured) return
     setBusy(true)
     setError(null)
     try {
       await startVisit({
         customer: { id: customer.id, name: customer.name, nameAr: customer.nameAr, type: customer.type },
         fix: reading.fix,
-        distance: result.distance,
-        inside: result.state === 'inside',
+        distance: measured.distance,
+        inside: measured.inside,
         photo,
       })
       onClose()
@@ -125,8 +126,17 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="flex max-h-[92dvh] flex-col gap-0 overflow-y-auto p-0">
         <SheetHeader className="border-b p-4">
-          <SheetTitle>{t('visits.checkInFlow.title')}</SheetTitle>
-          <SheetDescription>{localizedName(customer.name, customer.nameAr)}</SheetDescription>
+          <SheetTitle className="text-section font-bold">
+            {localizedName(customer.name, customer.nameAr)}
+          </SheetTitle>
+          <SheetDescription>
+            {[
+              t('visits.checkInFlow.title'),
+              localizedName(customer.specialtyNameEn, customer.specialtyNameAr),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </SheetDescription>
         </SheetHeader>
 
         <div className="grid gap-3 p-4">
@@ -172,16 +182,18 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
             </div>
           )}
 
+          {result && <ProximityMapCard result={result} />}
+
           {result && <ProximityResultCard result={result} />}
 
-          {result && willNeedReview(result) && result.state !== 'outside' && (
+          {result && willNeedReview(result) && result.state === 'inside' && (
             <Alert variant="warning" data-testid="proximity-mock">
               <ShieldAlertIcon />
               <AlertDescription>{t('visits.checkInFlow.mockBody')}</AlertDescription>
             </Alert>
           )}
 
-          {!locating && hasLocation && result && !canStartVisit(result) && (
+          {!locating && result && !canStartVisit(result) && (
             <div className="grid gap-2 sm:grid-cols-2">
               <Button variant="outline" size="lg" onClick={() => void locate()} data-testid="proximity-retry">
                 <RotateCcwIcon />
@@ -255,6 +267,7 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
           <div className="grid gap-2 pb-safe">
             <Button
               size="lg"
+              variant={result?.state === 'outside' ? 'default' : 'success'}
               disabled={!ready || busy || locating}
               onClick={() => void start()}
               data-testid="check-in-start"
@@ -262,7 +275,7 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
               {busy && <Loader2Icon className="animate-spin" />}
               {result?.state === 'outside' ? t('visits.checkInFlow.startAnyway') : t('visits.start')}
             </Button>
-            <Button variant="ghost" size="lg" onClick={onClose}>
+            <Button variant="outline" size="lg" onClick={onClose}>
               {t('common.cancel')}
             </Button>
           </div>

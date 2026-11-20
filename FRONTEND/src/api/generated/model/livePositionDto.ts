@@ -24,4 +24,10 @@ export interface LivePositionDto {
   trustStatus?: LocationTrustStatus
   /** @nullable */
   trustReason?: string | null
+  /** @nullable */
+  visitId?: string | null
+  /** @nullable */
+  visitCustomerName?: string | null
+  /** @nullable */
+  visitCustomerNameAr?: string | null
 }

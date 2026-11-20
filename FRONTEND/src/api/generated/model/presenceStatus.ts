@@ -10,4 +10,5 @@ export const PresenceStatus = {
   online: 'online',
   idle: 'idle',
   trackingLost: 'trackingLost',
+  notOnVisit: 'notOnVisit',
 } as const

@@ -17,6 +17,7 @@ public sealed class VisitsController(VisitService visits) : ControllerBase
     /// <param name="mine">Only the caller's own visits (rep app).</param>
     /// <param name="productId">Only visits where this product was discussed.</param>
     /// <param name="archived">Only archived (deleted) visits.</param>
+    /// <param name="locationDrift">Only visits marked (true) or not marked (false) as location drift.</param>
     [HttpGet]
     [HasPermission(Permissions.Visits.Read)]
     public Task<IReadOnlyList<VisitListItemDto>> List(
@@ -30,8 +31,9 @@ public sealed class VisitsController(VisitService visits) : ControllerBase
         [FromQuery] Guid? productId = null,
         [FromQuery] VisitFeedbackCategory? feedbackCategory = null,
         [FromQuery] bool? hasFeedback = null,
-        [FromQuery] bool archived = false) =>
-        visits.ListAsync(from, to, userId, status, needsReview, cancellationToken, mine, productId, feedbackCategory, hasFeedback, archived);
+        [FromQuery] bool archived = false,
+        [FromQuery] bool? locationDrift = null) =>
+        visits.ListAsync(from, to, userId, status, needsReview, cancellationToken, mine, productId, feedbackCategory, hasFeedback, archived, locationDrift);
 
     /// <summary>The verification rules of this server (accuracy limit, geofence allowance, edit window).</summary>
     [HttpGet("rules")]

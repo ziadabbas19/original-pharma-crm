@@ -124,6 +124,8 @@ internal static class ApiSetup
                 "tracking-lost-monitor", monitor => monitor.RunAsync(CancellationToken.None), Cron.Minutely());
             jobs.AddOrUpdate<DeviceSignalsRetentionJob>(
                 "device-signals-retention", job => job.RunAsync(CancellationToken.None), Cron.Daily(2));
+            jobs.AddOrUpdate<OriginalPharma.Application.Tracking.Visibility.OutsideVisitPointsPurgeJob>(
+                "outside-visit-points-purge", job => job.RunAsync(CancellationToken.None), Cron.Hourly(17));
         }
         catch (Exception ex)
         {

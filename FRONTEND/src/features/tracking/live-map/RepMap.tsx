@@ -3,13 +3,14 @@ import {
   Map as MapLibreMap,
   Marker,
   NavigationControl,
+  Popup,
   ScaleControl,
   type GeoJSONSource,
 } from 'maplibre-gl'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LivePositionDto } from '@/api/generated/model'
-import { LIVE_STATUS_COLOR, type LiveStatus } from '../live-status'
+import { LIVE_STATUS_COLOR, ON_VISIT_COLOR, type LiveStatus } from '../live-status'
 import { useTheme } from '@/lib/theme'
 import {
   applyMapTheme,
@@ -18,6 +19,8 @@ import {
   EXCLUDED_COLOR,
   FLAGGED_COLOR,
   BASE_MAP_STYLE,
+  DOCTOR_COLOR,
+  PIN_STROKE_COLOR,
   ROUTE_COLOR,
   START_COLOR,
 } from './map-setup'
@@ -27,6 +30,8 @@ export interface MapRep {
   fullName: string
   status: LiveStatus
   position: LivePositionDto | null
+  /** Visit-only visibility: the doctor of the visit in progress (shown on the marker). */
+  visitCustomer?: string | null
 }
 
 export interface RoutePoint {
@@ -41,6 +46,14 @@ export interface RoutePoint {
   focus?: boolean
 }
 
+/** A doctor with a saved clinic location (optional layer). */
+export interface MapDoctor {
+  id: string
+  name: string
+  lat: number
+  lng: number
+}
+
 interface MarkerEntry {
   marker: Marker
   root: HTMLButtonElement
@@ -48,7 +61,13 @@ interface MarkerEntry {
   dot: HTMLSpanElement
 }
 
-const STATUS_Z: Record<LiveStatus, string> = { lost: '4', stale: '3', online: '2', offShift: '1' }
+const STATUS_Z: Record<LiveStatus, string> = {
+  lost: '4',
+  stale: '3',
+  online: '2',
+  notOnVisit: '1',
+  offShift: '1',
+}
 const EMPTY = { type: 'FeatureCollection' as const, features: [] }
 
 function createMarkerElement(): Omit<MarkerEntry, 'marker'> {
@@ -58,10 +77,10 @@ function createMarkerElement(): Omit<MarkerEntry, 'marker'> {
     'group flex cursor-pointer flex-col items-center gap-0.5 outline-none data-[status=offShift]:opacity-70 data-[selected=true]:opacity-100'
   const label = document.createElement('span')
   label.className =
-    'max-w-36 truncate rounded bg-card/95 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-foreground shadow ring-1 ring-black/10 group-focus-visible:ring-2 group-focus-visible:ring-ring group-data-[selected=true]:bg-primary group-data-[selected=true]:text-primary-foreground'
+    'max-w-36 truncate rounded-full bg-card/95 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-foreground shadow ring-1 ring-black/10 group-focus-visible:ring-2 group-focus-visible:ring-ring group-data-[selected=true]:bg-primary group-data-[selected=true]:text-primary-foreground'
   const dot = document.createElement('span')
   dot.className =
-    'size-3.5 rounded-full border-2 border-white shadow-md transition-transform group-data-[selected=true]:scale-125 group-data-[selected=true]:ring-4 group-data-[selected=true]:ring-primary/30'
+    'size-4 rounded-full border-2 border-white shadow-md transition-transform group-data-[selected=true]:scale-125 group-data-[selected=true]:ring-4 group-data-[selected=true]:ring-primary/35'
   root.append(label, dot)
   return { root, label, dot }
 }
@@ -72,6 +91,7 @@ function createMarkerElement(): Omit<MarkerEntry, 'marker'> {
  */
 export function RepMap({
   reps,
+  doctors = [],
   selectedId,
   following,
   route,
@@ -80,6 +100,8 @@ export function RepMap({
   onUserPan,
 }: {
   reps: MapRep[]
+  /** Clinics drawn under the reps (empty = layer off). */
+  doctors?: MapDoctor[]
   selectedId: string | null
   following: boolean
   route: RoutePoint[] | null
@@ -121,6 +143,32 @@ export function RepMap({
     map.addControl(new ScaleControl({ unit: 'metric' }), rtl ? 'bottom-right' : 'bottom-left')
 
     map.on('load', () => {
+      map.addSource('doctors', { type: 'geojson', data: EMPTY })
+      map.addLayer({
+        id: 'doctors',
+        type: 'circle',
+        source: 'doctors',
+        paint: {
+          'circle-radius': 5,
+          'circle-color': DOCTOR_COLOR,
+          'circle-stroke-color': PIN_STROKE_COLOR,
+          'circle-stroke-width': 1.5,
+        },
+      })
+      map.on('click', 'doctors', (event) => {
+        const feature = event.features?.[0]
+        const coordinates = feature?.geometry.type === 'Point' ? feature.geometry.coordinates : null
+        if (!feature || !coordinates) return
+        const label = document.createElement('span')
+        label.className = 'text-sm font-medium'
+        label.textContent = String(feature.properties?.name ?? '')
+        new Popup({ closeButton: false, offset: 8 })
+          .setLngLat([coordinates[0], coordinates[1]])
+          .setDOMContent(label)
+          .addTo(map)
+      })
+      map.on('mouseenter', 'doctors', () => (map.getCanvas().style.cursor = 'pointer'))
+      map.on('mouseleave', 'doctors', () => (map.getCanvas().style.cursor = ''))
       map.addSource('route-line', { type: 'geojson', data: EMPTY })
       map.addSource('route-points', { type: 'geojson', data: EMPTY })
       map.addLayer({
@@ -128,7 +176,7 @@ export function RepMap({
         type: 'line',
         source: 'route-line',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#ffffff', 'line-width': 7, 'line-opacity': 0.9 },
+        paint: { 'line-color': PIN_STROKE_COLOR, 'line-width': 7, 'line-opacity': 0.9 },
       })
       map.addLayer({
         id: 'route-line',
@@ -168,7 +216,7 @@ export function RepMap({
             EXCLUDED_COLOR,
             ROUTE_COLOR,
           ],
-          'circle-stroke-color': ['match', ['get', 'kind'], 'focus', FLAGGED_COLOR, '#ffffff'],
+          'circle-stroke-color': ['match', ['get', 'kind'], 'focus', FLAGGED_COLOR, PIN_STROKE_COLOR],
           'circle-stroke-opacity': ['match', ['get', 'kind'], 'focus', 0.35, 1],
           'circle-stroke-width': ['match', ['get', 'kind'], 'point', 0.5, 'focus', 8, 2],
         },
@@ -224,12 +272,18 @@ export function RepMap({
         entry.marker.setLngLat([rep.position.lng, rep.position.lat])
       }
       const selected = rep.userId === selectedId
-      entry.label.textContent = rep.fullName
-      entry.dot.style.backgroundColor = LIVE_STATUS_COLOR[rep.status]
+      entry.label.textContent = rep.visitCustomer ? `${rep.fullName} · ${rep.visitCustomer}` : rep.fullName
+      entry.dot.style.backgroundColor =
+        rep.visitCustomer && rep.status === 'online' ? ON_VISIT_COLOR : LIVE_STATUS_COLOR[rep.status]
       entry.root.dataset.status = rep.status
       entry.root.dataset.selected = String(selected)
       entry.root.style.zIndex = selected ? '10' : STATUS_Z[rep.status]
-      entry.root.setAttribute('aria-label', `${rep.fullName}: ${t(`liveMap.status.${rep.status}`)}`)
+      entry.root.setAttribute(
+        'aria-label',
+        rep.visitCustomer
+          ? `${rep.fullName}: ${t('liveMap.onVisitWith', { name: rep.visitCustomer })}`
+          : `${rep.fullName}: ${t(`liveMap.status.${rep.status}`)}`,
+      )
     }
 
     for (const [id, entry] of markers) {
@@ -247,6 +301,20 @@ export function RepMap({
       map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 0 })
     }
   }, [reps, selectedId, t])
+
+  // Clinic layer.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map) return
+    void map.getSource<GeoJSONSource>('doctors')?.setData({
+      type: 'FeatureCollection',
+      features: doctors.map((d) => ({
+        type: 'Feature',
+        properties: { name: d.name },
+        geometry: { type: 'Point', coordinates: [d.lng, d.lat] },
+      })),
+    })
+  }, [ready, doctors])
 
   // Follow the selected rep while following is on.
   const selected = reps.find((r) => r.userId === selectedId)

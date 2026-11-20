@@ -176,12 +176,17 @@ try {
     await checkLayout(page, '04-review-page-ar-dark-390')
   })
 
-  await check("the live map marks the rep's latest position as suspicious", async () => {
-    await page.viewport(1280, 900)
-    await nav(page, `/admin/live-map?rep=${repId}`)
-    await page.waitFor(byId('trust-badge'), 20000)
-    await checkLayout(page, '05-live-map-ar-dark')
-  })
+  await check(
+    'outside a visit the live map shows the rep without a position (visit-only, the default)',
+    async () => {
+      await page.viewport(1280, 900)
+      await nav(page, `/admin/live-map?rep=${repId}`)
+      await page.waitFor(byId('visibility-banner'), 20000)
+      await page.waitFor(byId('rep-visit-state'), 20000)
+      assert.equal(await page.evaluate(`Boolean(${byId('trust-badge')})`), false)
+      await checkLayout(page, '05-live-map-ar-dark')
+    },
+  )
 } finally {
   await page.close()
 }
@@ -197,6 +202,7 @@ try {
     await checkLayout(admin, '06-settings-en')
     await admin.fill('#setting-maxDistanceFromDoctorMeters', '350')
     await admin.evaluate(`document.querySelector('input[name=mock-policy][value=flagAndExclude]').click()`)
+    await admin.evaluate(`document.querySelector('input[name=location-visibility][value=allDay]').click()`)
     await admin.click('[data-testid=location-trust-form] button[type=submit]')
     await admin.waitFor(`document.querySelector('[role=status]')`, 15000)
     const saved = await api('/api/settings/location-trust', {
@@ -204,7 +210,14 @@ try {
     })
     assert.equal(saved.maxDistanceFromDoctorMeters, 350)
     assert.equal(saved.mockPolicy, 'flagAndExclude')
+    assert.equal(saved.visibility, 'allDay')
     assert.equal(saved.isDefault, false)
+  })
+
+  await check("in all-day mode the live map marks the rep's latest position as suspicious", async () => {
+    await nav(admin, `/admin/live-map?rep=${repId}`)
+    await admin.waitFor(byId('trust-badge'), 30000)
+    await checkLayout(admin, '07-live-map-all-day-en')
   })
 } finally {
   await admin.close()

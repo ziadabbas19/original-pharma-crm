@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2Icon, PlusIcon, SearchIcon, UserPlusIcon } from 'lucide-react'
+import { Loader2Icon, MapPinPlusIcon, PlusIcon, SearchIcon, UserPlusIcon } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDoctorsAddToMyList, useDoctorsCreate, useDoctorsSearchDirectory } from '@/api/generated/endpoints'
@@ -199,6 +199,13 @@ export function AddDoctorSheet({
                 specialties={specialties.data ?? []}
                 touched={touched}
               />
+              <p
+                className="flex items-start gap-2 text-sm text-muted-foreground"
+                data-testid="new-doctor-location-hint"
+              >
+                <MapPinPlusIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                {t('doctors.locationFromFirstVisit')}
+              </p>
               {existingId && (
                 <Alert variant="warning">
                   <AlertDescription className="grid gap-2">

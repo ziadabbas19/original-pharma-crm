@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Loader2Icon } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDoctorsUpdate } from '@/api/generated/endpoints'
 import type { DoctorDto } from '@/api/generated/model'
@@ -18,7 +18,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { usePermission } from '@/features/auth/usePermission'
+import { LocationMap, type MapPoint } from '@/features/maps/LazyLocationMap'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
+import { formatDateTime, formatDistance } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { DoctorFields } from './doctor-fields'
 import { doctorProblems, type DoctorFormValues } from './doctor-form'
@@ -56,6 +58,23 @@ export function DoctorEditDialog({ doctor, onClose }: { doctor: DoctorDto; onClo
       !Number.isInteger(radiusValue) ||
       radiusValue < 20 ||
       radiusValue > 2000)
+
+  // The map follows the typed coordinates once they are valid.
+  const mapPoints = useMemo<MapPoint[]>(
+    () =>
+      latValue !== null && lngValue !== null && Math.abs(latValue) <= 90 && Math.abs(lngValue) <= 180
+        ? [
+            {
+              id: 'clinic',
+              lat: latValue,
+              lng: lngValue,
+              kind: 'clinic',
+              title: t('doctors.locationHistory.clinic'),
+            },
+          ]
+        : [],
+    [latValue, lngValue, t],
+  )
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -142,6 +161,28 @@ export function DoctorEditDialog({ doctor, onClose }: { doctor: DoctorDto; onClo
               >
                 {t('doctors.locationHint')}
               </p>
+              {mapPoints.length > 0 ? (
+                <LocationMap
+                  points={mapPoints}
+                  radiusMeters={Number.isInteger(radiusValue) ? radiusValue : undefined}
+                  className="relative h-44 overflow-hidden rounded-xl border"
+                />
+              ) : (
+                <p className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
+                  {t('doctors.locationHistory.pending')}
+                </p>
+              )}
+              {doctor.lat != null && doctor.locationSource && (
+                <p className="text-xs text-muted-foreground" data-testid="doctor-location-source">
+                  {t('doctors.locationHistory.sourceLine', {
+                    source: t(`doctors.locationSources.${doctor.locationSource}`),
+                    name: doctor.locationCapturedByName ?? '—',
+                    time: formatDateTime(doctor.locationCapturedAt),
+                  })}
+                  {doctor.locationAccuracyMeters != null &&
+                    ` · ±${formatDistance(Math.round(doctor.locationAccuracyMeters))}`}
+                </p>
+              )}
             </fieldset>
           )}
           <Label className="flex items-center gap-2 font-normal">

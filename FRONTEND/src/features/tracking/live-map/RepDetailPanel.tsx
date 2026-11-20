@@ -16,7 +16,7 @@ import { EmptyState, ErrorState, Spinner } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { formatDistance, formatNumber, formatRelative, formatTime } from '@/lib/format'
+import { formatDistance, formatNumber, formatRelative, formatTime, localizedName } from '@/lib/format'
 import { usePermission } from '@/features/auth/usePermission'
 import { TrustBadge } from '@/features/suspicious/trust-display'
 import { P } from '@/lib/permissions'
@@ -49,6 +49,7 @@ export function RepDetailPanel({
   history,
   summary,
   onFitRoute,
+  visitOnly = false,
 }: {
   rep: LiveRepView
   now: number
@@ -65,6 +66,8 @@ export function RepDetailPanel({
   history: { isLoading: boolean; error: unknown; refetch: () => void }
   summary: RouteSummary | null
   onFitRoute: () => void
+  /** Visit-only visibility: positions only during visits. */
+  visitOnly?: boolean
 }) {
   const { t } = useTranslation()
   const position = rep.position
@@ -91,6 +94,24 @@ export function RepDetailPanel({
         </div>
         <LiveStatusBadge status={rep.liveStatus} />
       </div>
+
+      {visitOnly && (
+        <div className="border-b px-3 py-2 text-sm" data-testid="rep-visit-state">
+          {rep.onVisit && rep.visitCustomerName ? (
+            <span className="font-medium">
+              {t('liveMap.onVisitWith', {
+                name: localizedName(rep.visitCustomerName, rep.visitCustomerNameAr),
+              })}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">
+              {t('liveMap.notOnVisitHint')}
+              {rep.lastVisitEndedAt &&
+                ` · ${t('liveMap.lastVisitEnded', { time: formatTime(rep.lastVisitEndedAt) })}`}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
         <div className="flex flex-wrap gap-2">
@@ -124,7 +145,7 @@ export function RepDetailPanel({
                 {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
               </span>
             ) : (
-              t('liveMap.noPosition')
+              t(visitOnly && !rep.onVisit ? 'liveMap.positionDuringVisits' : 'liveMap.noPosition')
             )}
           </Stat>
           <Stat label={t('liveMap.recordedAt')}>{position ? formatTime(position.recordedAt) : '—'}</Stat>
@@ -210,7 +231,12 @@ export function RepDetailPanel({
             ) : history.isLoading ? (
               <Spinner className="py-4" />
             ) : !summary ? (
-              <EmptyState icon={RouteIcon} title={t('liveMap.noRoute')} className="py-4" />
+              <EmptyState
+                icon={RouteIcon}
+                title={t('liveMap.noRoute')}
+                description={visitOnly ? t('liveMap.routeDuringVisits') : undefined}
+                className="py-4"
+              />
             ) : (
               <>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">

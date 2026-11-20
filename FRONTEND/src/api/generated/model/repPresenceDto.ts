@@ -21,4 +21,18 @@ export interface RepPresenceDto {
   openFlags: number
   /** @nullable */
   avatarUrl?: string | null
+  onVisit?: boolean
+  /** @nullable */
+  visitId?: string | null
+  /** @nullable */
+  visitCustomerName?: string | null
+  /** @nullable */
+  visitCustomerNameAr?: string | null
+  /** @nullable */
+  visitStartedAt?: string | null
+  /** @nullable */
+  visibleUntil?: string | null
+  /** @nullable */
+  lastVisitEndedAt?: string | null
+  locationHidden?: boolean
 }

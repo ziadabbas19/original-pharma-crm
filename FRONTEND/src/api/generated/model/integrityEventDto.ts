@@ -39,4 +39,5 @@ export interface IntegrityEventDto {
   reviewedAt: string | null
   /** @nullable */
   reviewedByName: string | null
+  locationHidden?: boolean
 }

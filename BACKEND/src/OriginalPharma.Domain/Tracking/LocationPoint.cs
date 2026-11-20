@@ -62,4 +62,10 @@ public class LocationPoint : IScopedEntity
     /// after the retention period set in the location trust settings.
     /// </summary>
     public string? DeviceSignals { get; set; }
+
+    /// <summary>
+    /// Visit-only visibility: recorded outside every known visit window when it arrived. Never shown to anyone;
+    /// deleted after a grace period unless a visit queued offline arrives and covers it.
+    /// </summary>
+    public bool OutsideVisitWindow { get; set; }
 }

@@ -12,4 +12,5 @@ export interface TrackingConfigDto {
   /** @nullable */
   liveUntil: string | null
   consentVersion: string
+  collectionMode?: string
 }

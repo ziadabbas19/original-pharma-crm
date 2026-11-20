@@ -6,6 +6,7 @@ using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Tracking.Anomalies;
 using OriginalPharma.Application.Tracking.Integrity;
+using OriginalPharma.Application.Tracking.Visibility;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Tracking;
 
@@ -16,6 +17,11 @@ namespace OriginalPharma.Application.Tracking;
 /// duplicates, runs the plausibility checks, stores history (PostGIS) with a trust status per
 /// point (suspicious and rejected points are kept, never dropped) and the latest position (Redis),
 /// then notifies dashboards. Batches from older apps without the newer fields work as before.
+/// <para>
+/// Visit-only visibility: every point is still checked (the checks need them), but a point recorded outside
+/// every visit window of the rep is marked, never shown and deleted after a grace period, and dashboards
+/// only get a live position from inside a visit window.
+/// </para>
 /// </summary>
 public sealed class TrackingIngestService(
     IAppDbContext db,
@@ -27,6 +33,7 @@ public sealed class TrackingIngestService(
     ITrackingNotifier notifier,
     LocationTrustSettingsService trustSettings,
     IntegrityFlagService flags,
+    VisitWindowService visitWindows,
     IOptions<TrackingOptions> trackingOptions,
     IOptions<AnomalyDetectionOptions> anomalyOptions,
     TimeProvider time,
@@ -102,6 +109,10 @@ public sealed class TrackingIngestService(
             settings.ApplyTo(anomalyOptions.Value));
 
         var signalsJson = signals?.ToJson();
+        var buffer = settings.VisitWindowBuffer;
+        var windows = settings.VisitOnly
+            ? (await visitWindows.WindowsAsync([userId], from, to, buffer, cancellationToken)).GetValueOrDefault(userId) ?? []
+            : null;
         var rows = new List<LocationPoint>(accepted.Count);
         for (var i = 0; i < accepted.Count; i++)
         {
@@ -132,6 +143,7 @@ public sealed class TrackingIngestService(
                 ActivityType = Activity(point.ActivityType),
                 ActivityConfidence = point.ActivityConfidence is >= 0 and <= 100 ? point.ActivityConfidence : null,
                 DeviceSignals = signalsJson,
+                OutsideVisitWindow = windows is not null && !VisitWindowService.Inside(windows, point.Timestamp),
             };
             rows.Add(row);
             db.LocationPoints.Add(row);
@@ -178,11 +190,23 @@ public sealed class TrackingIngestService(
                 newestRow.Speed, newestRow.BatteryLevel, newest.Point.IsMock, report.PointScores[^1], request.Source, newest.Shift.Id,
                 newestRow.TrustStatus, newestRow.TrustReason);
 
+            // Kept for the next batch's movement checks; shown to managers only inside a visit window.
             await latestPositions.SetAsync(position, cancellationToken);
-            await notifier.PositionUpdatedAsync(audience, position, cancellationToken);
+            if (!settings.VisitOnly)
+            {
+                await notifier.PositionUpdatedAsync(audience, position, cancellationToken);
+            }
+            else if (!newestRow.OutsideVisitWindow &&
+                     (await visitWindows.CurrentAsync([userId], buffer, cancellationToken)).TryGetValue(userId, out var visit))
+            {
+                await notifier.PositionUpdatedAsync(
+                    audience,
+                    position with { VisitId = visit.VisitId, VisitCustomerName = visit.CustomerName, VisitCustomerNameAr = visit.CustomerNameAr },
+                    cancellationToken);
+            }
         }
 
-        if (restoredShifts.Count > 0)
+        if (restoredShifts.Count > 0 && (!settings.VisitOnly || !newestRow.OutsideVisitWindow))
         {
             await notifier.PresenceChangedAsync(audience, new PresenceChangeDto(userId, PresenceStatus.Online, now), cancellationToken);
         }

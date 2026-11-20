@@ -98,7 +98,8 @@ All demo users use the admin password from user secrets (Development only).
 
 To try the visit flow in a browser, sign in as `rep@demo.local` (the demo day is already running), open
 **Doctors** and press **Start visit**. Chrome DevTools > Sensors can set the location: Dr. Ahmed Fathy is
-at `30.0511, 31.3656`, and Dr. Karim Adel has no saved location on purpose.
+at `30.0511, 31.3656`, and Dr. Karim Adel has no saved location on purpose: the first visit with a good fix
+saves it (see [docs/location-trust.md](docs/location-trust.md#clinic-locations-and-visit-history)).
 
 Uploaded pictures (products, profile pictures, visit photos) are stored outside the
 repository, in `~/.local/share/original-pharma/uploads` by default (`FileStorage:RootPath`).
@@ -116,7 +117,12 @@ npm run dev
 Open http://localhost:5173. The dev server proxies `/api` and `/hubs` to the API, so
 the refresh cookie works same-origin. Admin-capable users land on `/admin`, reps on `/rep`.
 
-Light / dark / system theme: switch in the dashboard top bar or the rep settings screen; the
+The rep app's Home screen shows the blocks an admin picks in **Administration > Settings > Rep home** (today's
+progress, next visits, start next visit, weekly summary, targets and sales, manager messages), in the saved order.
+The app reads it on open (`GET /api/settings/rep-home`) and falls back to the last copy on the device, or to the
+defaults, when offline.
+
+Light / dark / system theme: switch in the dashboard top bar or the rep account screen; the
 choice is kept on the device and applied before the first paint. Numbers, prices and dates use
 Latin digits in both languages; money is always formatted as EGP by `formatMoney`.
 

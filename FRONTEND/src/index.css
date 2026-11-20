@@ -1,103 +1,219 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './styles/fonts.css';
 
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Original Pharma brand: blue #0063AD (primary), green #9BC84E (success / accent), gray #97999B,
- * dark gray #373737 (text). Tokens follow the shadcn/ui naming so shadcn/ui components fit in unchanged.
- * Text pairs below are checked for WCAG AA (4.5:1) in both themes; the brand green and gray are too
- * light for text on white, so text uses darker shades of them and the bright values stay decorative.
+ * Original Pharma brand, taken from the logo: blue #0063AD (primary), green #9BC84E (accent), grey #97999B,
+ * navy #181D26 (sidebar, dark background). This block is the single source of colours: Tailwind (@theme
+ * below) and the shadcn/ui tokens read these variables, and components never use hex values.
+ * Every text pair is at least 4.5:1 in both themes. The bright green is never text on white: green text uses
+ * --green-text, and the bright green is a fill with dark text (--green-foreground).
  */
 :root {
   color-scheme: light;
-  --radius: 0.625rem;
-  --background: #ffffff;
-  --foreground: #373737; /* 12.6:1 on white */
+  --radius: 0.75rem; /* 12px: controls */
+  --radius-card-size: 1.125rem; /* 18px: cards */
+  --shadow-card-value: 0 1px 3px rgb(24 29 38 / 8%);
+  --shadow-float-value: 0 8px 24px rgb(24 29 38 / 12%);
+
+  --background: #f5f8fb; /* app background */
+  --foreground: #1b2430; /* charcoal: 15.7:1 on cards, 14.7:1 on the background */
   --card: #ffffff;
-  --card-foreground: #373737;
+  --card-foreground: #1b2430;
+  --tile: #ffffff; /* logo tile: white in both themes */
   --popover: #ffffff;
-  --popover-foreground: #373737;
-  --primary: #0063ad; /* 6.2:1 with white text */
+  --popover-foreground: #1b2430;
+  --primary: #0063ad; /* white text 6.2:1 */
   --primary-foreground: #ffffff;
-  --secondary: #edf2f7;
-  --secondary-foreground: #1f2a37;
-  --muted: #f3f4f6;
-  --muted-foreground: #5c5f63; /* 6.3:1 on white, 5.7:1 on muted */
-  --accent: #eef5e2; /* light brand green, hover and active backgrounds */
-  --accent-foreground: #2b2d2f;
-  --destructive: #c62828; /* 5.6:1 on white */
+  --primary-hover: #00508c;
+  --primary-soft: #e3f0fa;
+  --primary-soft-foreground: #00508c; /* 7.2:1 on soft */
+  --secondary: #eef2f7;
+  --secondary-foreground: #1b2430;
+  --muted: #eef2f7;
+  --muted-foreground: #5b6675; /* 5.8:1 on cards, 5.2:1 on muted */
+  --accent: #eef3f9; /* hover and selected surfaces */
+  --accent-foreground: #1b2430;
+  --green: #9bc84e; /* fills only */
+  --green-foreground: #14210a; /* 8.6:1 on green */
+  --green-text: #3f6212; /* green text on white: 7.1:1 */
+  --green-soft: #eaf4d6;
+  --green-stroke: #5e8c1f; /* chart lines and fills on white */
+  --light-blue: #3b9ae1;
+  --navy: #181d26;
+  --icon: #97999b; /* neutral grey: icons and disabled */
+  --destructive: #b42318; /* 6.6:1 on white */
   --destructive-foreground: #ffffff;
-  --success: #4a7a18; /* darker brand green for text: 5.1:1 on white */
+  --destructive-soft: #fee4e2;
+  --success: #3f6212;
   --success-foreground: #ffffff;
-  --warning: #b45309; /* 5.0:1 on white */
-  --border: #e3e5e8;
-  --input: #d5d8dd;
+  --success-soft: #eaf4d6;
+  --warning: #9a5b00; /* amber text and dots: 5.4:1 on white */
+  --warning-soft: #fdecc8;
+  --warning-soft-foreground: #7a4b00; /* 6.4:1 on soft */
+  --border: #e3e8ef;
+  --input: #d3dbe5;
   --ring: #0063ad;
+
+  /* Navy sidebar of the dashboard (same in both themes, darker in dark mode). */
+  --sidebar: #181d26;
+  --sidebar-foreground: #e6eaf0;
+  --sidebar-muted: #a3adbb;
+  --sidebar-icon: #97999b;
+  --sidebar-hover: rgb(255 255 255 / 7%);
+  --sidebar-border: rgb(255 255 255 / 8%);
+  --sidebar-active: #0063ad; /* white text 6.2:1, also in dark mode */
+  --sidebar-active-foreground: #ffffff;
+
+  /* Rep app bottom bar. */
+  --nav-inactive: #6b7686;
+
+  /* Charts: planned in blue, actual in green, light grid. */
+  --chart-planned: #0063ad;
+  --chart-actual: #5e8c1f;
+  --chart-actual-fill: #9bc84e;
+  --chart-grid: #e3e8ef;
+
   --brand-blue: #0063ad;
   --brand-green: #9bc84e;
   --brand-gray: #97999b;
-  --brand-dark: #373737;
+  --brand-dark: #1b2430;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #141518;
-  --foreground: #ecedee; /* 15.6:1 */
-  --card: #1c1d21;
-  --card-foreground: #ecedee;
-  --popover: #212227;
-  --popover-foreground: #ecedee;
-  --primary: #3b9ae1; /* the dark logo blue; 5.7:1 on the background */
-  --primary-foreground: #08192a; /* 6.6:1 on primary (white would only reach 3:1) */
-  --secondary: #2a2c31;
-  --secondary-foreground: #ecedee;
-  --muted: #25272b;
-  --muted-foreground: #a6a9ae; /* 7.6:1 on the background, 6.5:1 on muted */
-  --accent: #27311d;
-  --accent-foreground: #ecedee;
-  --destructive: #f2726f; /* 6.3:1 on the background */
+  --shadow-card-value: 0 1px 3px rgb(0 0 0 / 35%);
+  --shadow-float-value: 0 8px 24px rgb(0 0 0 / 45%);
+  --background: #181d26;
+  --foreground: #f3f5f8; /* 15.5:1 */
+  --card: #212835; /* a step lighter than the background */
+  --card-foreground: #f3f5f8;
+  --popover: #252d3a;
+  --popover-foreground: #f3f5f8;
+  --primary: #3b9ae1; /* the light logo blue: 5.6:1 on the background */
+  --primary-foreground: #08192a; /* 5.8:1 on primary (white would only reach 3:1) */
+  --primary-hover: #5aaceb;
+  --primary-soft: #1e3550;
+  --primary-soft-foreground: #8cc4f0; /* 6.7:1 */
+  --secondary: #2a3240;
+  --secondary-foreground: #f3f5f8;
+  --muted: #283040;
+  --muted-foreground: #a9b2bf; /* 7.9:1 on the background, 6.9:1 on cards */
+  --accent: #2a3342;
+  --accent-foreground: #f3f5f8;
+  --green: #9bc84e;
+  --green-foreground: #14210a;
+  --green-text: #9bc84e; /* 8.7:1 on the background */
+  --green-soft: #26331a;
+  --green-stroke: #9bc84e;
+  --icon: #8b95a3;
+  --destructive: #f2726f; /* 6.0:1 on the background */
   --destructive-foreground: #1d0606;
-  --success: #9bc84e; /* brand green: 9.1:1 on the background */
-  --success-foreground: #142104;
+  --destructive-soft: #3b1d1f;
+  --success: #9bc84e;
+  --success-foreground: #14210a;
+  --success-soft: #26331a;
   --warning: #f5b544;
+  --warning-soft: #3a2e12;
+  --warning-soft-foreground: #f8cf7f; /* 9.0:1 */
   --border: rgb(255 255 255 / 10%);
   --input: rgb(255 255 255 / 16%);
   --ring: #3b9ae1;
+
+  --sidebar: #12161d;
+  --sidebar-foreground: #e6eaf0;
+  --sidebar-muted: #a3adbb;
+  --sidebar-icon: #8b95a3;
+  --sidebar-hover: rgb(255 255 255 / 6%);
+  --sidebar-border: rgb(255 255 255 / 7%);
+
+  --nav-inactive: #a9b2bf;
+
+  --chart-planned: #3b9ae1;
+  --chart-actual: #9bc84e;
+  --chart-actual-fill: #9bc84e;
+  --chart-grid: rgb(255 255 255 / 10%);
+
   --brand-blue: #3b9ae1;
   --brand-green: #9bc84e;
   --brand-gray: #b4b6b8;
-  --brand-dark: #ecedee;
+  --brand-dark: #f3f5f8;
 }
 
 @theme inline {
-  --font-sans: 'Segoe UI', Tahoma, 'Noto Sans Arabic', 'Noto Sans', system-ui, sans-serif;
-  --radius-sm: calc(var(--radius) - 4px);
+  --font-sans: 'IBM Plex Sans Arabic', system-ui, 'Segoe UI', Tahoma, sans-serif;
+
+  /* Type scale: page title 28/700, section 17/700, body 14-16, labels 13/600, KPI values 34/700. */
+  --text-title: 1.75rem;
+  --text-title--line-height: 2.25rem;
+  --text-section: 1.0625rem;
+  --text-section--line-height: 1.5rem;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.125rem;
+  --text-kpi: 2.125rem;
+  --text-kpi--line-height: 2.5rem;
+
+  --radius-sm: calc(var(--radius) - 6px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-control: var(--radius);
+  --radius-card: var(--radius-card-size);
+  --shadow-card: var(--shadow-card-value);
+  --shadow-float: var(--shadow-float-value);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-tile: var(--tile);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-green: var(--green);
+  --color-green-foreground: var(--green-foreground);
+  --color-green-text: var(--green-text);
+  --color-green-soft: var(--green-soft);
+  --color-light-blue: var(--light-blue);
+  --color-navy: var(--navy);
+  --color-icon: var(--icon);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-foreground: var(--warning-soft-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-icon: var(--sidebar-icon);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
+  --color-nav-inactive: var(--nav-inactive);
+  --color-chart-planned: var(--chart-planned);
+  --color-chart-actual: var(--chart-actual);
+  --color-chart-actual-fill: var(--chart-actual-fill);
+  --color-chart-grid: var(--chart-grid);
   --color-brand-blue: var(--brand-blue);
   --color-brand-green: var(--brand-green);
   --color-brand-gray: var(--brand-gray);
@@ -111,7 +227,8 @@
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply min-h-dvh bg-background text-foreground antialiased;
+    @apply min-h-dvh bg-background font-sans text-foreground antialiased;
+    font-feature-settings: 'kern';
   }
 }
 
@@ -136,7 +253,7 @@
 }
 .dark .maplibregl-ctrl-attrib,
 .dark .maplibregl-ctrl-attrib.maplibregl-compact {
-  background: rgb(28 29 33 / 85%);
+  background: color-mix(in srgb, var(--card) 85%, transparent);
   color: var(--muted-foreground);
 }
 .dark .maplibregl-ctrl-attrib a {
@@ -148,4 +265,141 @@
 .dark .maplibregl-popup-content {
   background: var(--popover);
   color: var(--popover-foreground);
+}
+
+/* Markers of the small location maps (doctor and visit details). */
+.location-map-marker {
+  display: grid;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  place-items: center;
+  padding: 0 0.3rem;
+  border: 2px solid var(--card);
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
+}
+.location-map-marker[data-kind='clinic'] {
+  width: 1.5rem;
+  height: 1.5rem;
+  background: var(--brand-green);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--brand-green) 35%, transparent),
+    0 1px 3px rgb(0 0 0 / 30%);
+}
+.location-map-marker[data-kind='checkOut'] {
+  min-width: 0.75rem;
+  height: 0.75rem;
+  padding: 0;
+  background: var(--muted-foreground);
+}
+.location-map-marker[data-kind='median'] {
+  min-width: 0.875rem;
+  height: 0.875rem;
+  padding: 0;
+  border-color: var(--foreground);
+  border-radius: 2px;
+  background: transparent;
+  transform: rotate(45deg);
+  box-shadow: none;
+}
+.location-map-marker[data-flagged='true'] {
+  background: var(--warning);
+  color: var(--background);
+}
+
+/*
+ * Motion. Short and CSS only: cards and rows fade up with a small stagger (at most about 400 ms in all),
+ * buttons press in, the start-visit button pulses only while a visit is waiting, the progress ring fills
+ * once. Everything non-essential stops when the system asks for reduced motion (spinners keep turning:
+ * they say that something is happening).
+ */
+@property --ring-value {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes ring-fill {
+  from {
+    --ring-value: 0;
+  }
+}
+
+@keyframes attention {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 240ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: calc(min(var(--i, 0), 4) * 40ms);
+}
+
+/* Children of a grid or list fade up one after the other (first five staggered, the rest with the fifth). */
+@utility stagger-children {
+  & > * {
+    animation: fade-up 240ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+  & > *:nth-child(2) {
+    animation-delay: 40ms;
+  }
+  & > *:nth-child(3) {
+    animation-delay: 80ms;
+  }
+  & > *:nth-child(4) {
+    animation-delay: 120ms;
+  }
+  & > *:nth-child(n + 5) {
+    animation-delay: 160ms;
+  }
+}
+
+@utility animate-attention {
+  animation: attention 1.8s ease-out infinite;
+}
+
+@utility animate-page-in {
+  animation: page-in 180ms ease-out both;
+}
+
+/* Conic ring in the brand green; --ring-target is the share in percent, set inline. */
+.progress-ring {
+  --ring-value: var(--ring-target, 0);
+  background: conic-gradient(var(--green) calc(var(--ring-value) * 1%), var(--muted) 0);
+  animation: ring-fill 700ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

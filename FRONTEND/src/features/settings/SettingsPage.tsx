@@ -7,7 +7,7 @@ import {
   useSettingsGetLocationTrust,
   useSettingsUpdateLocationTrust,
 } from '@/api/generated/endpoints'
-import type { LocationTrustSettingsDto, MockLocationPolicy } from '@/api/generated/model'
+import type { LocationTrustSettingsDto, LocationVisibility, MockLocationPolicy } from '@/api/generated/model'
 import { PageHeader } from '@/components/PageHeader'
 import { ErrorState, FormError, LoadingState } from '@/components/states'
 import { Button } from '@/components/ui/button'
@@ -25,25 +25,59 @@ import {
   type LocationTrustDraft,
   type NumericField,
 } from './location-trust-form'
+import { RepHomeSettingsSection } from './RepHomeSettingsSection'
+
+const TABS = ['locationTrust', 'repHome'] as const
+type SettingsTab = (typeof TABS)[number]
 
 /** Settings stored in the database (settings:manage). */
 export function SettingsPage() {
   const { t } = useTranslation()
-  const settings = useSettingsGetLocationTrust()
+  const [tab, setTab] = useState<SettingsTab>('locationTrust')
 
   return (
     <>
       <PageHeader title={t('adminSettings.title')} description={t('adminSettings.hint')} />
-      {settings.isLoading ? (
-        <LoadingState rows={8} />
-      ) : settings.error || !settings.data ? (
-        <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />
-      ) : (
-        // The form keeps its own draft; after a save it already holds the saved values.
-        <LocationTrustSection settings={settings.data} />
-      )}
+      <div
+        className="mb-4 inline-flex gap-1 rounded-control border bg-card p-1 shadow-card"
+        role="tablist"
+        aria-label={t('adminSettings.title')}
+      >
+        {TABS.map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            id={`settings-tab-${value}`}
+            aria-selected={tab === value}
+            aria-controls={`settings-panel-${value}`}
+            onClick={() => setTab(value)}
+            className={cn(
+              'rounded-[10px] px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground',
+              tab === value &&
+                'bg-primary-soft text-primary-soft-foreground hover:text-primary-soft-foreground',
+            )}
+            data-testid={`settings-tab-${value}`}
+          >
+            {t(`adminSettings.tabs.${value}`)}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`settings-panel-${tab}`} aria-labelledby={`settings-tab-${tab}`}>
+        {tab === 'locationTrust' ? <LocationTrustPanel /> : <RepHomeSettingsSection />}
+      </div>
     </>
   )
+}
+
+function LocationTrustPanel() {
+  const settings = useSettingsGetLocationTrust()
+  if (settings.isLoading) return <LoadingState rows={8} />
+  if (settings.error || !settings.data) {
+    return <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />
+  }
+  // The form keeps its own draft; after a save it already holds the saved values.
+  return <LocationTrustSection settings={settings.data} />
 }
 
 const GROUPS: { title: string; fields: NumericField[] }[] = [
@@ -52,11 +86,16 @@ const GROUPS: { title: string; fields: NumericField[] }[] = [
     title: 'adminSettings.locationTrust.visits',
     fields: ['maxDistanceFromDoctorMeters', 'accuracyAllowanceMeters', 'lowTrustAccuracyMeters'],
   },
+  {
+    title: 'adminSettings.locationTrust.history',
+    fields: ['driftFromClinicMeters', 'driftFromVisitsMeters'],
+  },
   { title: 'adminSettings.locationTrust.accuracy', fields: ['perfectAccuracyMeters', 'repeatedAccuracyRun'] },
   { title: 'adminSettings.locationTrust.privacy', fields: ['deviceSignalsRetentionDays'] },
 ]
 
 const POLICIES: MockLocationPolicy[] = ['flagOnly', 'flagAndExclude']
+const VISIBILITIES: LocationVisibility[] = ['visitOnly', 'allDay']
 
 function LocationTrustSection({ settings }: { settings: LocationTrustSettingsDto }) {
   const { t } = useTranslation()
@@ -80,7 +119,13 @@ function LocationTrustSection({ settings }: { settings: LocationTrustSettingsDto
       const updated = await save.mutateAsync({ data: request })
       queryClient.setQueryData(getSettingsGetLocationTrustQueryKey(), updated)
       // Statistics and visit rules depend on these settings.
-      await invalidateApi(queryClient, '/api/stats', '/api/visits/rules', '/api/tracking/integrity')
+      await invalidateApi(
+        queryClient,
+        '/api/stats',
+        '/api/visits/rules',
+        '/api/tracking/integrity',
+        '/api/tracking/monitor',
+      )
       setSaved(true)
     } catch {
       // shown by FormError
@@ -127,6 +172,50 @@ function LocationTrustSection({ settings }: { settings: LocationTrustSettingsDto
               </div>
             </fieldset>
           ))}
+
+          <fieldset className="grid gap-3" data-testid="visibility-setting">
+            <legend className="mb-2 text-sm font-semibold">
+              {t('adminSettings.locationTrust.visibility')}
+            </legend>
+            <div className="grid gap-2 md:grid-cols-2" role="radiogroup">
+              {VISIBILITIES.map((visibility) => (
+                <label
+                  key={visibility}
+                  className={cn(
+                    'flex cursor-pointer items-start gap-3 rounded-control border p-3 text-sm transition-colors',
+                    draft.visibility === visibility
+                      ? 'border-primary bg-primary-soft/60'
+                      : 'hover:bg-accent/60',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="location-visibility"
+                    value={visibility}
+                    checked={draft.visibility === visibility}
+                    onChange={() => set({ visibility })}
+                    className="mt-1 accent-primary"
+                  />
+                  <span className="grid gap-0.5">
+                    <span className="font-medium">
+                      {t(`adminSettings.locationTrust.visibilities.${visibility}`)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {t(`adminSettings.locationTrust.visibilities.${visibility}Hint`)}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="max-w-xs">
+              <NumberField
+                field="visitWindowBufferMinutes"
+                value={draft.visitWindowBufferMinutes}
+                showError={touched}
+                onChange={(value) => set({ visitWindowBufferMinutes: value })}
+              />
+            </div>
+          </fieldset>
 
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm font-semibold">{t('adminSettings.locationTrust.policy')}</legend>

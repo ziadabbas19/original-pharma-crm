@@ -11,6 +11,19 @@ public enum VisitStatus
     Cancelled = 3,
 }
 
+/// <summary>What happened to the clinic location at check-in.</summary>
+public enum ClinicLocationOutcome
+{
+    /// <summary>The customer had a saved location and the check-in was measured against it.</summary>
+    Compared = 1,
+
+    /// <summary>The customer had no location; this check-in's fix became it.</summary>
+    SavedAsClinic = 2,
+
+    /// <summary>The customer had no location and the fix was not good enough to keep (the next visit tries again).</summary>
+    NotSaved = 3,
+}
+
 /// <summary>How the rep sums up a visit (optional).</summary>
 public enum VisitFeedbackCategory
 {
@@ -45,6 +58,46 @@ public class Visit : Entity, IScopedEntity, IArchivable
     public bool CheckInWithinGeofence { get; set; }
     public bool CheckInIsMock { get; set; }
 
+    /// <summary>The device timestamp exactly as sent (<see cref="CheckInAt"/> is the same, but never ahead of the server).</summary>
+    public DateTimeOffset? CheckInDeviceTime { get; set; }
+
+    /// <summary>Device signal codes at check-in (mock app selected, emulator, root, ...).</summary>
+    public List<string> CheckInSignalCodes { get; set; } = [];
+
+    /// <summary>
+    /// The check-in fix is good enough to serve as a reference for later visits: no mock flag, no
+    /// spoofing or emulator signals, and accuracy within the weak-fix setting of that moment.
+    /// </summary>
+    public bool CheckInGoodFix { get; set; }
+
+    public ClinicLocationOutcome ClinicLocationOutcome { get; set; } = ClinicLocationOutcome.Compared;
+
+    /// <summary>Distance from the saved clinic location at check-in (null when there was none to compare with).</summary>
+    public double? ClinicDistanceMeters { get; set; }
+
+    /// <summary>The latest earlier visit to the same customer with a good fix (any rep).</summary>
+    public Guid? PreviousVisitId { get; set; }
+
+    public double? PreviousVisitDistanceMeters { get; set; }
+
+    /// <summary>Time between the previous visit's check-in and this one.</summary>
+    public double? SincePreviousVisitSeconds { get; set; }
+
+    /// <summary>Distance from the median position of the earlier good visits (only with at least two of them).</summary>
+    public double? MedianDistanceMeters { get; set; }
+
+    /// <summary>Distance to the closest earlier good visit.</summary>
+    public double? NearestVisitDistanceMeters { get; set; }
+
+    /// <summary>How many earlier good visits the comparison used.</summary>
+    public int ReferenceVisitCount { get; set; }
+
+    /// <summary>The check-in is further than the drift settings allow from the clinic or the earlier visits.</summary>
+    public bool LocationDrift { get; set; }
+
+    /// <summary>Which comparisons exceeded the drift settings: clinic, median, previous.</summary>
+    public List<string> DriftSources { get; set; } = [];
+
     public DateTimeOffset? CheckOutAt { get; set; }
     public DateTimeOffset? CheckOutReceivedAt { get; set; }
     public Point? CheckOutLocation { get; set; }
@@ -52,6 +105,11 @@ public class Visit : Entity, IScopedEntity, IArchivable
     public double? CheckOutDistanceMeters { get; set; }
     public bool? CheckOutWithinGeofence { get; set; }
     public bool? CheckOutIsMock { get; set; }
+
+    public DateTimeOffset? CheckOutDeviceTime { get; set; }
+
+    /// <summary>Device signal codes at check-out.</summary>
+    public List<string> CheckOutSignalCodes { get; set; } = [];
 
     /// <summary>Idempotency key of the check-out, so a retry from the app's outbox is answered instead of refused.</summary>
     public Guid? CheckOutClientRequestId { get; set; }

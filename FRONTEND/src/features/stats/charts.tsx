@@ -14,11 +14,11 @@ import { cn } from '@/lib/utils'
 /** A single headline number. */
 export function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="grid min-w-0 gap-0.5 rounded-lg border bg-card p-3">
-      <span className="truncate text-xs text-muted-foreground" title={label}>
+    <div className="grid min-w-0 gap-0.5 rounded-card border bg-card p-4 shadow-card">
+      <span className="truncate text-label font-semibold text-muted-foreground" title={label}>
         {label}
       </span>
-      <span className="truncate text-xl font-semibold tabular-nums" title={value}>
+      <span className="truncate text-2xl font-bold tabular-nums xl:text-[28px]" title={value}>
         {value}
       </span>
       {hint && <span className="truncate text-xs text-muted-foreground">{hint}</span>}
@@ -92,14 +92,19 @@ export function TrendChart({
   data,
   label,
   tooltip,
+  tone = 'planned',
 }: {
   data: TrendDatum[]
   label: string
+  /** Planned or general series in the brand blue, actual (done) series in green. */
+  tone?: 'planned' | 'actual'
   /** Lines shown for the day under the crosshair. */
   tooltip: (index: number) => ReactNode
 }) {
   const box = useRef<HTMLDivElement>(null)
   const gradient = useId()
+  const stroke = tone === 'actual' ? 'var(--chart-actual)' : 'var(--chart-planned)'
+  const fill = tone === 'actual' ? 'var(--chart-actual-fill)' : 'var(--chart-planned)'
   const [width, setWidth] = useState(0)
   const [active, setActive] = useState<number | null>(null)
 
@@ -157,13 +162,19 @@ export function TrendChart({
         >
           <defs>
             <linearGradient id={gradient} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor="var(--primary)" stopOpacity="0.14" />
-              <stop offset="1" stopColor="var(--primary)" stopOpacity="0.04" />
+              <stop offset="0" stopColor={fill} stopOpacity="0.16" />
+              <stop offset="1" stopColor={fill} stopOpacity="0.04" />
             </linearGradient>
           </defs>
           {ticks.map((tick) => (
             <g key={tick}>
-              <line x1={PAD.left} x2={width - PAD.right} y1={y(tick)} y2={y(tick)} stroke="var(--border)" />
+              <line
+                x1={PAD.left}
+                x2={width - PAD.right}
+                y1={y(tick)}
+                y2={y(tick)}
+                stroke="var(--chart-grid)"
+              />
               <text
                 x={PAD.left - 8}
                 y={y(tick) + 4}
@@ -189,7 +200,7 @@ export function TrendChart({
           <path
             d={line}
             fill="none"
-            stroke="var(--primary)"
+            stroke={stroke}
             strokeWidth={2}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -207,7 +218,7 @@ export function TrendChart({
             cx={x(shown)}
             cy={y(data[shown].value)}
             r={4}
-            fill="var(--primary)"
+            fill={stroke}
             stroke="var(--card)"
             strokeWidth={2}
           />

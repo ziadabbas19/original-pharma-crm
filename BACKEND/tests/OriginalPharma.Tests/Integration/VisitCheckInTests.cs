@@ -199,12 +199,14 @@ public sealed class VisitCheckInTests(PostgresFixture postgres)
         Assert.False(visit.CheckInWithinGeofence);
         Assert.True(visit.NeedsReview);
         Assert.InRange(visit.CheckInDistanceMeters, 400, 500);
-        Assert.Equal([VisitReviewReasons.OutsideGeofence], visit.ReviewReasons);
+        // About 445 m from the clinic is also further than the 150 m drift limit.
+        Assert.Equal([VisitReviewReasons.OutsideGeofence, VisitReviewReasons.LocationDrift], visit.ReviewReasons);
 
         var detail = await db.As<VisitService, VisitDetailDto>(p.Supervisor, s => s.GetAsync(visit.Id, Ct));
         Assert.Equal(12, detail.CheckInAccuracy);
         Assert.Equal(150, detail.GeofenceRadiusMeters);
-        Assert.Equal([VisitReviewReasons.OutsideGeofence], detail.ReviewReasons);
+        Assert.Equal([VisitReviewReasons.OutsideGeofence, VisitReviewReasons.LocationDrift], detail.ReviewReasons);
+        Assert.Equal([VisitLocationHistory.FromClinic], detail.Location!.DriftSources);
         Assert.True(await db.DbAsync(c => c.TrackingFlags.AnyAsync(f => f.UserId == p.Rep && f.Type == TrackingFlagType.VisitOutsideGeofence, Ct)));
     }
 
@@ -223,19 +225,19 @@ public sealed class VisitCheckInTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task A_customer_without_a_location_and_a_weak_fix_are_refused_with_their_own_codes()
+    public async Task A_weak_fix_is_refused_with_its_own_code_but_a_customer_without_a_location_is_not()
     {
         await using var db = await postgres.CreateDatabaseAsync();
         var p = await DemoPeople.LoadAsync(db);
-
-        var noLocation = await Assert.ThrowsAsync<BusinessRuleException>(async () =>
-            await CheckInAsync(db, p.Rep, await DemoPeople.DoctorAsync(db, "Dr. Karim Adel"), Guid.NewGuid()));
-        Assert.Equal("customer-location-missing", noLocation.Code);
 
         var weak = await Assert.ThrowsAsync<BusinessRuleException>(async () =>
             await CheckInAsync(db, p.Rep, await ClinicAsync(db), Guid.NewGuid(), accuracy: 400));
         Assert.Equal("accuracy-too-low", weak.Code);
         Assert.Equal(0, await OpenVisitsAsync(db, p.Rep));
+
+        var noLocation = await CheckInAsync(db, p.Rep, await DemoPeople.DoctorAsync(db, "Dr. Karim Adel"), Guid.NewGuid());
+        Assert.Equal(VisitStatus.InProgress, noLocation.Status);
+        Assert.Equal(1, await OpenVisitsAsync(db, p.Rep));
     }
 
     [Fact]

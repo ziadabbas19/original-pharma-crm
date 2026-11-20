@@ -119,10 +119,20 @@ public sealed class LocationIntegrityController(LocationIntegrityService integri
 [Tags("TrackingMonitor")]
 public sealed class TrackingMonitorController(TrackingQueryService queries, LiveViewService liveView) : ControllerBase
 {
+    /// <summary>
+    /// Reps in scope with their status. In visit-only mode a position is only included while the rep is on a
+    /// visit (and for the buffer after it); otherwise the rep is "not on a visit" with no position.
+    /// </summary>
     [HttpGet("presence")]
     [HasPermission(Permissions.Tracking.ViewLive)]
     public Task<IReadOnlyList<RepPresenceDto>> GetPresence(CancellationToken cancellationToken) =>
         queries.GetPresenceAsync(cancellationToken);
+
+    /// <summary>When positions are visible to managers (visit-only or all day) and the visit buffer.</summary>
+    [HttpGet("visibility")]
+    [HasPermission(Permissions.Tracking.ViewLive)]
+    public Task<LocationVisibilityDto> GetVisibility(CancellationToken cancellationToken) =>
+        queries.GetVisibilityAsync(cancellationToken);
 
     /// <summary>Start or renew live view of a rep. Call every ~60 s while the view is open.</summary>
     [HttpPost("live-view/{repId:guid}")]
@@ -161,6 +171,7 @@ public sealed class TrackingMonitorController(TrackingQueryService queries, Live
     public Task<BulkResult> DeleteDevices(BulkDeleteRequest request, CancellationToken cancellationToken) =>
         queries.DeleteDevicesAsync(request, cancellationToken);
 
+    /// <summary>A rep's trail (at most 2 days). In visit-only mode only the points inside visit windows.</summary>
     [HttpGet("history/{userId:guid}")]
     [HasPermission(Permissions.Tracking.History)]
     public Task<IReadOnlyList<HistoryPointDto>> GetHistory(

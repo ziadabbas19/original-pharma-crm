@@ -4,15 +4,20 @@ using Microsoft.Extensions.Options;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Tracking.Integrity;
 
 namespace OriginalPharma.Application.Tracking;
 
 /// <summary>
 /// Adaptive reporting: devices use the battery-friendly "normal" profile unless a
 /// supervisor has live view open, in which case they switch to "live" until the
-/// live view expires.
+/// live view expires. The collection mode follows the location visibility setting: in visit-only mode
+/// the app collects only while a visit is in progress.
 /// </summary>
-public sealed class TrackingConfigService(ILiveViewRegistry liveViews, IOptions<TrackingOptions> options)
+public sealed class TrackingConfigService(
+    ILiveViewRegistry liveViews,
+    LocationTrustSettingsService trustSettings,
+    IOptions<TrackingOptions> options)
 {
     public const string NormalMode = "normal";
     public const string LiveMode = "live";
@@ -30,7 +35,8 @@ public sealed class TrackingConfigService(ILiveViewRegistry liveViews, IOptions<
             profile.UploadIntervalSeconds,
             profile.HeartbeatIntervalSeconds,
             liveUntil,
-            settings.ConsentVersion);
+            settings.ConsentVersion,
+            (await trustSettings.GetAsync(cancellationToken)).VisitOnly ? TrackingCollectionModes.VisitOnly : TrackingCollectionModes.AllDay);
     }
 }
 

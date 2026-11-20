@@ -352,6 +352,7 @@ function VisitsSection({ params }: { params: StatsParams }) {
           </div>
           <StatCard title={t('stats.visitsTrend')} table="trend">
             <TrendChart
+              tone="actual"
               label={t('stats.visitsTrend')}
               data={s.trend.map((p) => ({ date: p.date, value: p.count }))}
               tooltip={(i) => (

@@ -2,6 +2,7 @@
  * Original Pharma CRM API v1.
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
+import type { ClinicLocationOutcome } from './clinicLocationOutcome'
 import type { VisitPhotoDto } from './visitPhotoDto'
 import type { VisitStatus } from './visitStatus'
 
@@ -27,4 +28,5 @@ export interface VisitDto {
   checkInAccuracy: number
   geofenceRadiusMeters: number
   reviewReasons: string[]
+  clinicLocationOutcome?: ClinicLocationOutcome
 }

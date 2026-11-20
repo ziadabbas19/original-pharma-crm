@@ -49,6 +49,11 @@ internal sealed class LocationPointConfiguration : IEntityTypeConfiguration<Loca
         builder.HasIndex(p => p.RecordedAt, "PointsWithDeviceSignals")
             .HasDatabaseName("ix_location_points_device_signals")
             .HasFilter("device_signals IS NOT NULL");
+
+        // Purge job: only the few points recorded outside a visit window in visit-only mode.
+        builder.HasIndex(p => p.RecordedAt, "PointsOutsideVisits")
+            .HasDatabaseName("ix_location_points_outside_visit_window")
+            .HasFilter("outside_visit_window");
     }
 }
 

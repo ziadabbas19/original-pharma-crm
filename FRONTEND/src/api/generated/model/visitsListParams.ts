@@ -16,4 +16,5 @@ export type VisitsListParams = {
   feedbackCategory?: VisitFeedbackCategory
   hasFeedback?: boolean
   archived?: boolean
+  locationDrift?: boolean
 }

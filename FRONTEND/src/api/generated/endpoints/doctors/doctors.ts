@@ -25,6 +25,7 @@ import type {
   BulkResult,
   CreateDoctorRequest,
   DoctorDto,
+  DoctorLocationHistoryDto,
   DoctorsListParams,
   DoctorsSearchDirectoryParams,
   UpdateDoctorRequest,
@@ -432,6 +433,122 @@ export const useDoctorsUpdate = <TError = unknown, TContext = unknown>(
 > => {
   return useMutation(getDoctorsUpdateMutationOptions(options), queryClient)
 }
+export const getDoctorsLocationHistoryUrl = (id: string) => {
+  return `/api/doctors/${id}/location-history`
+}
+
+export const doctorsLocationHistory = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DoctorLocationHistoryDto> => {
+  return apiFetch<DoctorLocationHistoryDto>(getDoctorsLocationHistoryUrl(id), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getDoctorsLocationHistoryQueryKey = (id: string) => {
+  return [`/api/doctors/${id}/location-history`] as const
+}
+
+export const getDoctorsLocationHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof doctorsLocationHistory>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof doctorsLocationHistory>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getDoctorsLocationHistoryQueryKey(id)
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof doctorsLocationHistory>>> = ({ signal }) =>
+    doctorsLocationHistory(id, { signal, ...requestOptions })
+
+  return { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof doctorsLocationHistory>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type DoctorsLocationHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof doctorsLocationHistory>>
+>
+export type DoctorsLocationHistoryQueryError = unknown
+
+export function useDoctorsLocationHistory<
+  TData = Awaited<ReturnType<typeof doctorsLocationHistory>>,
+  TError = unknown,
+>(
+  id: string,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof doctorsLocationHistory>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof doctorsLocationHistory>>,
+          TError,
+          Awaited<ReturnType<typeof doctorsLocationHistory>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useDoctorsLocationHistory<
+  TData = Awaited<ReturnType<typeof doctorsLocationHistory>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof doctorsLocationHistory>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof doctorsLocationHistory>>,
+          TError,
+          Awaited<ReturnType<typeof doctorsLocationHistory>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useDoctorsLocationHistory<
+  TData = Awaited<ReturnType<typeof doctorsLocationHistory>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof doctorsLocationHistory>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useDoctorsLocationHistory<
+  TData = Awaited<ReturnType<typeof doctorsLocationHistory>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof doctorsLocationHistory>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getDoctorsLocationHistoryQueryOptions(id, options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
 export const getDoctorsSearchDirectoryUrl = (params?: DoctorsSearchDirectoryParams) => {
   const normalizedParams = new URLSearchParams()
 

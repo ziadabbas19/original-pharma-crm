@@ -62,6 +62,15 @@ public sealed class DoctorsController(DoctorService doctors) : ControllerBase
     public Task<DoctorDto> Get(Guid id, CancellationToken cancellationToken) =>
         doctors.GetAsync(id, cancellationToken);
 
+    /// <summary>
+    /// The clinic location (with where it came from) and where each visit to the doctor was recorded, with
+    /// the distances stored on the visit. Only visits in your visits:read scope are listed.
+    /// </summary>
+    [HttpGet("{id:guid}/location-history")]
+    [HasPermission(Permissions.Customers.Read)]
+    public Task<DoctorLocationHistoryDto> LocationHistory(Guid id, CancellationToken cancellationToken) =>
+        doctors.LocationHistoryAsync(id, cancellationToken);
+
     /// <summary>Search every active doctor (name, town, specialty) to add an existing one to your list.</summary>
     [HttpGet("directory")]
     [HasPermission(Permissions.Customers.Create)]
