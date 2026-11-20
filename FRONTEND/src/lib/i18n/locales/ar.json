@@ -88,7 +88,8 @@
     "myVisits": "زياراتي",
     "statistics": "الإحصائيات",
     "notifications": "الإشعارات",
-    "activity": "سجل النشاط"
+    "activity": "سجل النشاط",
+    "suspicious": "النشاط المشبوه"
   },
   "admin": {
     "welcome": "مرحبًا، {{name}}",
@@ -518,12 +519,15 @@
       "receivedAt": "وصلت إلى الخادم",
       "photo": "صورة الإثبات",
       "openPhoto": "فتح صورة الإثبات",
-      "photoFailed": "تعذر تحميل الصورة"
+      "photoFailed": "تعذر تحميل الصورة",
+      "locationFlagged": "موقع عليه علامة"
     },
     "reviewReasons": {
       "outside-geofence": "تسجيل الوصول خارج النطاق المسموح",
       "mock-location": "أبلغ الهاتف عن موقع وهمي",
-      "no-check-out-location": "لا يوجد موقع عند تسجيل الخروج"
+      "no-check-out-location": "لا يوجد موقع عند تسجيل الخروج",
+      "far-from-doctor": "تسجيل الدخول أو الخروج بعيدًا عن موقع الطبيب المحفوظ",
+      "low-trust": "دليل موقع ضعيف (الدقة أو إعدادات الهاتف أو نقاط مشبوهة حول الزيارة)"
     }
   },
   "liveMap": {
@@ -574,7 +578,9 @@
     "flags_one": "{{count}} تنبيه",
     "flags_other": "{{count}} تنبيه",
     "routeFlagged_one": "نقاط مشبوهة (بالأحمر): {{count}}",
-    "routeFlagged_other": "نقاط مشبوهة (بالأحمر): {{count}}"
+    "routeFlagged_other": "نقاط مشبوهة (بالأحمر): {{count}}",
+    "routeExcluded_one": "نقاط مستبعدة من المسافة (بالرمادي): {{count}}",
+    "routeExcluded_other": "نقاط مستبعدة من المسافة (بالرمادي): {{count}}"
   },
   "rep": {
     "greeting": "أهلًا، {{name}}",
@@ -880,7 +886,8 @@
     "products": "المنتجات",
     "orders": "الطلبيات",
     "stats": "الإحصائيات",
-    "audit": "سجل النشاط"
+    "audit": "سجل النشاط",
+    "settings": "الإعدادات"
   },
   "permissionNames": {
     "users": {
@@ -921,7 +928,8 @@
       "report": "مشاركة موقعه (تطبيق المندوب)",
       "view-live": "رؤية المواقع المباشرة",
       "history": "عرض سجل المواقع",
-      "review-flags": "مراجعة تنبيهات التتبع"
+      "review-flags": "مراجعة تنبيهات التتبع",
+      "review-suspicious": "رؤية النشاط المشبوه للمواقع ومراجعته"
     },
     "devices": {
       "read": "عرض حالة الأجهزة",
@@ -955,6 +963,9 @@
     },
     "audit": {
       "read": "عرض سجل النشاط"
+    },
+    "settings": {
+      "manage": "تعديل إعدادات النظام (موثوقية المواقع)"
     }
   },
   "territories": {
@@ -1037,7 +1048,8 @@
     "statuses": {
       "open": "مفتوح",
       "confirmed": "مؤكَّد",
-      "dismissed": "متجاهَل"
+      "dismissed": "متجاهَل",
+      "acknowledged": "تمت المراجعة"
     },
     "types": {
       "anomaly": "حركة غير طبيعية",
@@ -1045,7 +1057,9 @@
       "trackingLost": "انقطاع التتبع",
       "unhealthyDevice": "إعدادات الهاتف",
       "integrityFailed": "سلامة التطبيق",
-      "visitOutsideGeofence": "زيارة خارج الموقع"
+      "visitOutsideGeofence": "زيارة خارج الموقع",
+      "visitLowTrust": "زيارة بدليل موقع ضعيف",
+      "suspiciousDevice": "إعدادات هاتف مشبوهة"
     },
     "signals": {
       "mock-location": "GPS مزيف",
@@ -1058,7 +1072,18 @@
       "ip-geo-mismatch": "موقع الشبكة بعيد",
       "tracking-lost": "لا توجد تحديثات",
       "integrity": "فشل فحص السلامة",
-      "outside-geofence": "خارج النطاق الجغرافي"
+      "outside-geofence": "خارج النطاق الجغرافي",
+      "frozen-position": "نفس الموقع دون أي حركة GPS",
+      "zero-altitude": "الارتفاع صفر دائمًا",
+      "still-while-moving": "الهاتف ثابت بينما الموقع يتحرك",
+      "mock-app-selected": "تطبيق موقع وهمي مختار",
+      "emulator": "يعمل على محاكي",
+      "rooted-device": "هاتف مكسور الحماية (روت)",
+      "spoofing-app-installed": "تطبيق موقع وهمي مثبت",
+      "auto-time-off": "الوقت التلقائي متوقف",
+      "location-accessory": "جهاز GPS خارجي",
+      "far-from-doctor": "بعيد عن الطبيب",
+      "low-trust": "دليل موقع ضعيف"
     },
     "review": {
       "title": "مراجعة التنبيه",
@@ -1568,7 +1593,8 @@
       "orderCancelled": "ألغى {{actor}} الطلبية {{number}}",
       "orderDelivered": "تم تسليم الطلبية {{number}}",
       "visitFeedback": "كتب {{rep}} ملاحظات عن زيارة {{customer}}",
-      "visitFeedbackReply": "ردّ {{author}} بخصوص زيارتك إلى {{customer}}"
+      "visitFeedbackReply": "ردّ {{author}} بخصوص زيارتك إلى {{customer}}",
+      "suspiciousLocation": "تم تمييز {{rep}} بسبب موقع مشبوه"
     }
   },
   "activity": {
@@ -1681,11 +1707,148 @@
       "visits": "الزيارات",
       "doctorsCovered": "أطباء تمت زيارتهم",
       "trackingHours": "ساعات التتبع",
-      "activeDays": "أيام العمل"
+      "activeDays": "أيام العمل",
+      "distanceKm": "المسافة (كم)"
     },
     "productsPerLine": "المنتجات لكل خط",
     "lowStock": "مخزون منخفض ({{value}} أو أقل)",
     "activeUsersByRole": "المستخدمون النشطون لكل دور",
-    "activeUsers": "المستخدمون النشطون"
+    "activeUsers": "المستخدمون النشطون",
+    "distanceHint": "تُحسب المسافة من مسار التتبع في كل يوم عمل. المواقع المستحيلة فعليًا لا تُحتسب أبدًا، والمواقع الوهمية تُستبعد إذا نصّت سياسة موثوقية المواقع على ذلك."
+  },
+  "integrity": {
+    "mock": {
+      "title": "تم اكتشاف موقع وهمي",
+      "body": "يبدو أن تطبيق موقع وهمي (Fake GPS) يعمل على هاتفك. أوقفه من خيارات المطوّر (اختيار تطبيق الموقع الوهمي: لا شيء)، ثم تابع عملك. سيتحقق التطبيق مرة أخرى تلقائيًا، ولن تُعتبر مواقعك موثوقة حتى يصل موقع حقيقي.",
+      "openSettings": "فتح خيارات المطوّر",
+      "checkNow": "تحقق الآن",
+      "checking": "جارٍ التحقق…",
+      "nextCheck": "التحقق التالي بعد {{seconds}} ث",
+      "untrusted": "الموقع غير موثوق: أوقف تطبيق الموقع الوهمي."
+    }
+  },
+  "suspicious": {
+    "title": "النشاط المشبوه",
+    "hint": "مواقع وهمية وحركة مستحيلة وزيارات بدليل موقع ضعيف، لكل مندوب ولكل يوم. لا شيء هنا يمنع المندوب من العمل: راجع الدليل وتحدّث مع المندوب ثم سجّل المراجعة مع تعليق.",
+    "day": "اليوم",
+    "rep": "المندوب",
+    "events": "الأحداث",
+    "openCount_one": "مفتوحة: {{count}}",
+    "openCount_other": "مفتوحة: {{count}}",
+    "eventCount_one": "الأحداث: {{count}}",
+    "eventCount_other": "الأحداث: {{count}}",
+    "occurrences_one": "تكرر: {{count}}",
+    "occurrences_other": "تكرر: {{count}}",
+    "reasons": "الأسباب",
+    "lastSeen": "آخر ظهور",
+    "review": "مراجعة",
+    "from": "من",
+    "to": "إلى",
+    "reason": "السبب",
+    "empty": "لا يوجد نشاط مشبوه في هذه الفترة.",
+    "emptyHint": "تظهر الأحداث هنا فور أن يرصدها الخادم أو تطبيق المندوب.",
+    "capped": "يتم عرض أحدث {{count}} حدث. ضيّق التواريخ لرؤية الأقدم.",
+    "reviewedBy": "راجعه {{name}} في {{time}}",
+    "openVisit": "فتح الزيارة",
+    "showOnMap": "عرض على الخريطة",
+    "showEvidence": "الدليل",
+    "hideEvidence": "إخفاء الدليل",
+    "acknowledge": {
+      "action": "تسجيل المراجعة",
+      "edit": "تعديل التعليق",
+      "title": "تسجيل مراجعة الحدث",
+      "description": "اكتب ما وجدته أو ما فعلته، مثلًا بعد التحدث مع {{rep}}. يُحفظ التعليق مع الحدث.",
+      "comment": "التعليق",
+      "commentPlaceholder": "تم الاتصال بالمندوب وحُذف تطبيق الموقع الوهمي.",
+      "submit": "تسجيل المراجعة"
+    },
+    "points": {
+      "time": "الوقت",
+      "position": "الموقع",
+      "accuracy": "الدقة",
+      "status": "النتيجة",
+      "none": "لا توجد نقاط مشبوهة حول هذا الحدث.",
+      "deviceTime": "ساعة الهاتف {{time}}",
+      "altitude": "الارتفاع {{value}} م",
+      "accuracyOf": "الدقة {{value}}"
+    },
+    "device": {
+      "title": "إعدادات الهاتف في ذلك الوقت",
+      "developerOptions": "خيارات المطوّر",
+      "mockApp": "تطبيق موقع وهمي مختار",
+      "spoofingApps": "تطبيقات موقع وهمي مثبتة",
+      "autoTime": "الوقت التلقائي",
+      "emulator": "محاكي",
+      "rooted": "روت",
+      "yes": "نعم",
+      "no": "لا",
+      "unknown": "غير معروف",
+      "none": "لم يُعثر على شيء"
+    },
+    "trust": {
+      "trusted": "موثوق",
+      "suspicious": "موقع مشبوه",
+      "rejected": "موقع مستحيل"
+    },
+    "summary": {
+      "title": "النشاط المشبوه، آخر 7 أيام",
+      "openEvents": "أحداث مفتوحة",
+      "repsFlagged": "مندوبون عليهم علامة",
+      "flaggedVisits": "زيارات للمراجعة",
+      "mockPoints": "نقاط موقع وهمي",
+      "suspiciousPoints": "نقاط مشبوهة",
+      "rejectedPoints": "نقاط مستحيلة",
+      "clear": "لا يوجد نشاط مشبوه.",
+      "policy": {
+        "flagOnly": "المواقع الوهمية تُميَّز وتبقى محتسبة.",
+        "flagAndExclude": "المواقع الوهمية تُميَّز وتُستبعد من المسافة والحضور."
+      }
+    }
+  },
+  "adminSettings": {
+    "title": "الإعدادات",
+    "hint": "إعدادات النظام المحفوظة على الخادم. تُطبَّق التغييرات على البيانات الجديدة خلال دقيقة.",
+    "save": "حفظ",
+    "saved": "تم الحفظ",
+    "errors": {
+      "required": "أدخل قيمة.",
+      "range": "أدخل قيمة من {{min}} إلى {{max}}.",
+      "integer": "أدخل عددًا صحيحًا."
+    },
+    "locationTrust": {
+      "title": "موثوقية المواقع",
+      "description": "مدى صرامة فحص المواقع والزيارات بحثًا عن المواقع الوهمية والحركة المستحيلة. لا يُمنع المندوب من العمل أبدًا: تُحفظ البيانات المشبوهة وتُعرض للمراجعة.",
+      "defaults": "هذه هي القيم الافتراضية.",
+      "updated": "آخر تعديل بواسطة {{name}} في {{time}}.",
+      "movement": "الحركة",
+      "visits": "الزيارات",
+      "accuracy": "الدقة",
+      "privacy": "الخصوصية",
+      "policy": "المواقع الوهمية",
+      "policies": {
+        "flagOnly": "تمييز فقط",
+        "flagOnlyHint": "تُميَّز المواقع الوهمية وتُعرض للمراجعة، وتبقى محتسبة في المسافة والحضور.",
+        "flagAndExclude": "تمييز واستبعاد",
+        "flagAndExcludeHint": "تُميَّز المواقع الوهمية وتُعرض للمراجعة، وتُستبعد من المسافة المقطوعة ومن الزيارات المحتسبة في الإحصائيات."
+      },
+      "fields": {
+        "maxSpeedKmh": "أقصى سرعة معقولة (كم/س)",
+        "maxDistanceFromDoctorMeters": "أقصى مسافة من الطبيب (م)",
+        "accuracyAllowanceMeters": "سماحية الدقة (م)",
+        "lowTrustAccuracyMeters": "موقع ضعيف ابتداءً من (م)",
+        "perfectAccuracyMeters": "دقة غير واقعية حتى (م)",
+        "repeatedAccuracyRun": "نفس الدقة متتالية (مواقع)",
+        "deviceSignalsRetentionDays": "الاحتفاظ بإعدادات الهاتف لمدة (أيام)"
+      },
+      "hints": {
+        "maxSpeedKmh": "الحركة الأسرع من ذلك بين موقعين مستحيلة فعليًا: تُرفض النقطة (تُحفظ ولا تُحتسب).",
+        "maxDistanceFromDoctorMeters": "تسجيل الدخول أو الخروج الأبعد من ذلك يُميَّز بأنه \"بعيد عن الطبيب\".",
+        "accuracyAllowanceMeters": "يُضاف حتى هذا القدر من الدقة المبلَّغ عنها إلى المسافة المسموحة، حتى لا تُحسب الإشارة الضعيفة ضد المندوب.",
+        "lowTrustAccuracyMeters": "مواقع الزيارة الأقل دقة من ذلك تُعتبر دليلًا ضعيفًا.",
+        "perfectAccuracyMeters": "الهواتف الحقيقية نادرًا ما تبلغ دقة أفضل من 3 م؛ تطبيقات الموقع الوهمي تبلغ غالبًا من 0 إلى 1 م.",
+        "repeatedAccuracyRun": "هذا العدد من المواقع المتتالية بنفس الدقة تمامًا يبدو مُولَّدًا.",
+        "deviceSignalsRetentionDays": "إعدادات الهاتف المحفوظة مع كل موقع (خيارات المطوّر، تطبيقات الموقع الوهمي، الروت) تُحذف بعد هذا العدد من الأيام."
+      }
+    }
   }
 }

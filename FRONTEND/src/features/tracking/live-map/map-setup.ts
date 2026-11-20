@@ -25,6 +25,8 @@ export const DEFAULT_ZOOM = 9
 export const ROUTE_COLOR = '#0063ad'
 export const FLAGGED_COLOR = '#dc2626'
 export const START_COLOR = '#16a34a'
+/** Points left out of the route (physically impossible, or mock under the exclude policy). */
+export const EXCLUDED_COLOR = '#64748b'
 
 type Theme = 'light' | 'dark'
 
@@ -68,14 +70,24 @@ export function applyMapTheme(map: MapLibreMap, theme: Theme): void {
   if (map.getLayer('route-casing')) map.setPaintProperty('route-casing', 'line-color', colors.casing)
   if (map.getLayer('route-line')) map.setPaintProperty('route-line', 'line-color', colors.route)
   if (map.getLayer('route-points')) {
-    map.setPaintProperty('route-points', 'circle-stroke-color', colors.casing)
+    map.setPaintProperty('route-points', 'circle-stroke-color', [
+      'match',
+      ['get', 'kind'],
+      'focus',
+      FLAGGED_COLOR,
+      colors.casing,
+    ])
     map.setPaintProperty('route-points', 'circle-color', [
       'match',
       ['get', 'kind'],
       'start',
       START_COLOR,
+      'focus',
+      FLAGGED_COLOR,
       'flagged',
       FLAGGED_COLOR,
+      'excluded',
+      EXCLUDED_COLOR,
       colors.route,
     ])
   }

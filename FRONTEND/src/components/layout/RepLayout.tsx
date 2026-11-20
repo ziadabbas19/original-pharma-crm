@@ -12,6 +12,8 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BrandLogo } from '@/components/BrandLogo'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { MockLocationNotice } from '@/features/integrity/MockLocationNotice'
+import { useLocationIntegrity } from '@/features/integrity/useLocationIntegrity'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { useOrderOutbox, startOrderSync } from '@/features/orders/order-outbox'
 import { RecheckContext } from '@/features/onboarding/recheck-context'
@@ -39,6 +41,7 @@ const TABS: { to: RepPath; label: string; icon: LucideIcon; exact: boolean }[] =
 export function RepLayout() {
   const { t } = useTranslation()
   const recheck = useTrackingHealthMonitor()
+  const integrity = useLocationIntegrity()
   const issues = useAppSelector((s) => s.tracking.healthIssues.length)
   const outbox = useOrderOutbox()
   const waiting = outbox.pending.length + outbox.failed.length
@@ -64,6 +67,7 @@ export function RepLayout() {
               <LanguageSwitcher />
             </div>
           </div>
+          <MockLocationNotice onCheckNow={integrity.checkNow} />
           <TrackingHealthBanner />
           <ActiveVisitBanner />
         </header>

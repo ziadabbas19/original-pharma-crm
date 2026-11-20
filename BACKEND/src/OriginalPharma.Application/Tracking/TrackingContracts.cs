@@ -1,11 +1,21 @@
+using OriginalPharma.Application.Tracking.Integrity;
 using OriginalPharma.Domain.Tracking;
 
 namespace OriginalPharma.Application.Tracking;
 
 /// <summary>
 /// One fix. The native plugin builds this shape through its locationTemplate,
-/// the PWA builds it in JS.
+/// the PWA builds it in JS. Everything after <see cref="Uuid"/> was added later and is optional, so
+/// apps that do not send it keep working.
 /// </summary>
+/// <param name="IsMock">The device says the fix came from a mock location provider.</param>
+/// <param name="Altitude">Metres; feeds the "altitude always zero" check.</param>
+/// <param name="ActivityType">Motion activity the phone detected (still, on_foot, in_vehicle, ...).</param>
+/// <param name="ActivityConfidence">0-100 confidence of <paramref name="ActivityType"/>.</param>
+/// <param name="DeviceTime">
+/// Device wall clock when the app recorded the fix (ISO 8601 or epoch milliseconds). Text on purpose:
+/// a value the server cannot read is ignored instead of refusing the batch.
+/// </param>
 public sealed record LocationPointDto(
     double Lat,
     double Lng,
@@ -16,15 +26,31 @@ public sealed record LocationPointDto(
     double? BatteryLevel = null,
     bool IsMock = false,
     bool? IsMoving = null,
-    string? Uuid = null);
+    string? Uuid = null,
+    double? Altitude = null,
+    string? ActivityType = null,
+    int? ActivityConfidence = null,
+    string? DeviceTime = null);
 
+/// <param name="DeviceSignals">Device settings that make locations less trustworthy (optional).</param>
 public sealed record LocationBatchRequest(
     string DeviceId,
     LocationSource Source,
     IReadOnlyList<LocationPointDto> Points,
-    DateTimeOffset? SentAt = null);
+    DateTimeOffset? SentAt = null,
+    DeviceSignalsDto? DeviceSignals = null);
 
-public sealed record LocationBatchResult(int Received, int Accepted, int Duplicates, int OutsideShift, int AnomalyScore, bool Flagged);
+/// <param name="Suspicious">Accepted points stored as suspicious.</param>
+/// <param name="Rejected">Accepted points stored as rejected (physically impossible; kept, never counted).</param>
+public sealed record LocationBatchResult(
+    int Received,
+    int Accepted,
+    int Duplicates,
+    int OutsideShift,
+    int AnomalyScore,
+    bool Flagged,
+    int Suspicious = 0,
+    int Rejected = 0);
 
 /// <summary>Single fix sent by the setup wizard to prove the device can reach the server.</summary>
 public sealed record TestPointRequest(string DeviceId, LocationSource Source, LocationPointDto Point, DateTimeOffset? SentAt = null);
@@ -108,7 +134,9 @@ public sealed record LivePositionDto(
     bool IsMock,
     int AnomalyScore,
     LocationSource Source,
-    Guid? ShiftId);
+    Guid? ShiftId,
+    LocationTrustStatus TrustStatus = LocationTrustStatus.Trusted,
+    string? TrustReason = null);
 
 public enum PresenceStatus
 {
@@ -135,6 +163,7 @@ public sealed record PresenceChangeDto(Guid UserId, PresenceStatus Status, DateT
 
 public sealed record DeviceHealthChangeDto(Guid UserId, string DeviceId, bool IsHealthy, IReadOnlyList<string> Issues, DateTimeOffset At);
 
+/// <param name="Occurrences">How often the problem was seen while the flag stayed open.</param>
 public sealed record TrackingFlagDto(
     Guid Id,
     Guid UserId,
@@ -144,7 +173,11 @@ public sealed record TrackingFlagDto(
     int Score,
     IReadOnlyList<string> Signals,
     string? Details,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    long? LocationPointId = null,
+    Guid? VisitId = null,
+    int Occurrences = 1,
+    DateTimeOffset? LastSeenAt = null);
 
 /// <summary>A rep's device with its latest health report (dashboard device list).</summary>
 public sealed record DeviceDto(
@@ -175,6 +208,7 @@ public sealed record DeviceDto(
 
 public sealed record ReviewFlagRequest(TrackingFlagStatus Status, string? Note = null);
 
+/// <param name="Excluded">Left out of the distance travelled: rejected, or mock under the "flag and exclude" policy.</param>
 public sealed record HistoryPointDto(
     double Lat,
     double Lng,
@@ -182,6 +216,10 @@ public sealed record HistoryPointDto(
     DateTimeOffset RecordedAt,
     double? Speed,
     bool IsMock,
-    int AnomalyScore);
+    int AnomalyScore,
+    long Id = 0,
+    LocationTrustStatus TrustStatus = LocationTrustStatus.Trusted,
+    string? TrustReason = null,
+    bool Excluded = false);
 
 public sealed record LiveViewResponse(Guid RepId, DateTimeOffset LiveUntil);

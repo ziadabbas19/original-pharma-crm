@@ -36,7 +36,7 @@ public sealed class VisitsController(VisitService visits) : ControllerBase
     /// <summary>The verification rules of this server (accuracy limit, geofence allowance, edit window).</summary>
     [HttpGet("rules")]
     [Microsoft.AspNetCore.Authorization.Authorize]
-    public VisitRulesDto Rules() => visits.Rules();
+    public Task<VisitRulesDto> Rules(CancellationToken cancellationToken) => visits.RulesAsync(cancellationToken);
 
     /// <summary>Check in. Safe to retry with the same clientRequestId.</summary>
     [HttpPost("check-in")]

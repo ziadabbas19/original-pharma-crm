@@ -58,6 +58,13 @@ is missing, unsafe or still a placeholder, and names each variable to fix.
 | `AllowedHosts` | public host and Railway's health check | Semicolon-separated host override |
 | `DeveloperPages__Enabled` | `false` | Turns on `/swagger` and `/openapi/v1.json`. The Hangfire dashboard stays local-only |
 | `SignalR__UseRedisBackplane` | `false` | Needed only when running more than one API instance |
+| `Tracking__Trust__MaxDistanceFromDoctorMeters` | `500` | Default until an admin saves Settings > Location trust. See [location-trust.md](location-trust.md#admin-settings) |
+| `Tracking__Trust__MockPolicy` | `FlagOnly` | Default policy: `FlagOnly` or `FlagAndExclude` |
+| `Tracking__Trust__DeviceSignalsRetentionDays` | `30` | Default retention of the device signals stored with location points |
+| `Tracking__Trust__NotificationThrottleMinutes` | `60` | A supervisor is told about the same rep at most once in this window |
+
+The location trust settings saved from the dashboard are stored in the database and win over these defaults. None of
+them is required.
 
 ## Railway setup
 
@@ -126,6 +133,11 @@ ConnectionStrings__Postgres='<connection string>' dotnet dotnet-ef database upda
 ```
 
 The lock needs a direct database connection. Do not point the API at a pooler in transaction mode.
+
+`AddLocationTrust` (2026-11-19) only adds columns, indexes and the `app_settings` table, with defaults for existing
+rows, and marks existing location points from the anomaly codes they already had (impossible movement rejected, mock
+or synthetic fixes suspicious). It deletes nothing. On a large `location_points` table the marking updates scan
+the table once; run it at a quiet time.
 
 ### What production seeds
 
@@ -324,6 +336,10 @@ The bundle is in `android/app/build/outputs/bundle/release/`. Raise `versionCode
 
 Before the first public release, also add the background geolocation license, Firebase and the Play Console
 declarations listed in the README.
+
+The fake GPS checks need a new APK whenever `android/app/known-location-spoofing-apps.xml` or the native code
+changes. The app declares the listed packages in a `<queries>` block (no `QUERY_ALL_PACKAGES` permission), which
+needs no Play Console declaration.
 
 ## Production check on your machine
 

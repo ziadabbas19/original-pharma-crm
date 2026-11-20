@@ -9,7 +9,7 @@ export interface FlagsSearch {
   userId?: string
 }
 
-const STATUS_VALUES: readonly string[] = ['open', 'confirmed', 'dismissed', 'all']
+const STATUS_VALUES: readonly string[] = ['open', 'acknowledged', 'confirmed', 'dismissed', 'all']
 const TYPE_VALUES: readonly string[] = Object.values(TrackingFlagType)
 
 export function validateFlagsSearch(search: Record<string, unknown>): FlagsSearch {

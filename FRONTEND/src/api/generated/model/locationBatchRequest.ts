@@ -2,6 +2,7 @@
  * Original Pharma CRM API v1.
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
+import type { DeviceSignalsDto } from './deviceSignalsDto'
 import type { LocationPointDto } from './locationPointDto'
 import type { LocationSource } from './locationSource'
 
@@ -11,4 +12,5 @@ export interface LocationBatchRequest {
   points: LocationPointDto[]
   /** @nullable */
   sentAt?: string | null
+  deviceSignals?: null | DeviceSignalsDto
 }

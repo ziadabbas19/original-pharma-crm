@@ -5,6 +5,8 @@ import {
   ClipboardListIcon,
   FlagIcon,
   LocateOffIcon,
+  ShieldAlertIcon,
+  ShieldCheckIcon,
   SmartphoneIcon,
   TimerIcon,
   UsersIcon,
@@ -13,6 +15,7 @@ import {
 import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  useLocationIntegrityGetSummary,
   useTrackingMonitorGetFlags,
   useTrackingMonitorGetPresence,
   useVisitsList,
@@ -24,6 +27,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePermission } from '@/features/auth/usePermission'
 import { FlagTypeBadge, ScoreBadge } from '@/features/flags/flag-display'
+import { ReasonBadges } from '@/features/suspicious/trust-display'
 import { liveStatusOf, type LiveStatus } from '@/features/tracking/live-status'
 import { LiveStatusDot } from '@/features/tracking/LiveStatusBadge'
 import { useNow } from '@/hooks/use-now'
@@ -49,6 +53,7 @@ export function DashboardPage() {
   const canReviewFlags = usePermission(P.tracking.reviewFlags)
   const canReadVisits = usePermission(P.visits.read)
   const canReadDevices = usePermission(P.devices.read)
+  const canReviewSuspicious = usePermission(P.tracking.reviewSuspicious)
 
   return (
     <>
@@ -62,8 +67,9 @@ export function DashboardPage() {
           {canViewLive && <NeedsAttention />}
           {canReviewFlags && <LatestFlags />}
           {canReadVisits && <TodayVisits />}
+          {canReviewSuspicious && <SuspiciousSummary />}
         </div>
-        {!canViewLive && !canReviewFlags && !canReadVisits && (
+        {!canViewLive && !canReviewFlags && !canReadVisits && !canReviewSuspicious && (
           <Card>
             <EmptyState title={t('admin.nothingHere')} description={t('admin.nothingHereHint')} />
           </Card>
@@ -207,7 +213,11 @@ function Panel({ title, action, children }: { title: string; action?: ReactNode;
   )
 }
 
-function ViewAll({ to }: { to: '/admin/live-map' | '/admin/flags' | '/admin/visits' }) {
+function ViewAll({
+  to,
+}: {
+  to: '/admin/live-map' | '/admin/flags' | '/admin/visits' | '/admin/suspicious-activity'
+}) {
   const { t } = useTranslation()
   return (
     <Button asChild variant="ghost" size="sm">
@@ -275,6 +285,55 @@ function NeedsAttention() {
             </li>
           ))}
         </ul>
+      )}
+    </Panel>
+  )
+}
+
+/** Suspicious location activity of the last 7 days, inside the reviewer's scope. */
+function SuspiciousSummary() {
+  const { t } = useTranslation()
+  const summary = useLocationIntegrityGetSummary(undefined, { query: { refetchInterval: 120_000 } })
+  const s = summary.data
+  const figures: { label: string; value: number; tone?: string }[] = s
+    ? [
+        {
+          label: t('suspicious.summary.openEvents'),
+          value: s.openEvents,
+          tone: s.openEvents > 0 ? 'text-destructive' : undefined,
+        },
+        { label: t('suspicious.summary.repsFlagged'), value: s.repsFlagged },
+        { label: t('suspicious.summary.flaggedVisits'), value: s.flaggedVisits },
+        { label: t('suspicious.summary.mockPoints'), value: s.mockPoints },
+        { label: t('suspicious.summary.suspiciousPoints'), value: s.suspiciousPoints },
+        { label: t('suspicious.summary.rejectedPoints'), value: s.rejectedPoints },
+      ]
+    : []
+
+  return (
+    <Panel title={t('suspicious.summary.title')} action={<ViewAll to="/admin/suspicious-activity" />}>
+      {summary.error && !s ? (
+        <ErrorState error={summary.error} onRetry={() => void summary.refetch()} />
+      ) : !s ? (
+        <LoadingState rows={4} />
+      ) : s.totalEvents === 0 && s.suspiciousPoints === 0 && s.rejectedPoints === 0 ? (
+        <EmptyState icon={ShieldCheckIcon} title={t('suspicious.summary.clear')} className="py-6" />
+      ) : (
+        <div className="grid gap-3" data-testid="suspicious-summary">
+          <dl className="grid grid-cols-2 gap-3">
+            {figures.map((f) => (
+              <div key={f.label} className="grid content-start gap-0.5">
+                <dt className="text-xs leading-tight text-muted-foreground">{f.label}</dt>
+                <dd className={cn('text-xl font-semibold tabular-nums', f.tone)}>{formatNumber(f.value)}</dd>
+              </div>
+            ))}
+          </dl>
+          {s.topReasons.length > 0 && <ReasonBadges reasons={s.topReasons.map((r) => r.reason)} max={5} />}
+          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+            <ShieldAlertIcon className="mt-0.5 size-3.5 shrink-0" />
+            {t(`suspicious.summary.policy.${s.mockPolicy}`)}
+          </p>
+        </div>
       )}
     </Panel>
   )

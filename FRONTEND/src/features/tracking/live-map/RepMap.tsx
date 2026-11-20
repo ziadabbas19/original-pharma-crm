@@ -15,6 +15,7 @@ import {
   applyMapTheme,
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
+  EXCLUDED_COLOR,
   FLAGGED_COLOR,
   BASE_MAP_STYLE,
   ROUTE_COLOR,
@@ -32,7 +33,12 @@ export interface RoutePoint {
   lat: number
   lng: number
   recordedAt: string
+  /** Suspicious (mock, synthetic fix, device settings): drawn red. */
   flagged: boolean
+  /** Left out of the line and the distance (physically impossible, or mock under the exclude policy). */
+  excluded?: boolean
+  /** The point a link pointed at (e.g. from the suspicious activity page). */
+  focus?: boolean
 }
 
 interface MarkerEntry {
@@ -136,18 +142,35 @@ export function RepMap({
         type: 'circle',
         source: 'route-points',
         paint: {
-          'circle-radius': ['match', ['get', 'kind'], 'start', 6, 'flagged', 5, 2.5],
+          'circle-radius': [
+            'match',
+            ['get', 'kind'],
+            'start',
+            6,
+            'focus',
+            9,
+            'flagged',
+            5,
+            'excluded',
+            5,
+            2.5,
+          ],
           'circle-color': [
             'match',
             ['get', 'kind'],
             'start',
             START_COLOR,
+            'focus',
+            FLAGGED_COLOR,
             'flagged',
             FLAGGED_COLOR,
+            'excluded',
+            EXCLUDED_COLOR,
             ROUTE_COLOR,
           ],
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': ['match', ['get', 'kind'], 'point', 0.5, 2],
+          'circle-stroke-color': ['match', ['get', 'kind'], 'focus', FLAGGED_COLOR, '#ffffff'],
+          'circle-stroke-opacity': ['match', ['get', 'kind'], 'focus', 0.35, 1],
+          'circle-stroke-width': ['match', ['get', 'kind'], 'point', 0.5, 'focus', 8, 2],
         },
       })
       applyMapTheme(map, themeRef.current)
@@ -251,13 +274,27 @@ export function RepMap({
     void line.setData({
       type: 'Feature',
       properties: {},
-      geometry: { type: 'LineString', coordinates: route.map((p) => [p.lng, p.lat]) },
+      geometry: {
+        type: 'LineString',
+        coordinates: route.filter((p) => !p.excluded).map((p) => [p.lng, p.lat]),
+      },
     })
     void points.setData({
       type: 'FeatureCollection',
       features: route.map((p, i) => ({
         type: 'Feature',
-        properties: { kind: i === 0 ? 'start' : p.flagged ? 'flagged' : 'point', at: p.recordedAt },
+        properties: {
+          kind: p.focus
+            ? 'focus'
+            : i === 0
+              ? 'start'
+              : p.excluded
+                ? 'excluded'
+                : p.flagged
+                  ? 'flagged'
+                  : 'point',
+          at: p.recordedAt,
+        },
         geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
       })),
     })

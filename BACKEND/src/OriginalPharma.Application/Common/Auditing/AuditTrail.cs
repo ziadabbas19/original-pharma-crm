@@ -20,6 +20,12 @@ public static class AuditEntities
     public const string Order = "order";
     public const string Visit = "visit";
     public const string Device = "device";
+
+    /// <summary>A suspicious-location flag (raised, acknowledged).</summary>
+    public const string LocationFlag = "location_flag";
+
+    /// <summary>Settings edited from the dashboard (details name the key).</summary>
+    public const string Settings = "settings";
 }
 
 /// <summary>

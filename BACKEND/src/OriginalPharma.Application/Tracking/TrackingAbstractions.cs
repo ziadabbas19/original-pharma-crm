@@ -64,3 +64,19 @@ public static class PushMessageTypes
     /// <summary>Tells the device to fetch /api/tracking/config and apply it.</summary>
     public const string TrackingConfigChanged = "tracking-config-changed";
 }
+
+/// <summary>Distance travelled per rep, computed in the database (PostGIS).</summary>
+public interface ILocationDistanceQuery
+{
+    /// <summary>
+    /// Metres between consecutive points of each working day (shift) recorded in [from, to).
+    /// Rejected points are skipped, so the line goes from the point before to the point after;
+    /// mock points too when <paramref name="excludeMock"/> is set.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, double>> MetersByUserAsync(
+        IReadOnlyCollection<Guid> userIds,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        bool excludeMock,
+        CancellationToken cancellationToken = default);
+}

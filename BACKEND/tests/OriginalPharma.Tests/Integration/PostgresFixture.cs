@@ -9,12 +9,14 @@ using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Orders;
+using OriginalPharma.Application.Tracking;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Infrastructure;
 using OriginalPharma.Infrastructure.Files;
 using OriginalPharma.Infrastructure.Identity;
 using OriginalPharma.Infrastructure.Orders;
 using OriginalPharma.Infrastructure.Persistence;
+using OriginalPharma.Infrastructure.Tracking;
 
 namespace OriginalPharma.Tests.Integration;
 
@@ -128,6 +130,19 @@ public sealed class PostgresFixture : IAsyncLifetime
         return database;
     }
 
+    /// <summary>An empty database with the default test services and no migration applied (for migration tests).</summary>
+    public async Task<TestDatabase> CreateUnmigratedDatabaseAsync()
+    {
+        if (SkipReason is not null)
+        {
+            Assert.Skip(SkipReason);
+        }
+
+        var name = "op_test_" + Guid.NewGuid().ToString("N")[..12];
+        await ExecuteAsync($"CREATE DATABASE \"{name}\"");
+        return new TestDatabase(this, name, DeploymentEnvironment.Testing, BuildServices(ConnectionStringFor(name)));
+    }
+
     /// <summary>Services for an existing test database with other settings, as after a restart with changed variables.</summary>
     internal ServiceProvider BuildServicesFor(
         string database, string environmentName, IReadOnlyDictionary<string, string?> settings, ILoggerProvider logs) =>
@@ -204,6 +219,11 @@ public sealed class PostgresFixture : IAsyncLifetime
         services.AddScoped<IOrderNumberGenerator, OrderNumberGenerator>();
         services.AddSingleton<RecordingNotificationPublisher>();
         services.AddSingleton<INotificationPublisher>(sp => sp.GetRequiredService<RecordingNotificationPublisher>());
+        services.AddSingleton<RecordingTrackingNotifier>();
+        services.AddSingleton<ITrackingNotifier>(sp => sp.GetRequiredService<RecordingTrackingNotifier>());
+        services.AddSingleton<ILatestPositionStore, InMemoryLatestPositionStore>();
+        services.AddSingleton<IIpGeolocationService, NullIpGeolocationService>();
+        services.AddScoped<ILocationDistanceQuery, LocationDistanceQuery>();
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
@@ -219,6 +239,52 @@ public sealed class RecordingNotificationPublisher : INotificationPublisher
     public Task PublishAsync(Guid userId, NotificationDto notification, CancellationToken cancellationToken = default)
     {
         _sent.Enqueue((userId, notification));
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Collects what would have been pushed to dashboards over SignalR.</summary>
+public sealed class RecordingTrackingNotifier : ITrackingNotifier
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<TrackingFlagDto> _flags = new();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<LivePositionDto> _positions = new();
+
+    public IReadOnlyList<TrackingFlagDto> Flags => [.. _flags];
+    public IReadOnlyList<LivePositionDto> Positions => [.. _positions];
+
+    public Task PositionUpdatedAsync(Application.Common.Organization.RepAudience audience, LivePositionDto position, CancellationToken cancellationToken = default)
+    {
+        _positions.Enqueue(position);
+        return Task.CompletedTask;
+    }
+
+    public Task PresenceChangedAsync(Application.Common.Organization.RepAudience audience, PresenceChangeDto change, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
+    public Task FlagRaisedAsync(Application.Common.Organization.RepAudience audience, TrackingFlagDto flag, CancellationToken cancellationToken = default)
+    {
+        _flags.Enqueue(flag);
+        return Task.CompletedTask;
+    }
+
+    public Task DeviceHealthChangedAsync(Application.Common.Organization.RepAudience audience, DeviceHealthChangeDto change, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+}
+
+/// <summary>Latest positions in memory instead of Redis (one store per test database).</summary>
+public sealed class InMemoryLatestPositionStore : ILatestPositionStore
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, LivePositionDto> _positions = new();
+
+    public Task<LivePositionDto?> GetAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_positions.GetValueOrDefault(userId));
+
+    public Task<IReadOnlyDictionary<Guid, LivePositionDto>> GetManyAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, LivePositionDto>>(userIds.Where(_positions.ContainsKey).ToDictionary(id => id, id => _positions[id]));
+
+    public Task SetAsync(LivePositionDto position, CancellationToken cancellationToken = default)
+    {
+        _positions[position.UserId] = position;
         return Task.CompletedTask;
     }
 }
@@ -330,6 +396,9 @@ public sealed class TestDatabase : IAsyncDisposable
 
     /// <summary>Notifications pushed live during this test (the in-app rows are in the database).</summary>
     public RecordingNotificationPublisher Published => _services.GetRequiredService<RecordingNotificationPublisher>();
+
+    /// <summary>Flags and positions pushed to dashboards during this test.</summary>
+    public RecordingTrackingNotifier Dashboards => _services.GetRequiredService<RecordingTrackingNotifier>();
 
     public async Task MigrateAsync()
     {

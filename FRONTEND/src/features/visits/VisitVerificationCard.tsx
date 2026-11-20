@@ -8,6 +8,9 @@ import { VisitPhotos } from './VisitPhotos'
 
 const LATE_SYNC_MS = 5 * 60_000
 
+/** Reasons that question the location itself (as opposed to a missing check-out fix). */
+const TRUST_REASONS = new Set(['mock-location', 'far-from-doctor', 'low-trust'])
+
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
@@ -23,22 +26,31 @@ export function VisitVerificationCard({ visit }: { visit: VisitDetailDto }) {
   const receivedLate =
     new Date(visit.checkInReceivedAt).getTime() - new Date(visit.checkInAt).getTime() > LATE_SYNC_MS
   const closed = visit.checkOutAt != null
+  const locationFlagged = visit.reviewReasons.some((r) => TRUST_REASONS.has(r))
 
   return (
     <section className="grid gap-3 rounded-lg border p-3" data-testid="visit-verification">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-medium">{t('visits.verification.title')}</h3>
-        {visit.checkInWithinGeofence ? (
-          <Badge variant="success">
-            <MapPinCheckIcon aria-hidden />
-            {t('visits.inside')}
-          </Badge>
-        ) : (
-          <Badge variant="destructive">
-            <MapPinXIcon aria-hidden />
-            {t('visits.outside')}
-          </Badge>
-        )}
+        <div className="flex flex-wrap gap-1.5">
+          {locationFlagged && (
+            <Badge variant="destructive" data-testid="visit-location-flagged">
+              <ShieldAlertIcon aria-hidden />
+              {t('visits.verification.locationFlagged')}
+            </Badge>
+          )}
+          {visit.checkInWithinGeofence ? (
+            <Badge variant="success">
+              <MapPinCheckIcon aria-hidden />
+              {t('visits.inside')}
+            </Badge>
+          ) : (
+            <Badge variant="destructive">
+              <MapPinXIcon aria-hidden />
+              {t('visits.outside')}
+            </Badge>
+          )}
+        </div>
       </div>
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">

@@ -111,11 +111,11 @@ public static class StatsCsv
                 Append(csv,
                 [
                     N("Rep", "المندوب"), orders, value, N("Visits", "الزيارات"), N("Doctors visited", "أطباء تمت زيارتهم"),
-                    N("Tracking hours", "ساعات التتبع"), N("Active days", "أيام العمل"),
+                    N("Tracking hours", "ساعات التتبع"), N("Active days", "أيام العمل"), N("Distance (km)", "المسافة (كم)"),
                 ]);
                 foreach (var r in s.Reps)
                 {
-                    Append(csv, [r.Name, Int(r.Orders), Money(r.OrderValue), Int(r.Visits), Int(r.DoctorsCovered), Int(r.TrackingHours), Int(r.ActiveDays)]);
+                    Append(csv, [r.Name, Int(r.Orders), Money(r.OrderValue), Int(r.Visits), Int(r.DoctorsCovered), Int(r.TrackingHours), Int(r.ActiveDays), Money(r.DistanceKm)]);
                 }
 
                 break;

@@ -33,5 +33,33 @@ public class LocationPoint : IScopedEntity
 
     /// <summary>0-100. Higher means more suspicious.</summary>
     public int AnomalyScore { get; set; }
+
+    /// <summary>Every plausibility check that fired for this point (reason codes).</summary>
     public List<string> AnomalyCodes { get; set; } = [];
+
+    /// <summary>Result of the plausibility checks. Older rows default to trusted.</summary>
+    public LocationTrustStatus TrustStatus { get; set; } = LocationTrustStatus.Trusted;
+
+    /// <summary>The reason code that decided <see cref="TrustStatus"/> (the most severe one); null when trusted.</summary>
+    public string? TrustReason { get; set; }
+
+    /// <summary>
+    /// Device wall clock when the app recorded the fix (null from older apps). Differs from
+    /// <see cref="RecordedAt"/> (the fix time) when the phone's clock is set by hand.
+    /// </summary>
+    public DateTimeOffset? DeviceTime { get; set; }
+
+    /// <summary>Metres above sea level as reported by the device (null when not sent).</summary>
+    public double? Altitude { get; set; }
+
+    /// <summary>Motion activity the phone detected (still, on_foot, in_vehicle, ...), when sent.</summary>
+    public string? ActivityType { get; set; }
+
+    public int? ActivityConfidence { get; set; }
+
+    /// <summary>
+    /// Device signals sent with the batch (JSON, see DeviceSignalsDto), kept for review and cleared
+    /// after the retention period set in the location trust settings.
+    /// </summary>
+    public string? DeviceSignals { get; set; }
 }

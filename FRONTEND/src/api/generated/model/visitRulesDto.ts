@@ -9,4 +9,6 @@ export interface VisitRulesDto {
   rejectOutsideGeofence: boolean
   maxPhotoBytes: number
   contentEditHours: number
+  maxDistanceFromDoctorMeters?: number
+  lowTrustAccuracyMeters?: number
 }

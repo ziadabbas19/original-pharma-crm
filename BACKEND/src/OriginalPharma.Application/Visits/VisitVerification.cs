@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using OriginalPharma.Application.Common;
+using OriginalPharma.Application.Tracking.Integrity;
 
 namespace OriginalPharma.Application.Visits;
 
@@ -56,7 +57,20 @@ public static class VisitReviewReasons
     public const string MockLocation = "mock-location";
     public const string NoCheckOutLocation = "no-check-out-location";
 
-    public static IReadOnlyList<string> For(bool withinGeofence, bool checkInMock, bool? checkOutMock, bool checkedOut, bool hasCheckOutLocation)
+    /// <summary>Check-in or check-out further from the doctor than the admin setting allows.</summary>
+    public const string FarFromDoctor = "far-from-doctor";
+
+    /// <summary>The location evidence is weak: poor or synthetic accuracy, spoofing settings, suspicious points around the visit.</summary>
+    public const string LowTrust = "low-trust";
+
+    /// <param name="trustReasons">Reasons stored on the visit (<see cref="FarFromDoctor"/>, <see cref="LowTrust"/>).</param>
+    public static IReadOnlyList<string> For(
+        bool withinGeofence,
+        bool checkInMock,
+        bool? checkOutMock,
+        bool checkedOut,
+        bool hasCheckOutLocation,
+        IReadOnlyCollection<string>? trustReasons = null)
     {
         var reasons = new List<string>();
         if (!withinGeofence)
@@ -74,7 +88,80 @@ public static class VisitReviewReasons
             reasons.Add(NoCheckOutLocation);
         }
 
+        foreach (var reason in trustReasons ?? [])
+        {
+            if (!reasons.Contains(reason))
+            {
+                reasons.Add(reason);
+            }
+        }
+
         return reasons;
+    }
+}
+
+/// <param name="DistanceMeters">Distance between the fix and the doctor's saved location.</param>
+/// <param name="SuspiciousPointsNearby">Suspicious or rejected tracking points of the rep around the visit.</param>
+public sealed record VisitTrustInput(
+    double DistanceMeters,
+    double AccuracyMeters,
+    DeviceSignalsDto? Signals,
+    int SuspiciousPointsNearby);
+
+/// <param name="Reasons">Visit review reasons (<see cref="VisitReviewReasons.FarFromDoctor"/>, <see cref="VisitReviewReasons.LowTrust"/>).</param>
+/// <param name="Details">What made the visit low trust, for the flag details.</param>
+public sealed record VisitTrustResult(IReadOnlyList<string> Reasons, IReadOnlyList<string> Details);
+
+/// <summary>
+/// Location trust of a visit check-in or check-out, with the admin settings. Only marks the visit:
+/// nothing here refuses a check-in or check-out.
+/// </summary>
+public static class VisitTrustEvaluator
+{
+    public static VisitTrustResult Evaluate(VisitTrustInput input, LocationTrustSettings settings)
+    {
+        var reasons = new List<string>();
+        var details = new List<string>();
+        var allowance = Math.Min(Math.Max(input.AccuracyMeters, 0), settings.AccuracyAllowanceMeters);
+        if (input.DistanceMeters - allowance > settings.MaxDistanceFromDoctorMeters)
+        {
+            reasons.Add(VisitReviewReasons.FarFromDoctor);
+            details.Add($"{input.DistanceMeters:0} m from the doctor (more than {settings.MaxDistanceFromDoctorMeters:0} m).");
+        }
+
+        var lowTrust = new List<string>();
+        if (input.AccuracyMeters > settings.LowTrustAccuracyMeters)
+        {
+            lowTrust.Add($"Weak fix: accuracy {input.AccuracyMeters:0} m.");
+        }
+
+        if (input.AccuracyMeters <= settings.PerfectAccuracyMeters)
+        {
+            lowTrust.Add($"Unrealistically precise fix: accuracy {input.AccuracyMeters:0.##} m.");
+        }
+
+        if (input.Signals?.MockLocationAppSelected == true)
+        {
+            lowTrust.Add("A spoofing app is selected as the mock location app.");
+        }
+
+        if (input.Signals?.Emulator == true)
+        {
+            lowTrust.Add("The app runs on an emulator.");
+        }
+
+        if (input.SuspiciousPointsNearby > 0)
+        {
+            lowTrust.Add($"{input.SuspiciousPointsNearby} suspicious tracking point(s) around the visit.");
+        }
+
+        if (lowTrust.Count > 0)
+        {
+            reasons.Add(VisitReviewReasons.LowTrust);
+            details.AddRange(lowTrust);
+        }
+
+        return new VisitTrustResult(reasons, details);
     }
 }
 

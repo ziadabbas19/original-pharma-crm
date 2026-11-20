@@ -8,8 +8,11 @@ import { useAppSelector } from '@/store'
 /** Shown across the rep app when a check fails after setup (permission revoked, GPS off, ...). */
 export function TrackingHealthBanner() {
   const { t } = useTranslation()
-  const issues = useAppSelector((s) => s.tracking.healthIssues)
+  const allIssues = useAppSelector((s) => s.tracking.healthIssues)
   const completed = useAppSelector((s) => s.tracking.onboarding.completedAt)
+  const mockNoticeShown = useAppSelector((s) => s.tracking.mockWatch.active)
+  // The fake location notice above already says it, in both languages.
+  const issues = mockNoticeShown ? allIssues.filter((i) => i !== 'mock-location') : allIssues
 
   if (!completed || issues.length === 0) return null
 

@@ -15,7 +15,8 @@ mobile-first rep app (`/rep`), which runs in the Android app (Capacitor) and as 
 installable PWA for iPhone reps (foreground tracking only).
 
 See [docs/architecture.md](docs/architecture.md) for the design (permissions,
-tracking pipeline, battery strategy, anti-fraud layers) and
+tracking pipeline, battery strategy, anti-fraud layers), [docs/location-trust.md](docs/location-trust.md) for
+fake GPS detection (checks, review page, settings, limits, what to tell reps) and
 [docs/deployment.md](docs/deployment.md) for production: every environment variable, Railway,
 web hosting, Android release builds, backups.
 
@@ -149,6 +150,15 @@ against a throwaway database:
 cd FRONTEND && UI_TEST_PASSWORD=<demo password> UI_TEST_URL=http://localhost:5173 npm run test:ui:visits
 ```
 
+The suspicious activity review (a rep's mock location reported through the API, reviewed and acknowledged by the
+supervisor, settings saved by the admin) has one too, also for a throwaway database. `UI_TEST_API` is the API
+origin the check calls directly:
+
+```bash
+cd FRONTEND && UI_TEST_PASSWORD=<demo password> UI_TEST_URL=http://localhost:5174 \
+  UI_TEST_API=http://localhost:5081 npm run test:ui:suspicious
+```
+
 The integration tests (`tests/OriginalPharma.Tests/Integration`) run against the local
 PostgreSQL from `podman compose`: they migrate and seed a template database once, give each
 test its own copy and drop them all afterwards. They use the API's user secret
@@ -220,6 +230,8 @@ Before a release build:
 | Secrets (DB connection, JWT key, admin password) | `dotnet user-secrets` (dev), environment variables (prod, see [docs/deployment.md](docs/deployment.md)) |
 | Tracking profiles, tracking-lost window, consent version, anomaly thresholds | `BACKEND/src/OriginalPharma.Api/appsettings.json` → `Tracking` |
 | Visit geofence / accuracy rules | `appsettings.json` → `Visits` |
+| Location trust thresholds, mock location policy, device signals retention | Dashboard → Settings (stored in `app_settings`); defaults in `appsettings.json` → `Tracking:Anomalies`, `Tracking:Trust`, `Visits` |
+| Known fake GPS and root apps checked on the phone | `FRONTEND/android/app/known-location-spoofing-apps.xml` (new APK after a change) |
 | Upload size and pixel limits | `appsettings.json` → `Images` |
 | Statistics time zone, low stock threshold, cache time | `appsettings.json` → `Stats` |
 | Hours after check-out a rep may still edit visit feedback and products | `appsettings.json` → `Visits:ContentEditHours` |

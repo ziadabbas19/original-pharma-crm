@@ -365,6 +365,32 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.ToTable("user_product_lines", (string)null);
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Common.AppSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("key");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_id");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("value");
+
+                    b.HasKey("Key")
+                        .HasName("pk_app_settings");
+
+                    b.ToTable("app_settings", (string)null);
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Crm.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1712,6 +1738,19 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("double precision")
                         .HasColumnName("accuracy");
 
+                    b.Property<int?>("ActivityConfidence")
+                        .HasColumnType("integer")
+                        .HasColumnName("activity_confidence");
+
+                    b.Property<string>("ActivityType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("activity_type");
+
+                    b.Property<double?>("Altitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("altitude");
+
                     b.PrimitiveCollection<List<string>>("AnomalyCodes")
                         .IsRequired()
                         .HasColumnType("text[]")
@@ -1730,6 +1769,14 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("device_id");
+
+                    b.Property<string>("DeviceSignals")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("device_signals");
+
+                    b.Property<DateTimeOffset?>("DeviceTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("device_time");
 
                     b.Property<double?>("Heading")
                         .HasColumnType("double precision")
@@ -1772,6 +1819,17 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("territory_id");
 
+                    b.Property<string>("TrustReason")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("trust_reason");
+
+                    b.Property<int>("TrustStatus")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("trust_status");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
@@ -1790,6 +1848,14 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "RecordedAt")
                         .IsUnique()
                         .HasDatabaseName("ix_location_points_user_id_recorded_at");
+
+                    b.HasIndex(new[] { "RecordedAt" }, "PointsWithDeviceSignals")
+                        .HasDatabaseName("ix_location_points_device_signals")
+                        .HasFilter("device_signals IS NOT NULL");
+
+                    b.HasIndex(new[] { "UserId", "RecordedAt" }, "UntrustedPoints")
+                        .HasDatabaseName("ix_location_points_untrusted")
+                        .HasFilter("trust_status <> 1");
 
                     b.ToTable("location_points", (string)null);
                 });
@@ -1951,6 +2017,20 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("details");
 
+                    b.Property<DateTimeOffset?>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<long?>("LocationPointId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("location_point_id");
+
+                    b.Property<int>("Occurrences")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("occurrences");
+
                     b.Property<string>("ReviewNote")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
@@ -1993,11 +2073,22 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<Guid?>("VisitId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("visit_id");
+
                     b.HasKey("Id")
                         .HasName("pk_tracking_flags");
 
+                    b.HasIndex("VisitId")
+                        .HasDatabaseName("ix_tracking_flags_visit_id")
+                        .HasFilter("visit_id IS NOT NULL");
+
                     b.HasIndex("Status", "CreatedAt")
                         .HasDatabaseName("ix_tracking_flags_status_created_at");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("ix_tracking_flags_user_id_created_at");
 
                     b.HasIndex("UserId", "Status")
                         .HasDatabaseName("ix_tracking_flags_user_id_status");
@@ -2119,6 +2210,13 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("TerritoryId")
                         .HasColumnType("uuid")
                         .HasColumnName("territory_id");
+
+                    b.PrimitiveCollection<List<string>>("TrustReasons")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("trust_reasons")
+                        .HasDefaultValueSql("'{}'::text[]");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")

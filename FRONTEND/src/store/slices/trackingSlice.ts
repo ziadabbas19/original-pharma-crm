@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { ShiftDto, TrackingConfigDto } from '@/api/generated/model'
-import type { DeviceHealthState } from '@/lib/platform/types'
+import { IDLE_MOCK_WATCH, type MockWatchState } from '@/features/integrity/mock-watch'
+import type { DeviceHealthState, DeviceSignals } from '@/lib/platform/types'
 import { sessionEnded } from './authSlice'
 
 export type CheckStatus = 'done' | 'pending' | 'problem' | 'notApplicable'
@@ -19,6 +20,10 @@ export interface TrackingState {
     statuses: Record<string, CheckStatus>
     completedAt: string | null
   }
+  /** A fake (mock) location is on: tracking is not trusted until a real fix arrives. */
+  mockWatch: MockWatchState
+  /** Latest device signals (developer options, spoofing apps, ...), sent with uploads and visits. */
+  deviceSignals: DeviceSignals | null
 }
 
 const ONBOARDING_KEY = 'op.onboarding.completedAt'
@@ -59,6 +64,8 @@ const initialState: TrackingState = {
   healthIssues: [],
   healthCheckedAt: null,
   onboarding: { statuses: {}, completedAt: readCompletedAt() },
+  mockWatch: IDLE_MOCK_WATCH,
+  deviceSignals: null,
 }
 
 const trackingSlice = createSlice({
@@ -83,6 +90,12 @@ const trackingSlice = createSlice({
     onboardingStepChecked(state, action: PayloadAction<{ stepId: string; status: CheckStatus }>) {
       state.onboarding.statuses[action.payload.stepId] = action.payload.status
     },
+    mockWatchChanged(state, action: PayloadAction<MockWatchState>) {
+      state.mockWatch = action.payload
+    },
+    deviceSignalsRead(state, action: PayloadAction<DeviceSignals>) {
+      state.deviceSignals = action.payload
+    },
     onboardingCompleted(state, action: PayloadAction<string>) {
       state.onboarding.completedAt = action.payload
       try {
@@ -98,6 +111,7 @@ const trackingSlice = createSlice({
       writeShift(null)
       state.config = null
       state.trackingRunning = false
+      state.mockWatch = IDLE_MOCK_WATCH
     })
   },
 })
@@ -109,5 +123,7 @@ export const {
   healthInspected,
   onboardingStepChecked,
   onboardingCompleted,
+  mockWatchChanged,
+  deviceSignalsRead,
 } = trackingSlice.actions
 export default trackingSlice.reducer

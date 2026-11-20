@@ -1,7 +1,9 @@
+import { unknownSignals } from '../device-signals'
 import type {
   AppInfo,
   AppLifecycle,
   DeviceIntegrity,
+  DeviceSignalsReader,
   Platform,
   PushNotifications,
   SecureStorage,
@@ -22,7 +24,15 @@ export function createWebPlatform(): Platform {
     push: new WebPush(),
     integrity: new NoIntegrity(),
     deviceHealth: new WebDeviceHealthInspector(),
+    signals: new WebDeviceSignals(),
     app,
+  }
+}
+
+/** Browsers expose none of these settings; every signal is "unknown". */
+class WebDeviceSignals implements DeviceSignalsReader {
+  async read() {
+    return unknownSignals('web')
   }
 }
 

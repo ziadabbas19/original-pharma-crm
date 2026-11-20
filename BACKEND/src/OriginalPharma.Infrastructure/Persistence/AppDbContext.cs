@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Design;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Catalog;
+using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Domain.Notifications;
@@ -49,6 +50,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
 
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
 
     public DbSet<Shift> Shifts => Set<Shift>();
     public DbSet<LocationPoint> LocationPoints => Set<LocationPoint>();

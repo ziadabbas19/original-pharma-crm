@@ -19,4 +19,12 @@ export interface LocationPointDto {
   isMoving?: boolean | null
   /** @nullable */
   uuid?: string | null
+  /** @nullable */
+  altitude?: number | null
+  /** @nullable */
+  activityType?: string | null
+  /** @nullable */
+  activityConfidence?: number | null
+  /** @nullable */
+  deviceTime?: string | null
 }

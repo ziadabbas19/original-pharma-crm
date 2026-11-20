@@ -3,6 +3,7 @@ using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Tracking;
+using OriginalPharma.Application.Tracking.Integrity;
 using OriginalPharma.Domain.Tracking;
 using OriginalPharma.Infrastructure.Identity;
 
@@ -21,6 +22,7 @@ public sealed class TrackingController(
     ShiftService shifts,
     DeviceHealthService deviceHealth,
     ConsentService consent,
+    LocationIntegrityService integrity,
     ICurrentUser currentUser) : ControllerBase
 {
     /// <summary>
@@ -65,6 +67,50 @@ public sealed class TrackingController(
     [HttpPost("consent")]
     public Task<ConsentStatusDto> RecordConsent(RecordConsentRequest request, CancellationToken cancellationToken) =>
         consent.RecordAsync(request, cancellationToken);
+
+    /// <summary>
+    /// The app noticed a fake (mock) location. Raises the rep's mock location flag for review (or adds
+    /// to the open one). The rep is never blocked.
+    /// </summary>
+    [HttpPost("integrity-events")]
+    public Task<IntegrityEventReportResult> ReportIntegrityEvent(IntegrityEventReport report, CancellationToken cancellationToken) =>
+        integrity.ReportAsync(report, cancellationToken);
+}
+
+/// <summary>Suspicious location activity for supervisors and managers (within their scope).</summary>
+[ApiController]
+[Route("api/tracking/integrity")]
+[Tags("LocationIntegrity")]
+[HasPermission(Permissions.Tracking.ReviewSuspicious)]
+public sealed class LocationIntegrityController(LocationIntegrityService integrity) : ControllerBase
+{
+    /// <summary>Suspicious-location events, newest first (default: the last 7 days, at most 31 days, 500 rows).</summary>
+    /// <param name="reason">Only events with this reason code (e.g. mock-location, teleport, far-from-doctor).</param>
+    [HttpGet("events")]
+    public Task<IReadOnlyList<IntegrityEventDto>> ListEvents(
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to,
+        [FromQuery] Guid? userId,
+        [FromQuery] string? reason,
+        [FromQuery] TrackingFlagStatus? status,
+        [FromQuery] TrackingFlagType? type,
+        CancellationToken cancellationToken) =>
+        integrity.ListAsync(from, to, userId, reason, status, type, cancellationToken);
+
+    /// <summary>One event with the suspicious points around it and the visit it is about.</summary>
+    [HttpGet("events/{eventId:guid}")]
+    public Task<IntegrityEventDetailDto> GetEvent(Guid eventId, CancellationToken cancellationToken) =>
+        integrity.GetAsync(eventId, cancellationToken);
+
+    /// <summary>Mark an event as seen, with a comment.</summary>
+    [HttpPost("events/{eventId:guid}/acknowledge")]
+    public Task<IntegrityEventDto> AcknowledgeEvent(Guid eventId, AcknowledgeIntegrityEventRequest request, CancellationToken cancellationToken) =>
+        integrity.AcknowledgeAsync(eventId, request, cancellationToken);
+
+    /// <summary>Counts for the dashboard (default: the last 7 days).</summary>
+    [HttpGet("summary")]
+    public Task<IntegritySummaryDto> GetSummary([FromQuery] DateTimeOffset? from, [FromQuery] DateTimeOffset? to, CancellationToken cancellationToken) =>
+        integrity.SummaryAsync(from, to, cancellationToken);
 }
 
 /// <summary>Endpoints the supervisor dashboard calls.</summary>

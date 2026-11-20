@@ -6,8 +6,10 @@ import BackgroundGeolocation, {
 import i18n from '@/lib/i18n'
 import { API_BASE_URL } from '@/lib/api-client'
 import type {
+  DeviceSignals,
   GeoFix,
   LocationTracker,
+  ObservedFix,
   StartTrackingOptions,
   TrackingProfile,
   UploaderSession,
@@ -16,12 +18,16 @@ import type {
 /**
  * Shape of every uploaded point, built natively by the plugin (JS is not involved
  * in uploads). Must match LocationPointDto on the server. `mock` is Android's
- * "fix came from a mock provider" flag and is sent with every point.
+ * "fix came from a mock provider" flag and is sent with every point. Altitude, the
+ * motion activity and the device time (`recorded_at`) feed the server's plausibility
+ * checks; servers that do not know them ignore them.
  */
-const LOCATION_TEMPLATE =
+export const LOCATION_TEMPLATE =
   '{"lat":<%= latitude %>,"lng":<%= longitude %>,"accuracy":<%= accuracy %>,' +
   '"timestamp":"<%= timestamp %>","speed":<%= speed %>,"heading":<%= heading %>,' +
-  '"batteryLevel":<%= battery.level %>,"isMock":<%= mock %>,"isMoving":<%= is_moving %>,"uuid":"<%= uuid %>"}'
+  '"batteryLevel":<%= battery.level %>,"isMock":<%= mock %>,"isMoving":<%= is_moving %>,"uuid":"<%= uuid %>",' +
+  '"altitude":<%= altitude %>,"activityType":"<%= activity.type %>","activityConfidence":<%= activity.confidence %>,' +
+  '"deviceTime":"<%= recorded_at %>"}'
 
 /** Signals shared with the device-health inspector. */
 export const nativeSignals = {
@@ -40,15 +46,16 @@ export const nativeSignals = {
 export class CapacitorLocationTracker implements LocationTracker {
   private readyPromise: Promise<void> | null = null
   private subscriptions: Subscription[] = []
+  private readonly fixListeners = new Set<(fix: ObservedFix) => void>()
+  /** Sent in every upload body (http.params), so the server sees them even while the app is closed. */
+  private signals: DeviceSignals | null = null
 
   /** The SDK must be configured once per launch, even when tracking is off. */
   ensureReady(): Promise<void> {
     this.readyPromise ??= (async () => {
       this.subscriptions.push(
         BackgroundGeolocation.onLocation(
-          (location) => {
-            nativeSignals.lastMockSeen = location.mock === true
-          },
+          (location) => this.observe(location),
           () => {},
         ),
         // Stationary reps still send one fix per heartbeat so the dashboard knows they are alive.
@@ -66,7 +73,7 @@ export class CapacitorLocationTracker implements LocationTracker {
   async start({ deviceId, profile, uploaderSession }: StartTrackingOptions): Promise<void> {
     await this.ensureReady()
     await BackgroundGeolocation.setConfig({
-      ...profileConfig(profile, deviceId),
+      ...profileConfig(profile, deviceId, this.signals),
       ...(uploaderSession ? { authorization: authorizationConfig(uploaderSession, deviceId) } : {}),
     })
     await BackgroundGeolocation.start()
@@ -87,7 +94,7 @@ export class CapacitorLocationTracker implements LocationTracker {
     await this.ensureReady()
     const state = await BackgroundGeolocation.getState()
     const deviceId = String(state.http?.params?.deviceId ?? '')
-    await BackgroundGeolocation.setConfig(profileConfig(profile, deviceId))
+    await BackgroundGeolocation.setConfig(profileConfig(profile, deviceId, this.signals))
   }
 
   async getCurrentPosition(options?: { highAccuracy?: boolean; timeoutMs?: number }): Promise<GeoFix> {
@@ -101,7 +108,7 @@ export class CapacitorLocationTracker implements LocationTracker {
       maximumAge: 0,
       persist: false,
     })
-    nativeSignals.lastMockSeen = location.mock === true
+    this.observe(location)
     return toFix(location)
   }
 
@@ -114,6 +121,37 @@ export class CapacitorLocationTracker implements LocationTracker {
   async pendingCount(): Promise<number> {
     await this.ensureReady()
     return BackgroundGeolocation.getCount()
+  }
+
+  async setDeviceSignals(signals: DeviceSignals): Promise<void> {
+    this.signals = signals
+    await this.ensureReady()
+    const params = (await BackgroundGeolocation.getState()).http?.params ?? {}
+    await BackgroundGeolocation.setConfig({ http: { params: { ...params, deviceSignals: signals } } })
+  }
+
+  onFixObserved(handler: (fix: ObservedFix) => void): () => void {
+    this.fixListeners.add(handler)
+    return () => {
+      this.fixListeners.delete(handler)
+    }
+  }
+
+  private observe(location: Location) {
+    const isMock = location.mock === true
+    nativeSignals.lastMockSeen = isMock
+    const time = new Date(location.timestamp)
+    const fix: ObservedFix = {
+      isMock,
+      at: Number.isNaN(time.getTime()) ? new Date().toISOString() : time.toISOString(),
+    }
+    for (const listener of this.fixListeners) {
+      try {
+        listener(fix)
+      } catch {
+        // a listener failing must never stop location updates
+      }
+    }
   }
 }
 
@@ -164,7 +202,7 @@ function baseConfig(): Config {
   }
 }
 
-function profileConfig(profile: TrackingProfile, deviceId: string): Config {
+function profileConfig(profile: TrackingProfile, deviceId: string, signals: DeviceSignals | null): Config {
   return {
     geolocation: {
       distanceFilter: profile.distanceFilterMeters,
@@ -176,7 +214,7 @@ function profileConfig(profile: TrackingProfile, deviceId: string): Config {
     http: {
       url: `${API_BASE_URL}/api/tracking/locations`,
       autoSyncThreshold: profile.uploadBatchSize,
-      params: { deviceId, source: 'native' },
+      params: { deviceId, source: 'native', ...(signals ? { deviceSignals: signals } : {}) },
     },
   }
 }
@@ -210,5 +248,6 @@ function toFix(location: Location): GeoFix {
     heading: c.heading !== undefined && c.heading >= 0 ? c.heading : null,
     batteryLevel: location.battery?.level ?? null,
     isMock: location.mock === true,
+    altitude: c.altitude ?? null,
   }
 }

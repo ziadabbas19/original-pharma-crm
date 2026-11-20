@@ -11,15 +11,44 @@ def signingValue = { String variable, String property ->
 }
 def releaseStoreFile = signingValue('ANDROID_KEYSTORE_PATH', 'storeFile')
 
+// Known spoofing apps and root tools live in one file, known-location-spoofing-apps.xml. It is merged
+// into the manifest as a <queries> block (so the app may look up exactly these packages) and its
+// package names become BuildConfig.KNOWN_SPOOFING_APPS / KNOWN_ROOT_APPS for DeviceSignalsPlugin.
+def knownAppsFile = file('known-location-spoofing-apps.xml')
+def knownApps = [spoofing: [], root: []]
+def knownAppsSection = null
+knownAppsFile.eachLine { line ->
+    def section = line =~ /<!--\s*section:\s*(\w+)\s*-->/
+    if (section.find()) {
+        knownAppsSection = section.group(1)
+        return
+    }
+    def pkg = line =~ /<package\s+android:name="([^"]+)"/
+    if (pkg.find() && knownApps.containsKey(knownAppsSection)) {
+        knownApps[knownAppsSection] << pkg.group(1)
+    }
+}
+def javaStringArray = { List names -> '{' + names.collect { "\"${it}\"" }.join(', ') + '}' }
+
 android {
     namespace = "com.originalpharma.crm"
     compileSdk = rootProject.ext.compileSdkVersion
+    buildFeatures {
+        buildConfig = true
+    }
+    sourceSets {
+        // Build-type manifests are merged on top of src/main/AndroidManifest.xml.
+        debug.manifest.srcFile knownAppsFile
+        release.manifest.srcFile knownAppsFile
+    }
     defaultConfig {
         applicationId "com.originalpharma.crm"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
+        buildConfigField "String[]", "KNOWN_SPOOFING_APPS", javaStringArray(knownApps.spoofing)
+        buildConfigField "String[]", "KNOWN_ROOT_APPS", javaStringArray(knownApps.root)
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

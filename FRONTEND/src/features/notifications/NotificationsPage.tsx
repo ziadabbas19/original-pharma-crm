@@ -21,7 +21,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { formatDateTime, formatNumber } from '@/lib/format'
 import { invalidateApi } from '@/lib/invalidate-api'
 import { cn } from '@/lib/utils'
-import { notificationIsAboutOrder, notificationText } from './notification-text'
+import { localDay } from '@/features/suspicious/suspicious-logic'
+import {
+  notificationIsAboutOrder,
+  notificationIsAboutSuspiciousLocation,
+  notificationText,
+} from './notification-text'
 import { useMarkNotificationRead } from './use-notifications'
 
 const notificationId = (n: NotificationDto) => n.id
@@ -53,7 +58,19 @@ export function NotificationsPage({ app }: { app: 'admin' | 'rep' }) {
       setError(e)
     }
     if (!n.entityId) return
-    if (notificationIsAboutOrder(n)) {
+    if (notificationIsAboutSuspiciousLocation(n)) {
+      if (app === 'admin') {
+        await navigate({
+          to: '/admin/suspicious-activity',
+          search: {
+            rep: n.entityId,
+            day: localDay(n.createdAt),
+            from: localDay(n.createdAt),
+            to: localDay(n.createdAt),
+          },
+        })
+      }
+    } else if (notificationIsAboutOrder(n)) {
       if (app === 'rep') await navigate({ to: '/rep/orders/$orderId', params: { orderId: n.entityId } })
       else await navigate({ to: '/admin/orders', search: { order: n.entityId } })
     } else if (app === 'rep') {

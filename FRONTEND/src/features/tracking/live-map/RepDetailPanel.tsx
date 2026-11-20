@@ -7,6 +7,7 @@ import {
   MaximizeIcon,
   RadioIcon,
   RouteIcon,
+  ShieldAlertIcon,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +17,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatDistance, formatNumber, formatRelative, formatTime } from '@/lib/format'
+import { usePermission } from '@/features/auth/usePermission'
+import { TrustBadge } from '@/features/suspicious/trust-display'
+import { P } from '@/lib/permissions'
 import { LiveStatusBadge } from '../LiveStatusBadge'
 import type { LiveRepView } from './RepList'
 
@@ -25,6 +29,8 @@ export interface RouteSummary {
   firstAt: string
   lastAt: string
   flagged: number
+  /** Points left out of the distance (physically impossible, or mock under the exclude policy). */
+  excluded: number
 }
 
 export function RepDetailPanel({
@@ -62,6 +68,7 @@ export function RepDetailPanel({
 }) {
   const { t } = useTranslation()
   const position = rep.position
+  const canReviewSuspicious = usePermission(P.tracking.reviewSuspicious)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -131,8 +138,11 @@ export function RepDetailPanel({
           <Stat label={t('liveMap.source')}>{position ? t(`devices.sources.${position.source}`) : '—'}</Stat>
         </dl>
 
-        {(position?.isMock || (position && position.anomalyScore > 0)) && (
+        {(position?.isMock ||
+          (position && position.anomalyScore > 0) ||
+          (position?.trustStatus && position.trustStatus !== 'trusted')) && (
           <div className="flex flex-wrap gap-1.5">
+            <TrustBadge status={position.trustStatus} reason={position.trustReason} />
             {position.isMock && <Badge variant="destructive">{t('liveMap.mock')}</Badge>}
             {position.anomalyScore > 0 && (
               <Badge variant={position.anomalyScore >= 50 ? 'destructive' : 'warning'}>
@@ -169,6 +179,14 @@ export function RepDetailPanel({
             ) : (
               <Badge variant="destructive">{t('liveMap.flags', { count: rep.openFlags })}</Badge>
             ))}
+          {canReviewSuspicious && (
+            <Button asChild size="sm" variant="outline">
+              <Link to="/admin/suspicious-activity" search={{ userId: rep.userId }}>
+                <ShieldAlertIcon />
+                {t('suspicious.title')}
+              </Link>
+            </Button>
+          )}
         </section>
 
         {canViewHistory && (
@@ -204,6 +222,11 @@ export function RepDetailPanel({
                 {summary.flagged > 0 && (
                   <p className="text-xs text-destructive">
                     {t('liveMap.routeFlagged', { count: summary.flagged })}
+                  </p>
+                )}
+                {summary.excluded > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {t('liveMap.routeExcluded', { count: summary.excluded })}
                   </p>
                 )}
                 <Button size="sm" variant="outline" onClick={onFitRoute}>

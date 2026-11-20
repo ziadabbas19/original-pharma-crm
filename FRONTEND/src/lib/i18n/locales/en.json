@@ -88,7 +88,8 @@
     "myVisits": "My visits",
     "statistics": "Statistics",
     "notifications": "Notifications",
-    "activity": "Activity log"
+    "activity": "Activity log",
+    "suspicious": "Suspicious activity"
   },
   "admin": {
     "welcome": "Welcome, {{name}}",
@@ -518,12 +519,15 @@
       "receivedAt": "Reached the server",
       "photo": "Proof photo",
       "openPhoto": "Open proof photo",
-      "photoFailed": "The photo could not be loaded"
+      "photoFailed": "The photo could not be loaded",
+      "locationFlagged": "Location flagged"
     },
     "reviewReasons": {
       "outside-geofence": "Checked in outside the allowed range",
       "mock-location": "The phone reported a simulated location",
-      "no-check-out-location": "No location at check-out"
+      "no-check-out-location": "No location at check-out",
+      "far-from-doctor": "Checked in or out far from the doctor's saved location",
+      "low-trust": "Weak location evidence (accuracy, phone settings or suspicious points around the visit)"
     }
   },
   "liveMap": {
@@ -574,7 +578,9 @@
     "routeFlagged_one": "{{count}} suspicious point (red)",
     "routeFlagged_other": "{{count}} suspicious points (red)",
     "fitRoute": "Show whole route",
-    "mapLabel": "Map of rep positions"
+    "mapLabel": "Map of rep positions",
+    "routeExcluded_one": "{{count}} point left out of the distance (grey)",
+    "routeExcluded_other": "{{count}} points left out of the distance (grey)"
   },
   "rep": {
     "greeting": "Hello, {{name}}",
@@ -880,7 +886,8 @@
     "products": "Products",
     "orders": "Orders",
     "stats": "Statistics",
-    "audit": "Activity log"
+    "audit": "Activity log",
+    "settings": "Settings"
   },
   "permissionNames": {
     "users": {
@@ -921,7 +928,8 @@
       "report": "Share own location (rep app)",
       "view-live": "See live locations",
       "history": "View location history",
-      "review-flags": "Review tracking flags"
+      "review-flags": "Review tracking flags",
+      "review-suspicious": "See and review suspicious location activity"
     },
     "devices": {
       "read": "View devices health",
@@ -955,6 +963,9 @@
     },
     "audit": {
       "read": "View the activity log"
+    },
+    "settings": {
+      "manage": "Edit system settings (location trust)"
     }
   },
   "territories": {
@@ -1037,7 +1048,8 @@
     "statuses": {
       "open": "Open",
       "confirmed": "Confirmed",
-      "dismissed": "Dismissed"
+      "dismissed": "Dismissed",
+      "acknowledged": "Acknowledged"
     },
     "types": {
       "anomaly": "Unusual movement",
@@ -1045,7 +1057,9 @@
       "trackingLost": "Tracking lost",
       "unhealthyDevice": "Phone settings",
       "integrityFailed": "App integrity",
-      "visitOutsideGeofence": "Visit outside the location"
+      "visitOutsideGeofence": "Visit outside the location",
+      "visitLowTrust": "Visit with weak location evidence",
+      "suspiciousDevice": "Suspicious phone settings"
     },
     "signals": {
       "mock-location": "Fake GPS",
@@ -1058,7 +1072,18 @@
       "ip-geo-mismatch": "Network location far away",
       "tracking-lost": "No updates",
       "integrity": "Integrity check failed",
-      "outside-geofence": "Outside the geofence"
+      "outside-geofence": "Outside the geofence",
+      "frozen-position": "Same position with no GPS movement",
+      "zero-altitude": "Altitude always zero",
+      "still-while-moving": "Phone still while the position moves",
+      "mock-app-selected": "Fake GPS app selected",
+      "emulator": "Runs on an emulator",
+      "rooted-device": "Rooted phone",
+      "spoofing-app-installed": "Fake GPS app installed",
+      "auto-time-off": "Automatic time is off",
+      "location-accessory": "External GPS accessory",
+      "far-from-doctor": "Far from the doctor",
+      "low-trust": "Weak location evidence"
     },
     "review": {
       "title": "Review flag",
@@ -1568,7 +1593,8 @@
       "orderCancelled": "Order {{number}} was cancelled by {{actor}}",
       "orderDelivered": "Order {{number}} was delivered",
       "visitFeedback": "{{rep}} wrote feedback on the visit to {{customer}}",
-      "visitFeedbackReply": "{{author}} replied about your visit to {{customer}}"
+      "visitFeedbackReply": "{{author}} replied about your visit to {{customer}}",
+      "suspiciousLocation": "{{rep}} was flagged for a suspicious location"
     }
   },
   "activity": {
@@ -1681,11 +1707,148 @@
       "visits": "Visits",
       "doctorsCovered": "Doctors visited",
       "trackingHours": "Tracking hours",
-      "activeDays": "Active days"
+      "activeDays": "Active days",
+      "distanceKm": "Distance (km)"
     },
     "productsPerLine": "Products per line",
     "lowStock": "Low stock ({{value}} or fewer)",
     "activeUsersByRole": "Active users per role",
-    "activeUsers": "Active users"
+    "activeUsers": "Active users",
+    "distanceHint": "Distance counts the tracked route of each working day. Physically impossible positions never count, and fake (mock) locations are left out when the location trust policy says so."
+  },
+  "integrity": {
+    "mock": {
+      "title": "Fake location detected",
+      "body": "A fake GPS app seems to be running on your phone. Turn it off in Developer options (Select mock location app: none), then carry on working. The app checks again on its own; your locations are not trusted until a real location arrives.",
+      "openSettings": "Open developer options",
+      "checkNow": "Check now",
+      "checking": "Checking…",
+      "nextCheck": "Next check in {{seconds}} s",
+      "untrusted": "Location not trusted: turn off the fake location app."
+    }
+  },
+  "suspicious": {
+    "title": "Suspicious activity",
+    "hint": "Fake GPS, impossible movement and visits with weak location evidence, per rep and day. Nothing here blocks a rep: look at the evidence, talk to the rep, then acknowledge it with a comment.",
+    "day": "Day",
+    "rep": "Rep",
+    "events": "Events",
+    "openCount_one": "{{count}} open",
+    "openCount_other": "{{count}} open",
+    "eventCount_one": "{{count}} event",
+    "eventCount_other": "{{count}} events",
+    "occurrences_one": "Seen {{count}} time",
+    "occurrences_other": "Seen {{count}} times",
+    "reasons": "Reasons",
+    "lastSeen": "Last seen",
+    "review": "Review",
+    "from": "From",
+    "to": "To",
+    "reason": "Reason",
+    "empty": "No suspicious activity in this period.",
+    "emptyHint": "Events appear here as soon as the server or the rep's app reports them.",
+    "capped": "Showing the newest {{count}} events. Narrow the dates to see older ones.",
+    "reviewedBy": "Acknowledged by {{name}} on {{time}}",
+    "openVisit": "Open visit",
+    "showOnMap": "Show on map",
+    "showEvidence": "Evidence",
+    "hideEvidence": "Hide evidence",
+    "acknowledge": {
+      "action": "Acknowledge",
+      "edit": "Edit comment",
+      "title": "Acknowledge event",
+      "description": "Say what you found or did, for example after talking to {{rep}}. The comment is kept with the event.",
+      "comment": "Comment",
+      "commentPlaceholder": "Called the rep; the fake GPS app is removed.",
+      "submit": "Acknowledge"
+    },
+    "points": {
+      "time": "Time",
+      "position": "Position",
+      "accuracy": "Accuracy",
+      "status": "Result",
+      "none": "No suspicious points around this event.",
+      "deviceTime": "Phone clock {{time}}",
+      "altitude": "Altitude {{value}} m",
+      "accuracyOf": "accuracy {{value}}"
+    },
+    "device": {
+      "title": "Phone settings at that time",
+      "developerOptions": "Developer options",
+      "mockApp": "Fake GPS app selected",
+      "spoofingApps": "Fake GPS apps installed",
+      "autoTime": "Automatic time",
+      "emulator": "Emulator",
+      "rooted": "Rooted",
+      "yes": "Yes",
+      "no": "No",
+      "unknown": "Unknown",
+      "none": "None found"
+    },
+    "trust": {
+      "trusted": "Trusted",
+      "suspicious": "Suspicious location",
+      "rejected": "Impossible position"
+    },
+    "summary": {
+      "title": "Suspicious activity, last 7 days",
+      "openEvents": "Open events",
+      "repsFlagged": "Reps flagged",
+      "flaggedVisits": "Visits to review",
+      "mockPoints": "Fake GPS points",
+      "suspiciousPoints": "Suspicious points",
+      "rejectedPoints": "Impossible points",
+      "clear": "No suspicious activity.",
+      "policy": {
+        "flagOnly": "Fake locations are flagged and still counted.",
+        "flagAndExclude": "Fake locations are flagged and left out of distance and attendance."
+      }
+    }
+  },
+  "adminSettings": {
+    "title": "Settings",
+    "hint": "System settings stored on the server. Changes apply to new data within a minute.",
+    "save": "Save",
+    "saved": "Saved",
+    "errors": {
+      "required": "Enter a value.",
+      "range": "Enter a value from {{min}} to {{max}}.",
+      "integer": "Enter a whole number."
+    },
+    "locationTrust": {
+      "title": "Location trust",
+      "description": "How strictly locations and visits are checked for fake GPS and impossible movement. A rep is never blocked: suspicious data is kept and shown for review.",
+      "defaults": "These are the default values.",
+      "updated": "Last changed by {{name}} on {{time}}.",
+      "movement": "Movement",
+      "visits": "Visits",
+      "accuracy": "Accuracy",
+      "privacy": "Privacy",
+      "policy": "Fake (mock) locations",
+      "policies": {
+        "flagOnly": "Flag only",
+        "flagOnlyHint": "Fake locations are marked and raised for review, and still count in distance and attendance.",
+        "flagAndExclude": "Flag and exclude",
+        "flagAndExcludeHint": "Fake locations are marked and raised for review, and left out of the distance travelled and of visits counted in statistics."
+      },
+      "fields": {
+        "maxSpeedKmh": "Maximum plausible speed (km/h)",
+        "maxDistanceFromDoctorMeters": "Maximum distance from the doctor (m)",
+        "accuracyAllowanceMeters": "Accuracy allowance (m)",
+        "lowTrustAccuracyMeters": "Weak fix from (m)",
+        "perfectAccuracyMeters": "Unrealistic accuracy up to (m)",
+        "repeatedAccuracyRun": "Same accuracy in a row (fixes)",
+        "deviceSignalsRetentionDays": "Keep phone settings for (days)"
+      },
+      "hints": {
+        "maxSpeedKmh": "Faster movement between two locations is physically impossible: the point is rejected (kept, never counted).",
+        "maxDistanceFromDoctorMeters": "A check-in or check-out further away than this is flagged \"far from the doctor\".",
+        "accuracyAllowanceMeters": "Up to this much of the reported accuracy is added to the allowed distance, so a weak signal does not count against the rep.",
+        "lowTrustAccuracyMeters": "Visit locations less accurate than this are marked as weak evidence.",
+        "perfectAccuracyMeters": "Real phones rarely report better than 3 m; fake GPS apps often report 0 to 1 m.",
+        "repeatedAccuracyRun": "This many locations in a row with exactly the same accuracy look generated.",
+        "deviceSignalsRetentionDays": "Phone settings saved with each location (developer options, fake GPS apps, root) are deleted after this many days."
+      }
+    }
   }
 }

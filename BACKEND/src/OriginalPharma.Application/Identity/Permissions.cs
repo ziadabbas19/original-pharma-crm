@@ -143,6 +143,9 @@ public static class Permissions
 
         public const string History = "tracking:history";
         public const string ReviewFlags = "tracking:review-flags";
+
+        /// <summary>See and review suspicious location activity (fake GPS, impossible movement, flagged visits) within scope.</summary>
+        public const string ReviewSuspicious = "tracking:review-suspicious";
     }
 
     public static class Devices
@@ -171,6 +174,12 @@ public static class Permissions
     {
         /// <summary>Activity log: edits, deletes, archives and restores.</summary>
         public const string Read = "audit:read";
+    }
+
+    public static class Settings
+    {
+        /// <summary>Edit system settings stored in the database (location trust thresholds and policy).</summary>
+        public const string Manage = "settings:manage";
     }
 
     public static IReadOnlyList<PermissionDefinition> All { get; } =
@@ -216,12 +225,14 @@ public static class Permissions
         new(Tracking.ViewLive, "See live locations and request live view"),
         new(Tracking.History, "View location history"),
         new(Tracking.ReviewFlags, "Review tracking flags"),
+        new(Tracking.ReviewSuspicious, "See and review suspicious location activity"),
         new(Devices.Read, "View device tracking health"),
         new(Devices.Delete, "Remove device records"),
         new(Reports.Read, "View reports"),
         new(Stats.Read, "View statistics"),
         new(Stats.Export, "Export statistics as CSV"),
         new(Audit.Read, "View the activity log"),
+        new(Settings.Manage, "Edit system settings (location trust thresholds and policy)"),
     ];
 
     public static bool IsKnown(string key) => All.Any(p => p.Key == key);
@@ -260,7 +271,7 @@ public static class DefaultRoles
             Permissions.Users.Read, Permissions.Users.ResetPassword, Permissions.Roles.Read, Permissions.Territories.Read,
             Permissions.Customers.Read, Permissions.Customers.Manage, Permissions.Customers.Assign, Permissions.Visits.Read,
             Permissions.Tracking.ViewLive, Permissions.Tracking.History, Permissions.Tracking.ReviewFlags,
-            Permissions.Devices.Read, Permissions.Reports.Read, Permissions.Lookups.Manage,
+            Permissions.Tracking.ReviewSuspicious, Permissions.Devices.Read, Permissions.Reports.Read, Permissions.Lookups.Manage,
             Permissions.Products.Read, Permissions.Products.Manage, Permissions.Orders.Read, Permissions.Orders.Manage,
             Permissions.Orders.Deliver, Permissions.Orders.Delete, Permissions.Orders.Restore,
             Permissions.Customers.Delete, Permissions.Customers.Restore, Permissions.Lookups.Delete, Permissions.Lookups.Restore,
@@ -271,8 +282,8 @@ public static class DefaultRoles
             .. Grants(PermissionScope.Territory,
                 Permissions.Users.Read, Permissions.Users.ResetPassword, Permissions.Territories.Read, Permissions.Customers.Read,
                 Permissions.Customers.Manage, Permissions.Customers.Assign, Permissions.Visits.Read, Permissions.Tracking.ViewLive,
-                Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Devices.Read,
-                Permissions.Reports.Read, Permissions.Orders.Read, Permissions.Orders.Manage, Permissions.Orders.Deliver,
+                Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Tracking.ReviewSuspicious,
+                Permissions.Devices.Read, Permissions.Reports.Read, Permissions.Orders.Read, Permissions.Orders.Manage, Permissions.Orders.Deliver,
                 Permissions.Orders.Delete, Permissions.Orders.Restore, Permissions.Customers.Delete, Permissions.Customers.Restore,
                 Permissions.Stats.Read, Permissions.Stats.Export),
             .. Grants(PermissionScope.All, Permissions.Products.Read),
@@ -281,8 +292,8 @@ public static class DefaultRoles
         [
             .. Grants(PermissionScope.Team,
                 Permissions.Users.Read, Permissions.Users.ResetPassword, Permissions.Visits.Read, Permissions.Tracking.ViewLive,
-                Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Devices.Read,
-                Permissions.Reports.Read, Permissions.Customers.Read, Permissions.Customers.Assign,
+                Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Tracking.ReviewSuspicious,
+                Permissions.Devices.Read, Permissions.Reports.Read, Permissions.Customers.Read, Permissions.Customers.Assign,
                 Permissions.Orders.Read, Permissions.Orders.Manage, Permissions.Orders.Deliver,
                 Permissions.Stats.Read, Permissions.Stats.Export),
             .. Grants(PermissionScope.Territory, Permissions.Territories.Read),

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Catalog;
+using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Domain.Notifications;
@@ -47,6 +48,7 @@ public interface IAppDbContext
 
     DbSet<Notification> Notifications { get; }
     DbSet<AuditEntry> AuditEntries { get; }
+    DbSet<AppSetting> AppSettings { get; }
 
     DbSet<Shift> Shifts { get; }
     DbSet<LocationPoint> LocationPoints { get; }

@@ -56,11 +56,13 @@ export const P = {
     viewLive: 'tracking:view-live',
     history: 'tracking:history',
     reviewFlags: 'tracking:review-flags',
+    reviewSuspicious: 'tracking:review-suspicious',
   },
   devices: { read: 'devices:read', delete: 'devices:delete' },
   reports: { read: 'reports:read' },
   stats: { read: 'stats:read', export: 'stats:export' },
   audit: { read: 'audit:read' },
+  settings: { manage: 'settings:manage' },
 } as const
 
 type Leaves<T> = T extends string ? T : { [K in keyof T]: Leaves<T[K]> }[keyof T]
@@ -91,6 +93,8 @@ export function canUseDashboard(granted: Record<string, PermissionScope>): boole
     hasPermission(granted, P.products.manage) ||
     hasPermission(granted, P.lookups.manage) ||
     hasPermission(granted, P.stats.read, 'team') ||
-    hasPermission(granted, P.audit.read)
+    hasPermission(granted, P.audit.read) ||
+    hasPermission(granted, P.tracking.reviewSuspicious) ||
+    hasPermission(granted, P.settings.manage)
   )
 }

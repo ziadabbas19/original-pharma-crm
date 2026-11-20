@@ -1,4 +1,5 @@
 using FluentValidation;
+using OriginalPharma.Application.Tracking.Integrity;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Orders;
 using OriginalPharma.Domain.Visits;
@@ -11,6 +12,7 @@ namespace OriginalPharma.Application.Visits;
 /// visit, so the app can refer to the visit before it reaches the server. Sending the same key again
 /// returns the visit that already exists instead of a second one.
 /// </param>
+/// <param name="DeviceSignals">Device settings at check-in (optional; older apps do not send them).</param>
 public sealed record CheckInRequest(
     Guid CustomerId,
     string DeviceId,
@@ -20,10 +22,12 @@ public sealed record CheckInRequest(
     DateTimeOffset Timestamp,
     bool IsMock = false,
     string? QrPayload = null,
-    Guid? ClientRequestId = null);
+    Guid? ClientRequestId = null,
+    DeviceSignalsDto? DeviceSignals = null);
 
 /// <param name="Lat">Empty when no location could be captured; the visit is then marked for review.</param>
 /// <param name="ClientRequestId">Idempotency key: the same key again returns the closed visit instead of a conflict.</param>
+/// <param name="DeviceSignals">Device settings at check-out (optional).</param>
 public sealed record CheckOutRequest(
     double? Lat,
     double? Lng,
@@ -31,18 +35,23 @@ public sealed record CheckOutRequest(
     DateTimeOffset Timestamp,
     bool IsMock = false,
     string? Notes = null,
-    Guid? ClientRequestId = null);
+    Guid? ClientRequestId = null,
+    DeviceSignalsDto? DeviceSignals = null);
 
 /// <param name="Url">Path of the picture; needs the same access as the visit.</param>
 public sealed record VisitPhotoDto(Guid Id, string ContentType, long SizeBytes, DateTimeOffset UploadedAt, string Url);
 
 /// <summary>The verification rules of this server, so the app can tell the rep the outcome before going online.</summary>
+/// <param name="MaxDistanceFromDoctorMeters">Further than this (after the accuracy allowance) the visit is flagged "far from doctor".</param>
+/// <param name="LowTrustAccuracyMeters">Fixes less accurate than this make the visit "low trust".</param>
 public sealed record VisitRulesDto(
     double MaxAccuracyMeters,
     double MaxAccuracyAllowanceMeters,
     bool RejectOutsideGeofence,
     long MaxPhotoBytes,
-    int ContentEditHours);
+    int ContentEditHours,
+    double MaxDistanceFromDoctorMeters = 0,
+    double LowTrustAccuracyMeters = 0);
 
 /// <summary>An order taken during the visit.</summary>
 public sealed record VisitOrderDto(Guid Id, string Number, OrderStatus Status, decimal Total, DateTimeOffset CreatedAt);

@@ -22,6 +22,41 @@ export interface GeoFix {
   batteryLevel: number | null
   /** Android reports when the fix came from a mock provider. Browsers cannot tell (always false). */
   isMock: boolean
+  /** Metres; null when the device gave none. */
+  altitude?: number | null
+}
+
+/** A fix the tracker saw while the app was running (used to notice a mock location quickly). */
+export interface ObservedFix {
+  isMock: boolean
+  /** ISO 8601, device clock. */
+  at: string
+}
+
+/**
+ * Device settings that make locations less trustworthy, sent with every upload. Platform neutral:
+ * Android fills most fields today; an iPhone app can send its own later. null = cannot tell.
+ */
+export interface DeviceSignals {
+  platform: 'android' | 'ios' | 'web'
+  developerOptionsEnabled: boolean | null
+  /** A known spoofing app is the mock location app in developer options. */
+  mockLocationAppSelected: boolean | null
+  /** Known spoofing apps found on the device (best effort, see known-location-spoofing-apps.xml). */
+  spoofingApps: string[]
+  autoTimeEnabled: boolean | null
+  autoTimeZoneEnabled: boolean | null
+  emulator: boolean | null
+  emulatorSignals: string[]
+  rooted: boolean | null
+  rootSignals: string[]
+  /** ISO 8601, device clock. */
+  collectedAt: string
+}
+
+/** Reads device signals. Cheap and cached; `force` skips the cache (e.g. "Check again"). */
+export interface DeviceSignalsReader {
+  read(options?: { force?: boolean }): Promise<DeviceSignals>
 }
 
 /** Reporting profile from GET /api/tracking/config. */
@@ -59,6 +94,10 @@ export interface LocationTracker {
   /** Upload queued points now; resolves to the number still pending. */
   flush(): Promise<number>
   pendingCount(): Promise<number>
+  /** Device signals sent with every upload from now on (also by the native uploader while the app is closed). */
+  setDeviceSignals(signals: DeviceSignals): Promise<void>
+  /** Every fix the tracker sees while the app runs. Returns an unsubscribe function. */
+  onFixObserved(handler: (fix: ObservedFix) => void): () => void
 }
 
 export interface SecureStorage {
@@ -153,5 +192,6 @@ export interface Platform {
   push: PushNotifications
   integrity: DeviceIntegrity
   deviceHealth: DeviceHealthInspector
+  signals: DeviceSignalsReader
   app: AppLifecycle
 }

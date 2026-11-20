@@ -15,12 +15,14 @@ import type {
   SecureStorage,
 } from '../types'
 import { CapacitorDeviceHealthInspector } from './device-health'
+import { CapacitorDeviceSignalsReader } from './device-signals'
 import { CapacitorLocationTracker } from './location-tracker'
 
 /** Native Android implementation. */
 export function createCapacitorPlatform(): Platform {
   const location = new CapacitorLocationTracker()
   const push = new CapacitorPush()
+  const signals = new CapacitorDeviceSignalsReader()
   void location.ensureReady()
 
   return {
@@ -30,7 +32,8 @@ export function createCapacitorPlatform(): Platform {
     offlineDb: new SqliteOfflineDb(),
     push,
     integrity: new PlayIntegrity(),
-    deviceHealth: new CapacitorDeviceHealthInspector(location, push),
+    deviceHealth: new CapacitorDeviceHealthInspector(location, push, signals),
+    signals,
     app: new CapacitorAppLifecycle(),
   }
 }

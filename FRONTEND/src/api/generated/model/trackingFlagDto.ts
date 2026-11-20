@@ -17,4 +17,11 @@ export interface TrackingFlagDto {
   /** @nullable */
   details: string | null
   createdAt: string
+  /** @nullable */
+  locationPointId?: number | null
+  /** @nullable */
+  visitId?: string | null
+  occurrences?: number
+  /** @nullable */
+  lastSeenAt?: string | null
 }

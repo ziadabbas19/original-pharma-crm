@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Tracking;
 
 namespace OriginalPharma.Infrastructure.Persistence.Configurations;
@@ -33,9 +34,21 @@ internal sealed class LocationPointConfiguration : IEntityTypeConfiguration<Loca
         builder.Property(p => p.Id).UseIdentityAlwaysColumn();
         builder.Property(p => p.DeviceId).HasMaxLength(128).IsRequired();
         builder.Property(p => p.Location).HasColumnType(GeoColumn.Point).IsRequired();
+        builder.Property(p => p.TrustStatus).HasDefaultValue(LocationTrustStatus.Trusted).HasSentinel(0);
+        builder.Property(p => p.TrustReason).HasMaxLength(64);
+        builder.Property(p => p.ActivityType).HasMaxLength(32);
+        builder.Property(p => p.DeviceSignals).HasColumnType("jsonb");
         builder.HasIndex(p => new { p.UserId, p.RecordedAt }).IsUnique();
         builder.HasIndex(p => p.ShiftId);
         builder.HasIndex(p => p.Location).HasMethod("gist");
+
+        // Review page and retention job: only the few non-trusted points, and points that still hold signals.
+        builder.HasIndex(p => new { p.UserId, p.RecordedAt }, "UntrustedPoints")
+            .HasDatabaseName("ix_location_points_untrusted")
+            .HasFilter("trust_status <> 1");
+        builder.HasIndex(p => p.RecordedAt, "PointsWithDeviceSignals")
+            .HasDatabaseName("ix_location_points_device_signals")
+            .HasFilter("device_signals IS NOT NULL");
     }
 }
 
@@ -46,8 +59,22 @@ internal sealed class TrackingFlagConfiguration : IEntityTypeConfiguration<Track
         builder.ToTable("tracking_flags");
         builder.Property(f => f.Details).HasMaxLength(2000);
         builder.Property(f => f.ReviewNote).HasMaxLength(1000);
+        builder.Property(f => f.Occurrences).HasDefaultValue(1).HasSentinel(0);
         builder.HasIndex(f => new { f.UserId, f.Status });
         builder.HasIndex(f => new { f.Status, f.CreatedAt });
+        builder.HasIndex(f => new { f.UserId, f.CreatedAt });
+        builder.HasIndex(f => f.VisitId).HasFilter("visit_id IS NOT NULL");
+    }
+}
+
+internal sealed class AppSettingConfiguration : IEntityTypeConfiguration<AppSetting>
+{
+    public void Configure(EntityTypeBuilder<AppSetting> builder)
+    {
+        builder.ToTable("app_settings");
+        builder.HasKey(s => s.Key);
+        builder.Property(s => s.Key).HasMaxLength(64);
+        builder.Property(s => s.Value).HasColumnType("jsonb").IsRequired();
     }
 }
 

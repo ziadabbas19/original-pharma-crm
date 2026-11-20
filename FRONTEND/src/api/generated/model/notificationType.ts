@@ -12,4 +12,5 @@ export const NotificationType = {
   orderDelivered: 'orderDelivered',
   visitFeedback: 'visitFeedback',
   visitFeedbackReply: 'visitFeedbackReply',
+  suspiciousLocation: 'suspiciousLocation',
 } as const

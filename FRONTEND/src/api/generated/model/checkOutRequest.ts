@@ -2,6 +2,7 @@
  * Original Pharma CRM API v1.
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
+import type { DeviceSignalsDto } from './deviceSignalsDto'
 
 export interface CheckOutRequest {
   /** @nullable */
@@ -16,4 +17,5 @@ export interface CheckOutRequest {
   notes?: string | null
   /** @nullable */
   clientRequestId?: string | null
+  deviceSignals?: null | DeviceSignalsDto
 }

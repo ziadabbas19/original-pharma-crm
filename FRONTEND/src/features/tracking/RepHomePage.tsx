@@ -28,6 +28,7 @@ export function RepHomePage() {
   const shift = useAppSelector((s) => s.tracking.shift)
   const ready = useAppSelector((s) => s.tracking.onboarding.completedAt !== null)
   const issues = useAppSelector((s) => s.tracking.healthIssues)
+  const untrusted = useAppSelector((s) => s.tracking.mockWatch.active)
   const [busy, setBusy] = useState<'start' | 'end' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(0)
@@ -79,11 +80,24 @@ export function RepHomePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MapPinIcon className={shift ? 'size-5 text-success' : 'size-5 text-muted-foreground'} />
+            <MapPinIcon
+              className={
+                shift && untrusted
+                  ? 'size-5 text-destructive'
+                  : shift
+                    ? 'size-5 text-success'
+                    : 'size-5 text-muted-foreground'
+              }
+            />
             {shift ? t('rep.dayRunning') : t('rep.dayNotStarted')}
           </CardTitle>
           {shift && (
             <CardDescription>{t('rep.startedAt', { time: formatTime(shift.startedAt) })}</CardDescription>
+          )}
+          {shift && untrusted && (
+            <p className="text-sm font-medium text-destructive" data-testid="tracking-untrusted">
+              {t('integrity.mock.untrusted')}
+            </p>
           )}
         </CardHeader>
         <CardContent className="space-y-3">

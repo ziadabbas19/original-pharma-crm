@@ -48,6 +48,12 @@ public enum TrackingFlagType
     UnhealthyDevice = 4,
     IntegrityFailed = 5,
     VisitOutsideGeofence = 6,
+
+    /// <summary>A visit whose location evidence is weak (poor fix, suspicious points around it, spoofing settings).</summary>
+    VisitLowTrust = 7,
+
+    /// <summary>Device settings that make every location doubtful (mock location app selected, emulator, root).</summary>
+    SuspiciousDevice = 8,
 }
 
 public enum TrackingFlagStatus
@@ -55,6 +61,9 @@ public enum TrackingFlagStatus
     Open = 1,
     Confirmed = 2,
     Dismissed = 3,
+
+    /// <summary>A reviewer has seen it and left a comment, without a verdict.</summary>
+    Acknowledged = 4,
 }
 
 /// <summary>What made the device send a health report.</summary>

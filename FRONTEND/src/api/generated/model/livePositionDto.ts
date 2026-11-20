@@ -3,6 +3,7 @@
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
 import type { LocationSource } from './locationSource'
+import type { LocationTrustStatus } from './locationTrustStatus'
 
 export interface LivePositionDto {
   userId: string
@@ -20,4 +21,7 @@ export interface LivePositionDto {
   source: LocationSource
   /** @nullable */
   shiftId: string | null
+  trustStatus?: LocationTrustStatus
+  /** @nullable */
+  trustReason?: string | null
 }

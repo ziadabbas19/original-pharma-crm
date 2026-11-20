@@ -121,6 +121,7 @@ public static class DependencyInjection
 
         // Tracking adapters
         services.AddSingleton<ILatestPositionStore, RedisLatestPositionStore>();
+        services.AddScoped<ILocationDistanceQuery, LocationDistanceQuery>();
         services.AddSingleton<ILiveViewRegistry, RedisLiveViewRegistry>();
         services.AddSingleton<IIpGeolocationService, NullIpGeolocationService>();
         services.AddSingleton<IPlayIntegrityVerifier, PlayIntegrityVerifier>();

@@ -63,6 +63,13 @@ public class Visit : Entity, IScopedEntity, IArchivable
     public bool NeedsReview { get; set; }
 
     /// <summary>
+    /// Location trust reasons decided at check-in or check-out with the settings of that moment
+    /// (far-from-doctor, low-trust). The geofence, mock and missing-location reasons come from the
+    /// columns above.
+    /// </summary>
+    public List<string> TrustReasons { get; set; } = [];
+
+    /// <summary>
     /// Device time of the last feedback / products update that was applied. An update queued offline
     /// earlier than this is ignored, so a late retry never overwrites newer content.
     /// </summary>

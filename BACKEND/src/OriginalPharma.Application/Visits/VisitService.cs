@@ -10,6 +10,8 @@ using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Tracking;
+using OriginalPharma.Application.Tracking.Anomalies;
+using OriginalPharma.Application.Tracking.Integrity;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Identity;
@@ -37,6 +39,9 @@ public sealed class VisitService(
     IFileStorage fileStorage,
     IOptions<VisitOptions> options,
     IOptions<TrackingOptions> trackingOptions,
+    LocationTrustSettingsService trustSettings,
+    IntegrityFlagService flags,
+    IOptions<LocationTrustOptions> trustOptions,
     TimeProvider time)
 {
     /// <summary>How many levels of the reporting line are notified of new feedback (supervisor and their manager).</summary>
@@ -49,11 +54,12 @@ public sealed class VisitService(
         ["image/webp"] = ".webp",
     };
 
-    public VisitRulesDto Rules()
+    public async Task<VisitRulesDto> RulesAsync(CancellationToken cancellationToken = default)
     {
         var settings = options.Value;
-        return new VisitRulesDto(settings.MaxAccuracyMeters, settings.MaxAccuracyAllowanceMeters, settings.RejectOutsideGeofence,
-            settings.MaxPhotoBytes, settings.ContentEditHours);
+        var trust = await trustSettings.GetAsync(cancellationToken);
+        return new VisitRulesDto(settings.MaxAccuracyMeters, trust.AccuracyAllowanceMeters, settings.RejectOutsideGeofence,
+            settings.MaxPhotoBytes, settings.ContentEditHours, trust.MaxDistanceFromDoctorMeters, trust.LowTrustAccuracyMeters);
     }
 
     /// <summary>
@@ -99,9 +105,10 @@ public sealed class VisitService(
             throw new BusinessRuleException("accuracy-too-low", $"Location accuracy is {request.Accuracy:0} m. Move outdoors or wait for a better GPS fix.");
         }
 
+        var trust = await trustSettings.GetAsync(cancellationToken);
         var geofence = GeofenceEvaluator.Evaluate(
             customer.Location.Y, customer.Location.X, customer.GeofenceRadiusMeters,
-            request.Lat, request.Lng, request.Accuracy, settings.MaxAccuracyAllowanceMeters);
+            request.Lat, request.Lng, request.Accuracy, trust.AccuracyAllowanceMeters);
 
         if (!geofence.Inside && settings.RejectOutsideGeofence)
         {
@@ -119,6 +126,12 @@ public sealed class VisitService(
         }
 
         var territoryId = await db.Users.Where(u => u.Id == userId).Select(u => u.TerritoryId).SingleAsync(cancellationToken);
+        var signals = request.DeviceSignals?.Sanitized();
+        var window = TimeSpan.FromMinutes(trustOptions.Value.VisitPointWindowMinutes);
+        var visitTrust = VisitTrustEvaluator.Evaluate(
+            new VisitTrustInput(geofence.DistanceMeters, request.Accuracy, signals,
+                await SuspiciousPointsAsync(userId, checkInAt - window, checkInAt + TimeSpan.FromMinutes(5), cancellationToken)),
+            trust);
         var visit = new Visit
         {
             UserId = userId,
@@ -134,7 +147,8 @@ public sealed class VisitService(
             CheckInWithinGeofence = geofence.Inside,
             CheckInIsMock = request.IsMock,
             QrVerified = qrVerified,
-            NeedsReview = request.IsMock || !geofence.Inside,
+            TrustReasons = visitTrust.Reasons.ToList(),
+            NeedsReview = request.IsMock || !geofence.Inside || visitTrust.Reasons.Count > 0,
         };
         if (request.ClientRequestId is { } clientRequestId)
         {
@@ -143,20 +157,9 @@ public sealed class VisitService(
 
         db.Visits.Add(visit);
 
-        if (request.IsMock || !geofence.Inside)
-        {
-            db.TrackingFlags.Add(new TrackingFlag
-            {
-                UserId = userId,
-                TerritoryId = territoryId,
-                ShiftId = shift.Id,
-                Type = request.IsMock ? TrackingFlagType.MockLocation : TrackingFlagType.VisitOutsideGeofence,
-                Score = request.IsMock ? 60 : 30,
-                Signals = request.IsMock ? ["mock-location"] : ["outside-geofence"],
-                Details = $"Visit check-in at {customer.Name}: {geofence.DistanceMeters:0} m from location.",
-                CreatedAt = now,
-            });
-        }
+        var flag = await RaiseVisitFlagAsync(
+            visit, territoryId, request.IsMock, geofence.Inside, visitTrust, signals,
+            $"Visit check-in at {customer.Name}: {geofence.DistanceMeters:0} m from location.", cancellationToken);
 
         try
         {
@@ -176,6 +179,11 @@ public sealed class VisitService(
             }
 
             throw;
+        }
+
+        if (flag is not null)
+        {
+            await flags.PublishAsync([flag], cancellationToken);
         }
 
         return ToDto(visit, customer.Name, customer.GeofenceRadiusMeters);
@@ -203,16 +211,25 @@ public sealed class VisitService(
             throw new ConflictException("visit-not-in-progress", "This visit is already closed.");
         }
 
+        var trust = await trustSettings.GetAsync(cancellationToken);
         var hasFix = request is { Lat: not null, Lng: not null };
         var geofence = hasFix && visit.Customer?.Location is { } location
             ? GeofenceEvaluator.Evaluate(
                 location.Y, location.X, visit.Customer.GeofenceRadiusMeters,
-                request.Lat!.Value, request.Lng!.Value, request.Accuracy ?? 0, options.Value.MaxAccuracyAllowanceMeters)
+                request.Lat!.Value, request.Lng!.Value, request.Accuracy ?? 0, trust.AccuracyAllowanceMeters)
             : null;
 
-        // Leaving before checking out is normal (rep walks to the car), so check-out is never rejected.
+        // Leaving before checking out is normal (rep walks to the car), so check-out is never rejected,
+        // and only a check-out far beyond the doctor's location is marked.
         var now = time.GetUtcNow();
         var checkOutAt = NotInTheFuture(request.Timestamp, now);
+        var signals = request.DeviceSignals?.Sanitized();
+        var visitTrust = geofence is null
+            ? new VisitTrustResult([], [])
+            : VisitTrustEvaluator.Evaluate(
+                new VisitTrustInput(geofence.DistanceMeters, request.Accuracy ?? 0, signals,
+                    await SuspiciousPointsAsync(userId, visit.CheckInAt, checkOutAt + TimeSpan.FromMinutes(5), cancellationToken)),
+                trust);
         visit.Status = VisitStatus.Completed;
         visit.CheckOutAt = checkOutAt < visit.CheckInAt ? visit.CheckInAt : checkOutAt;
         visit.CheckOutReceivedAt = now;
@@ -223,11 +240,85 @@ public sealed class VisitService(
         visit.CheckOutIsMock = request.IsMock;
         visit.CheckOutClientRequestId = request.ClientRequestId;
         visit.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
-        visit.NeedsReview |= request.IsMock || !hasFix;
+        visit.TrustReasons = visit.TrustReasons.Union(visitTrust.Reasons).ToList();
+        visit.NeedsReview |= request.IsMock || !hasFix || visitTrust.Reasons.Count > 0;
+
+        var flag = await RaiseVisitFlagAsync(
+            visit, visit.TerritoryId, request.IsMock, inside: true, visitTrust, signals,
+            $"Visit check-out at {visit.Customer?.Name}: " +
+            (geofence is null ? "no location." : $"{geofence.DistanceMeters:0} m from location."), cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
+        if (flag is not null)
+        {
+            await flags.PublishAsync([flag], cancellationToken);
+        }
+
         return ToDto(visit, visit.Customer?.Name, visit.Customer?.GeofenceRadiusMeters ?? 0);
     }
+
+    /// <summary>
+    /// One flag per visit for the review page (repeats at check-out extend it). Never refuses anything:
+    /// the visit is stored either way.
+    /// </summary>
+    private async Task<IntegrityFlagOutcome?> RaiseVisitFlagAsync(
+        Visit visit,
+        Guid? territoryId,
+        bool isMock,
+        bool inside,
+        VisitTrustResult trust,
+        DeviceSignalsDto? signals,
+        string details,
+        CancellationToken cancellationToken)
+    {
+        var far = trust.Reasons.Contains(VisitReviewReasons.FarFromDoctor);
+        var low = trust.Reasons.Contains(VisitReviewReasons.LowTrust);
+        if (!isMock && inside && !far && !low)
+        {
+            return null;
+        }
+
+        var codes = new List<string>();
+        var score = 0;
+        if (isMock)
+        {
+            codes.Add(AnomalyCodes.MockLocation);
+            score += AnomalyWeights.MockLocation;
+        }
+
+        if (far)
+        {
+            codes.Add(VisitReviewReasons.FarFromDoctor);
+            score += 50;
+        }
+        else if (!inside)
+        {
+            codes.Add(VisitReviewReasons.OutsideGeofence);
+            score += 30;
+        }
+
+        if (low)
+        {
+            codes.Add(VisitReviewReasons.LowTrust);
+            score += 30;
+        }
+
+        codes.AddRange(DeviceSignalCodes.From(signals));
+        var type = isMock ? TrackingFlagType.MockLocation
+            : far || !inside ? TrackingFlagType.VisitOutsideGeofence
+            : TrackingFlagType.VisitLowTrust;
+        var text = string.Join(" ", new[] { details }.Concat(trust.Details).Append(DeviceSignalCodes.Describe(signals) ?? string.Empty)).Trim();
+
+        return await flags.RaiseAsync(
+            new IntegrityFlagRequest(visit.UserId, territoryId, visit.ShiftId, type, Math.Min(100, score), codes, text, VisitId: visit.Id),
+            cancellationToken);
+    }
+
+    /// <summary>Suspicious or rejected tracking points of the rep in a time window (evidence for "low trust").</summary>
+    private Task<int> SuspiciousPointsAsync(Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) =>
+        db.LocationPoints.AsNoTracking().CountAsync(
+            p => p.UserId == userId && p.RecordedAt >= from && p.RecordedAt <= to && p.TrustStatus != LocationTrustStatus.Trusted,
+            cancellationToken);
 
     /// <param name="clientRequestId">Idempotency key: the same key again returns the photo already stored.</param>
     public async Task<VisitPhotoDto> AddPhotoAsync(
@@ -813,6 +904,7 @@ public sealed class VisitService(
                 v.CheckInIsMock,
                 v.CheckOutIsMock,
                 HasCheckOutLocation = v.CheckOutLocation != null,
+                v.TrustReasons,
                 ProductIds = v.Products.Select(p => p.ProductId).ToList(),
                 HasFeedback = v.Feedback != null,
                 FeedbackCategory = v.Feedback != null ? v.Feedback.Category : null,
@@ -828,13 +920,13 @@ public sealed class VisitService(
                 v.CheckInAt, v.CheckInDistanceMeters, v.CheckInWithinGeofence, v.CheckOutAt, v.CheckOutDistanceMeters,
                 v.CheckOutWithinGeofence, v.QrVerified, v.NeedsReview, v.PhotoCount, v.CheckInAccuracy, v.CheckInIsMock,
                 v.ProductIds,
-                VisitReviewReasons.For(v.CheckInWithinGeofence, v.CheckInIsMock, v.CheckOutIsMock, v.CheckOutAt is not null, v.HasCheckOutLocation),
+                VisitReviewReasons.For(v.CheckInWithinGeofence, v.CheckInIsMock, v.CheckOutIsMock, v.CheckOutAt is not null, v.HasCheckOutLocation, v.TrustReasons),
                 v.HasFeedback, v.FeedbackCategory, v.ProductCount, v.ReplyCount, v.ArchivedAt))
             .ToList();
     }
 
     private static IReadOnlyList<string> ReasonsFor(Visit v) =>
-        VisitReviewReasons.For(v.CheckInWithinGeofence, v.CheckInIsMock, v.CheckOutIsMock, v.CheckOutAt is not null, v.CheckOutLocation is not null);
+        VisitReviewReasons.For(v.CheckInWithinGeofence, v.CheckInIsMock, v.CheckOutIsMock, v.CheckOutAt is not null, v.CheckOutLocation is not null, v.TrustReasons);
 
     private static VisitPhotoDto ToPhotoDto(VisitPhoto p) =>
         new(p.Id, p.ContentType, p.SizeBytes, p.UploadedAt, $"/api/visits/{p.VisitId}/photos/{p.Id}");

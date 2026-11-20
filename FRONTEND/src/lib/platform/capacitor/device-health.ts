@@ -3,6 +3,7 @@ import BackgroundGeolocation from '@transistorsoft/capacitor-background-geolocat
 import type {
   DeviceHealthInspector,
   DeviceHealthState,
+  DeviceSignalsReader,
   LocationPermission,
   PushNotifications,
 } from '../types'
@@ -13,15 +14,17 @@ export class CapacitorDeviceHealthInspector implements DeviceHealthInspector {
   constructor(
     private readonly tracker: CapacitorLocationTracker,
     private readonly push: PushNotifications,
+    private readonly signals: DeviceSignalsReader,
   ) {}
 
   async inspect(): Promise<DeviceHealthState> {
     await this.tracker.ensureReady()
     const provider = await BackgroundGeolocation.getProviderState()
-    const [notificationPermission, batteryOptimizationIgnored, powerSaveMode] = await Promise.all([
+    const [notificationPermission, batteryOptimizationIgnored, powerSaveMode, signals] = await Promise.all([
       this.push.permission(),
       BackgroundGeolocation.deviceSettings.isIgnoringBatteryOptimizations().catch(() => null),
       BackgroundGeolocation.isPowerSaveMode().catch(() => null),
+      this.signals.read(),
     ])
 
     return {
@@ -31,8 +34,7 @@ export class CapacitorDeviceHealthInspector implements DeviceHealthInspector {
       locationServicesEnabled: provider.enabled,
       batteryOptimizationIgnored,
       mockLocationDetected: nativeSignals.lastMockSeen,
-      // TODO: small native check of Settings.Global.DEVELOPMENT_SETTINGS_ENABLED.
-      developerOptionsEnabled: null,
+      developerOptionsEnabled: signals.developerOptionsEnabled,
       powerSaveMode,
     }
   }

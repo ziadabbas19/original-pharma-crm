@@ -12,6 +12,12 @@ public enum NotificationType
 
     /// <summary>A supervisor or manager answered the recipient's visit feedback.</summary>
     VisitFeedbackReply = 6,
+
+    /// <summary>
+    /// A rep the recipient supervises was flagged for a suspicious location. <see cref="Notification.EntityId"/>
+    /// is the rep, so repeats can be throttled per rep.
+    /// </summary>
+    SuspiciousLocation = 7,
 }
 
 /// <summary>
@@ -27,7 +33,7 @@ public class Notification
 
     public NotificationType Type { get; set; }
 
-    /// <summary>The order or visit the notification is about.</summary>
+    /// <summary>The order, visit or (for suspicious locations) rep the notification is about.</summary>
     public Guid? EntityId { get; set; }
 
     /// <summary>JSON object with the values the text needs (order number, reason, names).</summary>

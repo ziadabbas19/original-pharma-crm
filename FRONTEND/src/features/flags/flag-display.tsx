@@ -3,6 +3,8 @@ import {
   AlertTriangleIcon,
   MapPinOffIcon,
   ShieldAlertIcon,
+  ShieldQuestionIcon,
+  ShieldXIcon,
   LocateOffIcon,
   SmartphoneIcon,
   type LucideIcon,
@@ -18,12 +20,15 @@ const TYPE_ICON: Record<TrackingFlagType, LucideIcon> = {
   unhealthyDevice: SmartphoneIcon,
   integrityFailed: AlertTriangleIcon,
   visitOutsideGeofence: MapPinOffIcon,
+  visitLowTrust: ShieldQuestionIcon,
+  suspiciousDevice: ShieldXIcon,
 }
 
 const STATUS_BADGE: Record<TrackingFlagStatus, 'destructive' | 'secondary' | 'outline'> = {
   open: 'destructive',
   confirmed: 'secondary',
   dismissed: 'outline',
+  acknowledged: 'secondary',
 }
 
 export function FlagTypeBadge({ type }: { type: TrackingFlagType }) {

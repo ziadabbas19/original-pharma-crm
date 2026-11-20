@@ -36,7 +36,7 @@ export function LiveMapPage() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const navigate = route.useNavigate()
-  const { rep: selectedId = null } = route.useSearch()
+  const { rep: selectedId = null, day: linkedDay, at: linkedAt } = route.useSearch()
   const now = useNow(30_000)
 
   // Same query the layout polls; read here for its loading and error state.
@@ -46,8 +46,9 @@ export function LiveMapPage() {
   const canViewHistory = usePermission(P.tracking.history)
   const canReviewFlags = usePermission(P.tracking.reviewFlags)
 
-  const [following, setFollowing] = useState(selectedId !== null)
-  const [day, setDay] = useState(today)
+  // A link to a past day or a point shows that route instead of following the rep live.
+  const [following, setFollowing] = useState(selectedId !== null && !linkedDay && !linkedAt)
+  const [day, setDay] = useState(() => linkedDay ?? today())
   const [fitCount, setFitCount] = useState(0)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<LiveStatus | null>(null)
@@ -94,11 +95,14 @@ export function LiveMapPage() {
   const livePosition = selected?.position ?? null
   const routePoints = useMemo<RoutePoint[] | null>(() => {
     if (!selectedId || !history.data) return null
+    const focusAt = linkedAt ? new Date(linkedAt).getTime() : null
     const points: RoutePoint[] = history.data.map((p) => ({
       lat: p.lat,
       lng: p.lng,
       recordedAt: p.recordedAt,
-      flagged: p.isMock || p.anomalyScore >= 50,
+      flagged: p.isMock || p.anomalyScore >= 50 || (p.trustStatus != null && p.trustStatus !== 'trusted'),
+      excluded: p.excluded === true,
+      focus: focusAt !== null && Math.abs(new Date(p.recordedAt).getTime() - focusAt) < 1000,
     }))
     // Between history refreshes, extend today's route with the latest live fix.
     const last = points.at(-1)
@@ -111,18 +115,24 @@ export function LiveMapPage() {
         lat: livePosition.lat,
         lng: livePosition.lng,
         recordedAt: livePosition.recordedAt,
-        flagged: livePosition.isMock || livePosition.anomalyScore >= 50,
+        flagged:
+          livePosition.isMock ||
+          livePosition.anomalyScore >= 50 ||
+          (livePosition.trustStatus != null && livePosition.trustStatus !== 'trusted'),
+        excluded: livePosition.trustStatus === 'rejected',
       })
     }
     return points
-  }, [selectedId, history.data, isToday, livePosition])
+  }, [selectedId, history.data, isToday, livePosition, linkedAt])
 
   const summary = useMemo<RouteSummary | null>(() => {
     if (!routePoints || routePoints.length === 0) return null
+    // Same rule as the statistics: points left out of the distance are skipped, not bridged to.
+    const counted = routePoints.filter((p) => !p.excluded)
     let meters = 0
-    for (let i = 1; i < routePoints.length; i++) {
-      const a = routePoints[i - 1]
-      const b = routePoints[i]
+    for (let i = 1; i < counted.length; i++) {
+      const a = counted[i - 1]
+      const b = counted[i]
       meters += distanceMeters(a.lat, a.lng, b.lat, b.lng)
     }
     return {
@@ -130,7 +140,8 @@ export function LiveMapPage() {
       distanceMeters: meters,
       firstAt: routePoints[0].recordedAt,
       lastAt: routePoints[routePoints.length - 1].recordedAt,
-      flagged: routePoints.filter((p) => p.flagged).length,
+      flagged: routePoints.filter((p) => p.flagged || p.excluded).length,
+      excluded: routePoints.length - counted.length,
     }
   }, [routePoints])
 

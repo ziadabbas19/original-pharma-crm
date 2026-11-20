@@ -181,6 +181,7 @@ export function FlagsPage() {
                   onChange={(e) => setSearch({ status: e.target.value as FlagStatusFilter })}
                 >
                   <option value="open">{t('flags.statuses.open')}</option>
+                  <option value="acknowledged">{t('flags.statuses.acknowledged')}</option>
                   <option value="confirmed">{t('flags.statuses.confirmed')}</option>
                   <option value="dismissed">{t('flags.statuses.dismissed')}</option>
                   <option value="all">{t('table.all')}</option>

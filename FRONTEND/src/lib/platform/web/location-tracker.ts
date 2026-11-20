@@ -2,7 +2,15 @@ import { trackingPostLocations } from '@/api/generated/endpoints'
 import type { LocationPointDto } from '@/api/generated/model'
 import { ApiError } from '@/lib/api-client'
 import { distanceMeters } from '@/lib/geo'
-import type { GeoFix, LocationTracker, OfflineDb, StartTrackingOptions, TrackingProfile } from '../types'
+import type {
+  DeviceSignals,
+  GeoFix,
+  LocationTracker,
+  ObservedFix,
+  OfflineDb,
+  StartTrackingOptions,
+  TrackingProfile,
+} from '../types'
 
 const QUEUE_KIND = 'location'
 const MAX_BATCH = 200
@@ -25,6 +33,8 @@ export class WebLocationTracker implements LocationTracker {
   private uploadTimer: number | null = null
   private lastQueued: { lat: number; lng: number; at: number } | null = null
   private flushing: Promise<number> | null = null
+  private signals: DeviceSignals | null = null
+  private readonly fixListeners = new Set<(fix: ObservedFix) => void>()
 
   constructor(private readonly queue: OfflineDb) {
     document.addEventListener('visibilitychange', this.onVisibilityChange)
@@ -69,6 +79,18 @@ export class WebLocationTracker implements LocationTracker {
     return this.queue.count(QUEUE_KIND)
   }
 
+  async setDeviceSignals(signals: DeviceSignals): Promise<void> {
+    this.signals = signals
+  }
+
+  /** Browsers never report a mock provider, so observed fixes are always "not mock". */
+  onFixObserved(handler: (fix: ObservedFix) => void): () => void {
+    this.fixListeners.add(handler)
+    return () => {
+      this.fixListeners.delete(handler)
+    }
+  }
+
   /** Uploads queued points in batches. Concurrent calls share one run. */
   flush(): Promise<number> {
     this.flushing ??= this.upload().finally(() => (this.flushing = null))
@@ -87,6 +109,7 @@ export class WebLocationTracker implements LocationTracker {
           source: 'pwa',
           sentAt: new Date().toISOString(),
           points: batch.map((b) => b.payload),
+          deviceSignals: this.signals,
         })
         await this.queue.remove(batch.map((b) => b.id))
       } catch (error) {
@@ -139,6 +162,13 @@ export class WebLocationTracker implements LocationTracker {
   }
 
   private async onFix(fix: GeoFix) {
+    for (const listener of this.fixListeners) {
+      try {
+        listener({ isMock: fix.isMock, at: fix.timestamp })
+      } catch {
+        // a listener failing must never stop tracking
+      }
+    }
     const profile = this.profile
     if (!profile) return
 
@@ -160,6 +190,8 @@ export class WebLocationTracker implements LocationTracker {
       isMock: false,
       isMoving: moved >= profile.distanceFilterMeters,
       uuid: crypto.randomUUID(),
+      altitude: fix.altitude ?? null,
+      deviceTime: new Date(now).toISOString(),
     }
     await this.queue.enqueue(QUEUE_KIND, point)
 
@@ -177,5 +209,6 @@ function toFix(pos: GeolocationPosition): GeoFix {
     heading: pos.coords.heading,
     batteryLevel: null,
     isMock: false,
+    altitude: pos.coords.altitude,
   }
 }

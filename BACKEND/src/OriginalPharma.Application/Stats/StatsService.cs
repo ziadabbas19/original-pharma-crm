@@ -6,6 +6,8 @@ using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Tracking;
+using OriginalPharma.Application.Tracking.Integrity;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Domain.Orders;
@@ -17,7 +19,10 @@ namespace OriginalPharma.Application.Stats;
 /// Statistics for every role from one code path: every number is aggregated in the database inside
 /// the caller's stats:read scope (own, team, territory, all), so a rep sees their own numbers, a
 /// supervisor their team, a manager their territory and an admin everything. Archived (deleted)
-/// orders and visits are left out. Results are cached briefly per user, permissions version and filters.
+/// orders and visits are left out. Under the "flag and exclude" mock location policy, visits with a
+/// mock check-in or check-out are left out of attendance (visit counts and coverage) and mock points
+/// out of the distance travelled; physically impossible (rejected) points never count. Results are
+/// cached briefly per user, permissions version, policy and filters.
 /// </summary>
 public sealed class StatsService(
     IAppDbContext db,
@@ -27,6 +32,8 @@ public sealed class StatsService(
     ProductAccess productAccess,
     IMemoryCache cache,
     IOptions<StatsOptions> options,
+    LocationTrustSettingsService trustSettings,
+    ILocationDistanceQuery distances,
     TimeProvider time)
 {
     private const int TopRows = 10;
@@ -57,7 +64,7 @@ public sealed class StatsService(
         var me = currentUser.RequireUserId();
         var version = await permissions.GetVersionAsync(me, cancellationToken);
         var context = await ContextAsync(query, cancellationToken);
-        var key = $"stats:{section}:{me:N}:{version}:{context.From:yyyyMMdd}:{context.To:yyyyMMdd}:{query.RepId}:{query.AreaId}:{query.LineId}:{query.ProductId}";
+        var key = $"stats:{section}:{me:N}:{version}:{context.ExcludeMock}:{context.From:yyyyMMdd}:{context.To:yyyyMMdd}:{query.RepId}:{query.AreaId}:{query.LineId}:{query.ProductId}";
         if (cache.TryGetValue(key, out T? cached) && cached is not null)
         {
             return cached;
@@ -310,6 +317,7 @@ public sealed class StatsService(
         var listed = await Assignments(c).Select(a => a.UserId).Distinct().ToListAsync(cancellationToken);
         var repIds = orders.Keys.Union(visits.Keys).Union(hours.Keys).Union(listed).ToHashSet();
         var names = await UserNamesAsync(repIds, cancellationToken);
+        var travelled = await distances.MetersByUserAsync(repIds, c.FromUtc, c.ToUtc, c.ExcludeMock, cancellationToken);
 
         return new RepStatsDto(c.Range, repIds
             .Select(id => new RepRankRow(
@@ -320,7 +328,8 @@ public sealed class StatsService(
                 visits.TryGetValue(id, out var v) ? v.Count : 0,
                 v?.Doctors ?? 0,
                 hours.TryGetValue(id, out var h) ? decimal.Round((decimal)h.Hours, 1, MidpointRounding.AwayFromZero) : 0,
-                h.Days))
+                h.Days,
+                decimal.Round((decimal)(travelled.GetValueOrDefault(id) / 1000d), 1, MidpointRounding.AwayFromZero)))
             .OrderByDescending(r => r.OrderValue).ThenByDescending(r => r.Visits).ThenBy(r => r.Name)
             .ToList());
     }
@@ -421,6 +430,11 @@ public sealed class StatsService(
             visits = visits.Where(v => v.Products.Any(p => productIds.Contains(p.ProductId)));
         }
 
+        if (c.ExcludeMock)
+        {
+            visits = visits.Where(v => !v.CheckInIsMock && v.CheckOutIsMock != true);
+        }
+
         return visits;
     }
 
@@ -506,11 +520,13 @@ public sealed class StatsService(
             productIds = productIds is null ? inLine.ToArray() : productIds.Intersect(inLine).ToArray();
         }
 
+        var trust = await trustSettings.GetAsync(cancellationToken);
         return new Context(
             scope, query, from, to,
             StartOfDay(from, zone), StartOfDay(to.AddDays(1), zone),
             zone, area, productIds,
-            new StatsRange(from, to, scope.Level ?? PermissionScope.Own));
+            new StatsRange(from, to, scope.Level ?? PermissionScope.Own),
+            trust.ExcludeMock);
     }
 
     private static List<TrendPoint> FillDays(Context c, IReadOnlyDictionary<DateOnly, (int Count, decimal Value)> values)
@@ -571,7 +587,8 @@ public sealed class StatsService(
         TimeZoneInfo Zone,
         Guid?[]? AreaTerritories,
         Guid[]? ProductIds,
-        StatsRange Range);
+        StatsRange Range,
+        bool ExcludeMock);
 }
 
 /// <summary>Names of the fixed values in both languages (the CSV export and charts use them).</summary>

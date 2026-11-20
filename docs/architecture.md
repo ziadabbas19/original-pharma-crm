@@ -191,7 +191,9 @@ until granted from the matrix.
 | Not used | — | Wake Lock, persistent sockets |
 
 The point shape is produced natively by the plugin's `locationTemplate` and includes
-the Android **mock-location flag** on every point.
+the Android **mock-location flag**, altitude, motion activity and device time on every point; the uploader also
+sends the phone's device signals (developer options, mock location app, known spoofing apps, automatic time,
+emulator, root) with every batch. See [location-trust.md](location-trust.md).
 
 Abstraction: `FRONTEND/src/lib/platform/` defines interfaces for location tracking,
 secure storage, offline DB, push, device integrity, device-health inspection and app/OEM
@@ -203,10 +205,12 @@ info, with a Capacitor and a web implementation chosen at startup.
 POST /api/tracking/locations (batch)
   → validate (FluentValidation)
   → keep points inside a shift, drop duplicates (user, recorded_at)
-  → TrackingAnomalyDetector → score 0-100 per point and per batch
-  → insert history into location_points (PostGIS geography, GiST index)
+  → TrackingAnomalyDetector → score 0-100, reason codes and trust status
+    (trusted / suspicious / rejected) per point, thresholds from the location trust settings
+  → insert history into location_points (PostGIS geography, GiST index); nothing is dropped
   → update shift.last_point_at (clears "tracking lost")
-  → if score ≥ threshold: tracking_flags row for supervisor review
+  → if score ≥ threshold: tracking_flags row for review (repeats update the open flag),
+    audit entry, in-app notice to the supervisor (once per rep per hour)
   → latest position → Redis (tracking:latest:{user})
   → SignalR: PositionUpdated / PresenceChanged / FlagRaised to the rep's audience
 ```
@@ -263,25 +267,37 @@ The rep app re-checks on every open/resume and shows a banner when something bre
 
 ## Anti-fraud layers
 
+The full description (checks, codes, settings, review, limits, privacy) is in
+[location-trust.md](location-trust.md).
+
 1. **Device**
-   - Android mock-provider flag on every point (and an explicit check in setup).
+   - Android mock-provider flag on every point (and an explicit check in setup). On a mock fix the rep app shows a
+     bilingual notice, re-checks on its own and reports it (`POST /api/tracking/integrity-events`); it never blocks.
+   - Device signals from a local native plugin (`DeviceSignalsPlugin`): developer options, mock location app,
+     known spoofing apps (best-effort list, `<queries>` instead of `QUERY_ALL_PACKAGES`), automatic time,
+     emulator and basic root signals.
    - Play Integrity attestation at shift start (interface + stub; see TODO in
      `PlayIntegrityVerifier`). A failed attestation raises a flag; it never blocks.
-2. **Server-side anomaly detection** (`TrackingAnomalyDetector`), each signal counted once per batch:
+2. **Server-side plausibility checks** (`TrackingAnomalyDetector`), each signal counted once per batch. Every point
+   gets a trust status: **rejected** (physically impossible: teleport, impossible speed), **suspicious** (mock fix,
+   synthetic-looking fix, clock, spoofing settings) or **trusted**:
 
    | Signal | Weight |
    | --- | --- |
    | mock location | 60 |
    | teleport (≥ 20 km within 5 min, or movement with no elapsed time) | 50 |
-   | impossible speed (> 200 km/h, ignoring jumps within combined accuracy / 300 m) | 35 |
-   | fix timestamp in the future (> 5 min) | 25 |
+   | spoofing app selected as mock location app / emulator | 40 each |
+   | impossible speed (> max plausible speed, ignoring jumps within combined accuracy / 300 m) | 35 |
+   | fix or device time in the future (> 5 min) | 25 |
    | client/server clock drift (> 5 min) | 20 |
-   | suspiciously perfect accuracy (≤ 1.5 m) | 15 |
-   | identical accuracy on 6+ consecutive fixes | 15 |
+   | frozen position (same coordinates, no GPS jitter) / phone still while moving | 20 each |
+   | suspiciously perfect accuracy (≤ 1.5 m) / identical accuracy on 6+ fixes / altitude always 0 | 15 each |
+   | root signals (informational) | 15 |
    | GPS far from IP geolocation (> 500 km; needs GeoIP data) | 10 |
+   | spoofing app installed / automatic time off (informational) | 10 / 5 |
 
-   Score ≥ 50 creates a flag. Flags are reviewed (confirmed / dismissed) by supervisors;
-   nothing is auto-blocked.
+   Score ≥ 50 creates a flag. Flags are reviewed by supervisors (confirmed / dismissed on Tracking flags, or
+   acknowledged with a comment on Suspicious activity); nothing is auto-blocked or deleted.
 3. **Visit verification**
    - Geofence at check-in: distance to the customer ≤ radius + min(accuracy, 50 m);
      fixes worse than 100 m are refused (the app retries with high accuracy). A customer with no saved
@@ -292,6 +308,11 @@ The rep app re-checks on every open/resume and shows a banner when something bre
    - Photo upload per visit.
    - A mock location at check-in or check-out, a check-in outside the geofence and a check-out with no
      location mark the visit for review; the reasons are returned as `reviewReasons`.
+   - Check-in and check-out further than the max distance from the doctor (`far-from-doctor`), or with weak
+     evidence (`low-trust`: poor or synthetic accuracy, spoofing settings, suspicious points around the visit) are
+     marked too and stored in `visits.trust_reasons`.
+4. **Admin settings and policy**: thresholds and the mock location policy (flag only, or flag and exclude from
+   distance and attendance) are edited in the dashboard and stored in `app_settings`.
 
 ## Sales: doctors, catalog and orders
 
@@ -405,8 +426,9 @@ in metres). Notable tables: `users`, `roles`, `permissions`, `role_permissions`,
 `rep_doctors`, `specialties`, `product_lines`, `products`, `user_product_lines`,
 `collection_methods`, `orders`, `order_lines`, `order_history`, `seed_history`, `visits`,
 `visit_photos`, `visit_feedback`, `visit_feedback_seen`, `visit_feedback_replies`, `visit_products`,
-`notifications`, `audit_entries`, `shifts`, `location_points`, `tracking_flags`, `devices`,
-`device_health_reports`, `tracking_consents`. Hangfire uses its own `hangfire` schema.
+`notifications`, `audit_entries`, `app_settings`, `shifts`, `location_points`, `tracking_flags`, `devices`,
+`device_health_reports`, `tracking_consents`. Hangfire uses its own `hangfire` schema (jobs:
+`tracking-lost-monitor` every minute, `device-signals-retention` daily).
 
 Scaling notes: `location_points` will be the largest table; partition by month (or use
 TimescaleDB) and move inserts to `COPY` / `ON CONFLICT DO NOTHING` when volume grows.

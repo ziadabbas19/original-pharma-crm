@@ -1,9 +1,11 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Tracking.Anomalies;
+using OriginalPharma.Application.Tracking.Integrity;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Tracking;
 
@@ -11,8 +13,9 @@ namespace OriginalPharma.Application.Tracking;
 
 /// <summary>
 /// Accepts batches of location points: keeps only points inside a shift, drops
-/// duplicates, scores them, stores history (PostGIS) and the latest position
-/// (Redis), then notifies dashboards.
+/// duplicates, runs the plausibility checks, stores history (PostGIS) with a trust status per
+/// point (suspicious and rejected points are kept, never dropped) and the latest position (Redis),
+/// then notifies dashboards. Batches from older apps without the newer fields work as before.
 /// </summary>
 public sealed class TrackingIngestService(
     IAppDbContext db,
@@ -22,6 +25,8 @@ public sealed class TrackingIngestService(
     IIpGeolocationService ipGeolocation,
     IOrgHierarchy hierarchy,
     ITrackingNotifier notifier,
+    LocationTrustSettingsService trustSettings,
+    IntegrityFlagService flags,
     IOptions<TrackingOptions> trackingOptions,
     IOptions<AnomalyDetectionOptions> anomalyOptions,
     TimeProvider time,
@@ -81,19 +86,28 @@ public sealed class TrackingIngestService(
             return new LocationBatchResult(request.Points.Count, 0, duplicates, outsideShift, 0, false);
         }
 
+        var settings = await trustSettings.GetAsync(cancellationToken);
+        var signals = request.DeviceSignals?.Sanitized();
         var previous = await latestPositions.GetAsync(userId, cancellationToken);
         var ipLocation = await ipGeolocation.LocateAsync(currentUser.IpAddress, cancellationToken);
-        var report = detector.Analyze(new AnomalyInput(
-            previous is null ? null : new GeoSample(previous.Lat, previous.Lng, previous.Accuracy, previous.RecordedAt, previous.IsMock),
-            accepted.Select(a => new GeoSample(a.Point.Lat, a.Point.Lng, a.Point.Accuracy, a.Point.Timestamp, a.Point.IsMock)).ToList(),
-            now,
-            request.SentAt?.ToUniversalTime(),
-            ipLocation));
+        var report = detector.Analyze(
+            new AnomalyInput(
+                previous is null ? null : new GeoSample(previous.Lat, previous.Lng, previous.Accuracy, previous.RecordedAt, previous.IsMock),
+                accepted.Select(a => ToSample(a.Point)).ToList(),
+                now,
+                request.SentAt?.ToUniversalTime(),
+                ipLocation,
+                signals,
+                previous?.TrustStatus == LocationTrustStatus.Rejected),
+            settings.ApplyTo(anomalyOptions.Value));
 
+        var signalsJson = signals?.ToJson();
+        var rows = new List<LocationPoint>(accepted.Count);
         for (var i = 0; i < accepted.Count; i++)
         {
             var (point, shift) = accepted[i];
-            db.LocationPoints.Add(new LocationPoint
+            var (trust, reason) = report.TrustFor(i);
+            var row = new LocationPoint
             {
                 UserId = userId,
                 TerritoryId = territoryId,
@@ -111,7 +125,16 @@ public sealed class TrackingIngestService(
                 ReceivedAt = now,
                 AnomalyScore = report.PointScores[i],
                 AnomalyCodes = report.CodesForPoint(i).ToList(),
-            });
+                TrustStatus = trust,
+                TrustReason = reason,
+                DeviceTime = ParseDeviceTime(point.DeviceTime),
+                Altitude = point.Altitude is { } altitude && double.IsFinite(altitude) ? altitude : null,
+                ActivityType = Activity(point.ActivityType),
+                ActivityConfidence = point.ActivityConfidence is >= 0 and <= 100 ? point.ActivityConfidence : null,
+                DeviceSignals = signalsJson,
+            };
+            rows.Add(row);
+            db.LocationPoints.Add(row);
         }
 
         var restoredShifts = new List<Shift>();
@@ -125,35 +148,35 @@ public sealed class TrackingIngestService(
             }
         }
 
-        var flagged = report.Score >= anomalyOptions.Value.FlagThreshold;
-        TrackingFlag? flag = null;
-        if (flagged)
-        {
-            flag = new TrackingFlag
-            {
-                UserId = userId,
-                TerritoryId = territoryId,
-                ShiftId = accepted[^1].Shift.Id,
-                Type = report.Codes.Contains(AnomalyCodes.MockLocation) ? TrackingFlagType.MockLocation : TrackingFlagType.Anomaly,
-                Score = report.Score,
-                Signals = report.Codes.ToList(),
-                Details = string.Join(" ", report.Signals.Select(s => s.Detail).Distinct().Take(10)),
-                CreatedAt = now,
-            };
-            db.TrackingFlags.Add(flag);
-        }
-
+        // Points first: whatever happens to the flag afterwards, the history is stored.
         await db.SaveChangesAsync(cancellationToken);
 
+        var flagged = report.Score >= anomalyOptions.Value.FlagThreshold;
+        IntegrityFlagOutcome? flag = null;
+        if (flagged)
+        {
+            var worst = Enumerable.Range(0, rows.Count).MaxBy(i => report.PointScores[i]);
+            flag = await flags.RaiseAsync(new IntegrityFlagRequest(
+                userId,
+                territoryId,
+                accepted[^1].Shift.Id,
+                FlagTypeFor(report.Codes),
+                report.Score,
+                report.Codes,
+                string.Join(" ", report.Signals.Select(s => s.Detail).Distinct().Take(10).Append(DeviceSignalCodes.Describe(signals) ?? string.Empty)).Trim(),
+                rows[worst].Id), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
         var newest = accepted[^1];
+        var newestRow = rows[^1];
         var audience = await hierarchy.GetAudienceAsync(userId, cancellationToken);
         if (previous is null || newest.Point.Timestamp > previous.RecordedAt)
         {
             var position = new LivePositionDto(
                 userId, newest.Point.Lat, newest.Point.Lng, newest.Point.Accuracy, newest.Point.Timestamp, now,
-                newest.Point.Speed is >= 0 ? newest.Point.Speed : null,
-                newest.Point.BatteryLevel is >= 0 ? newest.Point.BatteryLevel : null,
-                newest.Point.IsMock, report.PointScores[^1], request.Source, newest.Shift.Id);
+                newestRow.Speed, newestRow.BatteryLevel, newest.Point.IsMock, report.PointScores[^1], request.Source, newest.Shift.Id,
+                newestRow.TrustStatus, newestRow.TrustReason);
 
             await latestPositions.SetAsync(position, cancellationToken);
             await notifier.PositionUpdatedAsync(audience, position, cancellationToken);
@@ -166,11 +189,14 @@ public sealed class TrackingIngestService(
 
         if (flag is not null)
         {
-            logger.LogWarning("Tracking anomaly for user {UserId}: score {Score} ({Codes})", userId, report.Score, string.Join(",", report.Codes));
-            await notifier.FlagRaisedAsync(audience, TrackingMapping.ToDto(flag, null), cancellationToken);
+            logger.LogWarning("Suspicious location for user {UserId}: score {Score} ({Codes})", userId, report.Score, string.Join(",", report.Codes));
+            await flags.PublishAsync([flag], cancellationToken);
         }
 
-        return new LocationBatchResult(request.Points.Count, accepted.Count, duplicates, outsideShift, report.Score, flagged);
+        return new LocationBatchResult(
+            request.Points.Count, accepted.Count, duplicates, outsideShift, report.Score, flagged,
+            rows.Count(r => r.TrustStatus == LocationTrustStatus.Suspicious),
+            rows.Count(r => r.TrustStatus == LocationTrustStatus.Rejected));
     }
 
     /// <summary>
@@ -184,23 +210,64 @@ public sealed class TrackingIngestService(
         var point = request.Point;
         var sentAt = request.SentAt?.ToUniversalTime();
         var ipLocation = await ipGeolocation.LocateAsync(currentUser.IpAddress, cancellationToken);
+        var settings = await trustSettings.GetAsync(cancellationToken);
 
-        var report = detector.Analyze(new AnomalyInput(
-            null,
-            [new GeoSample(point.Lat, point.Lng, point.Accuracy, point.Timestamp.ToUniversalTime(), point.IsMock)],
-            now,
-            sentAt,
-            ipLocation));
+        var report = detector.Analyze(
+            new AnomalyInput(null, [ToSample(point with { Timestamp = point.Timestamp.ToUniversalTime() })], now, sentAt, ipLocation),
+            settings.ApplyTo(anomalyOptions.Value));
 
         var offset = ((sentAt ?? point.Timestamp.ToUniversalTime()) - now).TotalSeconds;
         return new TestPointResult(true, now, Math.Round(offset, 1), report.Score, report.Codes);
+    }
+
+    private static GeoSample ToSample(LocationPointDto p) =>
+        new(p.Lat, p.Lng, p.Accuracy, p.Timestamp, p.IsMock,
+            p.Altitude is { } altitude && double.IsFinite(altitude) ? altitude : null,
+            Activity(p.ActivityType),
+            p.ActivityConfidence,
+            ParseDeviceTime(p.DeviceTime));
+
+    /// <summary>The kind of flag a batch raises: a mock fix, otherwise movement, otherwise only the device setup.</summary>
+    internal static TrackingFlagType FlagTypeFor(IReadOnlyCollection<string> codes) =>
+        codes.Contains(AnomalyCodes.MockLocation) ? TrackingFlagType.MockLocation
+        : codes.All(AnomalyCodes.DeviceCodes.Contains) ? TrackingFlagType.SuspiciousDevice
+        : TrackingFlagType.Anomaly;
+
+    /// <summary>ISO 8601 or epoch milliseconds; anything else is ignored rather than refusing the batch.</summary>
+    internal static DateTimeOffset? ParseDeviceTime(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var epochMs) && epochMs > 0)
+        {
+            return epochMs < 253_402_300_800_000 ? DateTimeOffset.FromUnixTimeMilliseconds(epochMs) : null;
+        }
+
+        return DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
+            ? parsed.ToUniversalTime()
+            : null;
+    }
+
+    private static string? Activity(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Equals("null", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim().ToLowerInvariant();
+        return trimmed.Length <= 32 ? trimmed : trimmed[..32];
     }
 }
 
 internal static class TrackingMapping
 {
     public static TrackingFlagDto ToDto(TrackingFlag flag, string? userName) =>
-        new(flag.Id, flag.UserId, userName, flag.Type, flag.Status, flag.Score, flag.Signals, flag.Details, flag.CreatedAt);
+        new(flag.Id, flag.UserId, userName, flag.Type, flag.Status, flag.Score, flag.Signals, flag.Details, flag.CreatedAt,
+            flag.LocationPointId, flag.VisitId, flag.Occurrences, flag.LastSeenAt);
 
     public static ShiftDto ToDto(Shift shift) =>
         new(shift.Id, shift.Status, shift.DeviceId, shift.StartedAt, shift.EndedAt, shift.LastPointAt, shift.TrackingLostAt);

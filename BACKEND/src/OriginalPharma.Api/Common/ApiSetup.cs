@@ -9,6 +9,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OriginalPharma.Api.Modules.Tracking;
 using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Tracking;
+using OriginalPharma.Application.Tracking.Integrity;
 using OriginalPharma.Infrastructure;
 using OriginalPharma.Infrastructure.Persistence;
 using StackExchange.Redis;
@@ -118,8 +119,11 @@ internal static class ApiSetup
 
         try
         {
-            app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<TrackingLostMonitor>(
+            var jobs = app.Services.GetRequiredService<IRecurringJobManager>();
+            jobs.AddOrUpdate<TrackingLostMonitor>(
                 "tracking-lost-monitor", monitor => monitor.RunAsync(CancellationToken.None), Cron.Minutely());
+            jobs.AddOrUpdate<DeviceSignalsRetentionJob>(
+                "device-signals-retention", job => job.RunAsync(CancellationToken.None), Cron.Daily(2));
         }
         catch (Exception ex)
         {

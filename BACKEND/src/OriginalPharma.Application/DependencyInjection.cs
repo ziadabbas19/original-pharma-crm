@@ -15,6 +15,7 @@ using OriginalPharma.Application.Orders;
 using OriginalPharma.Application.Stats;
 using OriginalPharma.Application.Tracking;
 using OriginalPharma.Application.Tracking.Anomalies;
+using OriginalPharma.Application.Tracking.Integrity;
 using OriginalPharma.Application.Visits;
 
 namespace OriginalPharma.Application;
@@ -29,6 +30,7 @@ public static class DependencyInjection
 
         services.Configure<TrackingOptions>(configuration.GetSection(TrackingOptions.SectionName));
         services.Configure<AnomalyDetectionOptions>(configuration.GetSection(AnomalyDetectionOptions.SectionName));
+        services.Configure<LocationTrustOptions>(configuration.GetSection(LocationTrustOptions.SectionName));
         services.Configure<VisitOptions>(configuration.GetSection(VisitOptions.SectionName));
         services.Configure<ImageOptions>(configuration.GetSection(ImageOptions.SectionName));
         services.Configure<StatsOptions>(configuration.GetSection(StatsOptions.SectionName));
@@ -68,6 +70,10 @@ public static class DependencyInjection
         services.AddScoped<ConsentService>();
         services.AddScoped<TrackingQueryService>();
         services.AddScoped<TrackingLostMonitor>();
+        services.AddScoped<LocationTrustSettingsService>();
+        services.AddScoped<IntegrityFlagService>();
+        services.AddScoped<LocationIntegrityService>();
+        services.AddScoped<DeviceSignalsRetentionJob>();
 
         // Visits
         services.AddScoped<VisitService>();

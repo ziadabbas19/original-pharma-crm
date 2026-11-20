@@ -143,6 +143,18 @@ export function RepList({
                         </span>
                       )}
                       {rep.position?.isMock && <span className="text-destructive">{t('liveMap.mock')}</span>}
+                      {!rep.position?.isMock &&
+                        rep.position?.trustStatus &&
+                        rep.position.trustStatus !== 'trusted' && (
+                          <span
+                            className={
+                              rep.position.trustStatus === 'rejected' ? 'text-destructive' : 'text-warning'
+                            }
+                            data-testid="rep-trust"
+                          >
+                            {t(`suspicious.trust.${rep.position.trustStatus}`)}
+                          </span>
+                        )}
                     </div>
                   </div>
                 </button>

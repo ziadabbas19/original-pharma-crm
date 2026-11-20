@@ -7,6 +7,8 @@ import {
   ListChecksIcon,
   PackageIcon,
   ReceiptTextIcon,
+  SettingsIcon,
+  ShieldAlertIcon,
   StethoscopeIcon,
   FlagIcon,
   LayoutDashboardIcon,
@@ -35,7 +37,9 @@ export type AdminPath =
   | '/admin/lookups'
   | '/admin/visits'
   | '/admin/flags'
+  | '/admin/suspicious-activity'
   | '/admin/devices'
+  | '/admin/settings'
 
 export interface AdminNavItem {
   to: AdminPath
@@ -96,6 +100,12 @@ export const ADMIN_NAV: AdminNavSection[] = [
         badge: 'openFlags',
       },
       {
+        to: '/admin/suspicious-activity',
+        label: 'nav.suspicious',
+        icon: ShieldAlertIcon,
+        permission: P.tracking.reviewSuspicious,
+      },
+      {
         to: '/admin/devices',
         label: 'nav.devices',
         icon: SmartphoneIcon,
@@ -111,6 +121,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
       { to: '/admin/roles', label: 'nav.roles', icon: ShieldCheckIcon, permission: P.roles.read },
       { to: '/admin/lookups', label: 'nav.lookups', icon: ListChecksIcon, permission: P.lookups.manage },
       { to: '/admin/activity', label: 'nav.activity', icon: HistoryIcon, permission: P.audit.read },
+      { to: '/admin/settings', label: 'nav.settings', icon: SettingsIcon, permission: P.settings.manage },
     ],
   },
 ]

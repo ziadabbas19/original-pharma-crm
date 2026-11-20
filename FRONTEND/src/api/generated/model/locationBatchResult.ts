@@ -10,4 +10,6 @@ export interface LocationBatchResult {
   outsideShift: number
   anomalyScore: number
   flagged: boolean
+  suspicious?: number
+  rejected?: number
 }

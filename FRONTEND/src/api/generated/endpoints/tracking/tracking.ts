@@ -24,6 +24,8 @@ import type {
   DeviceHealthReportRequest,
   DeviceHealthResult,
   EndShiftRequest,
+  IntegrityEventReport,
+  IntegrityEventReportResult,
   LocationBatchRequest,
   LocationBatchResult,
   RecordConsentRequest,
@@ -843,4 +845,84 @@ export const useTrackingRecordConsent = <TError = unknown, TContext = unknown>(
   TContext
 > => {
   return useMutation(getTrackingRecordConsentMutationOptions(options), queryClient)
+}
+export const getTrackingReportIntegrityEventUrl = () => {
+  return `/api/tracking/integrity-events`
+}
+
+export const trackingReportIntegrityEvent = async (
+  integrityEventReport: IntegrityEventReport,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<IntegrityEventReportResult> => {
+  return apiFetch<IntegrityEventReportResult>(getTrackingReportIntegrityEventUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(integrityEventReport),
+  })
+}
+
+export const getTrackingReportIntegrityEventMutationKey = () => ['trackingReportIntegrityEvent'] as const
+
+export const getTrackingReportIntegrityEventMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof trackingReportIntegrityEvent>>,
+    TError,
+    TrackingReportIntegrityEventMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof trackingReportIntegrityEvent>>,
+  TError,
+  TrackingReportIntegrityEventMutationVariables,
+  TContext
+> => {
+  const mutationKey = getTrackingReportIntegrityEventMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof trackingReportIntegrityEvent>>,
+    TrackingReportIntegrityEventMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return trackingReportIntegrityEvent(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type TrackingReportIntegrityEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof trackingReportIntegrityEvent>>
+>
+export type TrackingReportIntegrityEventMutationBody = IntegrityEventReport
+export type TrackingReportIntegrityEventMutationError = unknown
+export type TrackingReportIntegrityEventMutationVariables = { data: IntegrityEventReport }
+
+export const useTrackingReportIntegrityEvent = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof trackingReportIntegrityEvent>>,
+      TError,
+      TrackingReportIntegrityEventMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof trackingReportIntegrityEvent>>,
+  TError,
+  TrackingReportIntegrityEventMutationVariables,
+  TContext
+> => {
+  return useMutation(getTrackingReportIntegrityEventMutationOptions(options), queryClient)
 }

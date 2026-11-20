@@ -40,6 +40,7 @@ internal sealed class VisitConfiguration : IEntityTypeConfiguration<Visit>
         builder.Property(v => v.CheckInLocation).HasColumnType(GeoColumn.Point).IsRequired();
         builder.Property(v => v.CheckOutLocation).HasColumnType(GeoColumn.Point);
         builder.Property(v => v.Notes).HasMaxLength(2000);
+        builder.Property(v => v.TrustReasons).HasDefaultValueSql("'{}'::text[]");
         builder.HasOne(v => v.Customer).WithMany().HasForeignKey(v => v.CustomerId).OnDelete(DeleteBehavior.Restrict);
         builder.HasMany(v => v.Photos).WithOne().HasForeignKey(p => p.VisitId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(v => v.Feedback).WithOne().HasForeignKey<VisitFeedback>(f => f.VisitId).OnDelete(DeleteBehavior.Cascade);

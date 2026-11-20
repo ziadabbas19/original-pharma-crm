@@ -12,4 +12,5 @@ export interface RepRankRow {
   doctorsCovered: number
   trackingHours: number
   activeDays: number
+  distanceKm?: number
 }

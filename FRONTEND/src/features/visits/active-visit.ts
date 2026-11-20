@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { visitsGet, visitsList } from '@/api/generated/endpoints'
 import type { VisitFeedbackCategory } from '@/api/generated/model'
+import { currentDeviceSignals } from '@/features/integrity/device-signals-sync'
 import { newClientRequestId } from '@/features/orders/order-math'
 import { platform, type GeoFix } from '@/lib/platform'
 import { store } from '@/store'
@@ -122,6 +123,7 @@ export async function startVisit(input: StartVisitInput): Promise<ActiveVisit> {
         accuracy: fix.accuracy,
         timestamp: fix.timestamp,
         isMock,
+        deviceSignals: currentDeviceSignals(),
       },
     },
     ...(photo ? [{ type: 'photo' as const, visitId, photoId: newClientRequestId(), dataUrl: photo }] : []),
@@ -164,6 +166,7 @@ export async function checkOutVisit(visit: ActiveVisit, { fix, notes }: CheckOut
         timestamp: new Date().toISOString(),
         isMock: fix?.isMock ?? false,
         notes: notes?.trim() || null,
+        deviceSignals: currentDeviceSignals(),
       },
     },
   ])

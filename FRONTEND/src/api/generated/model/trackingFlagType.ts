@@ -12,4 +12,6 @@ export const TrackingFlagType = {
   unhealthyDevice: 'unhealthyDevice',
   integrityFailed: 'integrityFailed',
   visitOutsideGeofence: 'visitOutsideGeofence',
+  visitLowTrust: 'visitLowTrust',
+  suspiciousDevice: 'suspiciousDevice',
 } as const

@@ -462,7 +462,8 @@ function DoctorsSection({ params }: { params: StatsParams }) {
   )
 }
 
-type RankMetric = 'orderValue' | 'orders' | 'visits' | 'doctorsCovered' | 'trackingHours' | 'activeDays'
+type RankMetric =
+  'orderValue' | 'orders' | 'visits' | 'doctorsCovered' | 'trackingHours' | 'activeDays' | 'distanceKm'
 const RANK_METRICS: RankMetric[] = [
   'orderValue',
   'orders',
@@ -470,10 +471,15 @@ const RANK_METRICS: RankMetric[] = [
   'doctorsCovered',
   'trackingHours',
   'activeDays',
+  'distanceKm',
 ]
 
+function metricValue(rep: RepRankRow, metric: RankMetric): number {
+  return rep[metric] ?? 0
+}
+
 function rankDisplay(rep: RepRankRow, metric: RankMetric): string {
-  return metric === 'orderValue' ? formatMoney(rep.orderValue) : formatNumber(rep[metric], 1)
+  return metric === 'orderValue' ? formatMoney(rep.orderValue) : formatNumber(metricValue(rep, metric), 1)
 }
 
 function RepsSection({ params }: { params: StatsParams }) {
@@ -483,7 +489,7 @@ function RepsSection({ params }: { params: StatsParams }) {
   return (
     <Section result={result}>
       {(s) => {
-        const ranked = [...s.reps].sort((a, b) => b[metric] - a[metric])
+        const ranked = [...s.reps].sort((a, b) => metricValue(b, metric) - metricValue(a, metric))
         return (
           <>
             <StatCard
@@ -511,7 +517,7 @@ function RepsSection({ params }: { params: StatsParams }) {
                   items={ranked.slice(0, 15).map((rep) => ({
                     key: rep.repId,
                     label: rep.name,
-                    value: rep[metric],
+                    value: metricValue(rep, metric),
                     display: rankDisplay(rep, metric),
                   }))}
                 />
@@ -544,6 +550,7 @@ function RepsSection({ params }: { params: StatsParams }) {
                   </TableBody>
                 </Table>
               </div>
+              <p className="mt-3 text-xs text-muted-foreground">{t('stats.distanceHint')}</p>
             </StatCard>
           </>
         )

@@ -87,6 +87,10 @@ public sealed record DoctorStatsDto(
 
 /// <param name="TrackingHours">Time between "start my day" and "end my day" inside the period.</param>
 /// <param name="ActiveDays">Days with a working day started.</param>
+/// <param name="DistanceKm">
+/// Distance travelled between tracked points, per working day. Rejected (impossible) points never
+/// count; mock points do not count under the "flag and exclude" policy.
+/// </param>
 public sealed record RepRankRow(
     Guid RepId,
     string Name,
@@ -95,7 +99,8 @@ public sealed record RepRankRow(
     int Visits,
     int DoctorsCovered,
     decimal TrackingHours,
-    int ActiveDays);
+    int ActiveDays,
+    decimal DistanceKm = 0);
 
 public sealed record RepStatsDto(StatsRange Range, IReadOnlyList<RepRankRow> Reps);
 
