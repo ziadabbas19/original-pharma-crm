@@ -18,8 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useOrderReferenceData } from '@/features/orders/use-order-data'
-import { ApiError } from '@/lib/api-client'
-import { errorMessage } from '@/lib/errors'
+import { getErrorMessage, restoreError } from '@/lib/errors'
 import { formatDateTime, localizedName } from '@/lib/format'
 import { invalidateApi } from '@/lib/invalidate-api'
 import { readCache, writeCache } from '@/lib/offline-cache'
@@ -141,15 +140,7 @@ export function RepVisitDetailPage() {
     .map((i) => i.payload)
     .find((s): s is CheckInStep => s.type === 'checkIn' && s.visitId === visitId)
   const refusedStep = outbox.failedSteps.find((i) => i.payload.visitId === visitId)
-  const refusedMessage = refusedStep
-    ? errorMessage(
-        new ApiError(refusedStep.payload.error.status, {
-          code: refusedStep.payload.error.code,
-          title: refusedStep.payload.error.title,
-        }),
-        t,
-      )
-    : null
+  const refusedMessage = refusedStep ? getErrorMessage(restoreError(refusedStep.payload.error), t) : null
 
   const unsent = outbox.pending.find((i) => i.payload.visitId === visitId)
   const waiting = unsent !== undefined || outbox.steps.some((i) => i.payload.visitId === visitId)
@@ -219,15 +210,7 @@ export function RepVisitDetailPage() {
           )}
           {refused && (
             <Alert variant="destructive">
-              <AlertDescription>
-                {errorMessage(
-                  new ApiError(refused.payload.error.status, {
-                    code: refused.payload.error.code,
-                    title: refused.payload.error.title,
-                  }),
-                  t,
-                )}
-              </AlertDescription>
+              <AlertDescription>{getErrorMessage(restoreError(refused.payload.error), t)}</AlertDescription>
             </Alert>
           )}
 

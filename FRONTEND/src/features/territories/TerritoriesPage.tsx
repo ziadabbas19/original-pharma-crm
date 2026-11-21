@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { CornerDownLeftIcon, MapPinnedIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { CornerDownLeftIcon, MapPinnedIcon, PencilIcon, PlusIcon, Trash2Icon, WalletIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { territoriesBulkDelete, territoriesBulkRestore, useTerritoriesList } from '@/api/generated/endpoints'
@@ -16,9 +16,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import { usePermission, usePermissionScope } from '@/features/auth/usePermission'
-import { formatNumber, localizedName } from '@/lib/format'
+import { formatMoney, formatNumber, localizedName } from '@/lib/format'
 import { invalidateApi } from '@/lib/invalidate-api'
 import { P } from '@/lib/permissions'
+import { CityExpenseDialog } from './CityExpenseDialog'
 import { TerritoryDialog } from './TerritoryDialog'
 import { flattenTerritories, type TerritoryNode } from './territory-tree'
 
@@ -48,6 +49,8 @@ export function TerritoriesPage() {
   const canDelete = usePermission(P.territories.delete)
   const canRestore = usePermission(P.territories.restore)
   const manageAll = usePermissionScope(P.territories.manage) === 'all'
+  const canSetExpense = usePermission(P.expenses.settings)
+  const [expenseOf, setExpenseOf] = useState<TerritoryDto | null>(null)
   const [search, setSearch] = useState('')
   const [level, setLevel] = useState<'' | TerritoryLevel>('')
   const [editing, setEditing] = useState<Editing | null>(null)
@@ -149,7 +152,19 @@ export function TerritoriesPage() {
             ),
           meta: { className: 'hidden @[44.5rem]:table-cell' },
         }),
-        ...((canManage || canDelete) && !archived
+        column.accessor('defaultDailyExpense', {
+          header: () => t('territories.dailyExpense'),
+          cell: ({ row }) =>
+            row.original.level === 'town' ? (
+              <span className="tabular-nums" data-testid="town-expense">
+                {(row.original.defaultDailyExpense ?? 0) > 0
+                  ? formatMoney(row.original.defaultDailyExpense ?? 0)
+                  : '—'}
+              </span>
+            ) : null,
+          meta: { className: 'text-end' },
+        }),
+        ...((canManage || canDelete || canSetExpense) && !archived
           ? [
               column.display({
                 id: 'actions',
@@ -159,6 +174,19 @@ export function TerritoriesPage() {
                   const child = CHILD_LEVEL[node.level]
                   return (
                     <div className="flex justify-end gap-1">
+                      {canSetExpense && node.level === 'town' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title={t('territories.setDailyExpense')}
+                          aria-label={t('territories.setDailyExpense')}
+                          onClick={() => setExpenseOf(node)}
+                          data-testid="set-town-expense"
+                        >
+                          <WalletIcon />
+                          <span className="hidden @[80rem]:inline">{t('territories.setDailyExpense')}</span>
+                        </Button>
+                      )}
                       {canManage && child && (
                         <Button
                           size="sm"
@@ -200,7 +228,7 @@ export function TerritoriesPage() {
             ]
           : []),
       ]),
-    [t, byId, canManage, canDelete, archived, target],
+    [t, byId, canManage, canDelete, canSetExpense, archived, target],
   )
 
   return (
@@ -268,7 +296,12 @@ export function TerritoriesPage() {
               onChange={setSearch}
               placeholder={t('territories.searchPlaceholder')}
             />
-            <FilterField label={t('territories.level')}>
+            <FilterField
+              label={t('territories.level')}
+              active={level !== ''}
+              display={level ? t(`territories.levels.${level}`) : undefined}
+              onReset={() => setLevel('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -308,6 +341,7 @@ export function TerritoriesPage() {
           onClose={target.close}
         />
       )}
+      {expenseOf && <CityExpenseDialog town={expenseOf} onClose={() => setExpenseOf(null)} />}
       {editing && territories.data && (
         <TerritoryDialog
           key={editing.territory?.id ?? `${editing.level}-${editing.parentId ?? ''}`}

@@ -44,6 +44,7 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { usePermission } from '@/features/auth/usePermission'
 import {
   formatDateTime,
+  formatDay,
   formatDistance,
   formatDuration,
   formatNumber,
@@ -52,10 +53,12 @@ import {
   toDateInputValue,
 } from '@/lib/format'
 import { invalidateApi } from '@/lib/invalidate-api'
+import { cn } from '@/lib/utils'
 import { P } from '@/lib/permissions'
 import { CATEGORY_BADGE, FEEDBACK_CATEGORIES, STATUS_BADGE } from './visit-labels'
 import { distanceCells, locationBadges, mapLink } from './visit-location'
 import { LocationBadges } from './VisitLocationBadges'
+import { RepDayVisits } from './RepDayVisits'
 import { VisitDetailSheet } from './VisitDetailSheet'
 
 const route = getRouteApi('/admin/visits')
@@ -72,7 +75,53 @@ function lastWeek(): { from: string; to: string } {
   return { from: toDateInputValue(new Date(today.getTime() - 6 * DAY_MS)), to: toDateInputValue(today) }
 }
 
+/**
+ * Visits for managers: a date range with filters, or one day at a time for one rep (with that rep's
+ * expenses of the day).
+ */
 export function VisitsPage() {
+  const { t } = useTranslation()
+  const view = route.useSearch().view === 'day' ? 'day' : 'range'
+  const navigate = route.useNavigate()
+  return (
+    <>
+      <PageHeader
+        title={t('visits.title')}
+        description={t('visits.hint')}
+        actions={
+          <div className="inline-flex rounded-control border bg-card p-0.5" role="tablist">
+            {(['range', 'day'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={view === tab}
+                onClick={() =>
+                  void navigate({
+                    search: (s) => ({ ...s, view: tab === 'day' ? 'day' : undefined }),
+                    replace: true,
+                  })
+                }
+                className={cn(
+                  'min-h-11 rounded-[10px] px-4 text-sm font-medium',
+                  view === tab
+                    ? 'bg-primary-soft text-primary'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+                data-testid={`visits-view-${tab}`}
+              >
+                {t(`visits.views.${tab}`)}
+              </button>
+            ))}
+          </div>
+        }
+      />
+      {view === 'day' ? <RepDayVisits /> : <VisitsRangeView />}
+    </>
+  )
+}
+
+function VisitsRangeView() {
   const { t } = useTranslation()
   const [range, setRange] = useState(lastWeek)
   const [status, setStatus] = useState<'' | VisitStatus>('')
@@ -302,7 +351,6 @@ export function VisitsPage() {
 
   return (
     <>
-      <PageHeader title={t('visits.title')} description={t('visits.hint')} />
       <DataTable
         columns={columns}
         data={rangeValid ? filtered : NO_VISITS}
@@ -353,7 +401,12 @@ export function VisitsPage() {
         toolbar={
           <>
             <SearchInput value={search} onChange={setSearch} placeholder={t('visits.searchPlaceholder')} />
-            <FilterField label={t('visits.from')}>
+            <FilterField
+              label={t('visits.from')}
+              active={range.from !== lastWeek().from}
+              display={`${t('visits.from')} ${formatDay(range.from)}`}
+              onReset={() => setRange((r) => ({ ...r, from: lastWeek().from }))}
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -365,7 +418,12 @@ export function VisitsPage() {
                 />
               )}
             </FilterField>
-            <FilterField label={t('visits.to')}>
+            <FilterField
+              label={t('visits.to')}
+              active={range.to !== lastWeek().to}
+              display={`${t('visits.to')} ${formatDay(range.to)}`}
+              onReset={() => setRange((r) => ({ ...r, to: lastWeek().to }))}
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -377,7 +435,12 @@ export function VisitsPage() {
                 />
               )}
             </FilterField>
-            <FilterField label={t('visits.status')}>
+            <FilterField
+              label={t('visits.status')}
+              active={status !== ''}
+              display={status ? t(`visits.statuses.${status}`) : undefined}
+              onReset={() => setStatus('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -392,7 +455,12 @@ export function VisitsPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('visits.feedback.category')}>
+            <FilterField
+              label={t('visits.feedback.category')}
+              active={category !== ''}
+              display={category ? t(`visits.feedback.categories.${category}`) : undefined}
+              onReset={() => setCategory('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -410,7 +478,15 @@ export function VisitsPage() {
               )}
             </FilterField>
             {canReadProducts && (
-              <FilterField label={t('visits.products.filter')}>
+              <FilterField
+                label={t('visits.products.filter')}
+                active={productId !== ''}
+                display={(() => {
+                  const p = (products.data ?? []).find((x) => x.id === productId)
+                  return p ? localizedName(p.nameEn, p.nameAr) : undefined
+                })()}
+                onReset={() => setProductId('')}
+              >
                 {(id) => (
                   <NativeSelect
                     id={id}

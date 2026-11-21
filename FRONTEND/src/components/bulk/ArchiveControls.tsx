@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { handleError } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/format'
 import { BulkResultSummary } from './BulkResultSummary'
@@ -96,7 +97,7 @@ export function RestoreSelectedButton({
       const done = await runInBatches(selection.ids, run, { onProgress: setProgress })
       setResult(done)
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'bulk.restore' }))
     } finally {
       setBusy(false)
     }

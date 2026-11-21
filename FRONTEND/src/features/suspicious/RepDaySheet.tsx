@@ -8,10 +8,12 @@ import { ErrorState, LoadingState } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { STICKY_FIRST_COLUMN } from '@/components/ui/table'
 import { usePermission } from '@/features/auth/usePermission'
 import { FlagStatusBadge, FlagTypeBadge, ScoreBadge } from '@/features/flags/flag-display'
 import { formatDateTime, formatDay, formatDistance, formatTime, localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
+import { cn } from '@/lib/utils'
 import { AcknowledgeEventDialog } from './AcknowledgeEventDialog'
 import { canAcknowledge, eventTarget, type RepDayGroup } from './suspicious-logic'
 import { ReasonBadges, TrustBadge } from './trust-display'
@@ -183,7 +185,7 @@ function EventEvidence({ eventId }: { eventId: string }) {
         !visit && <p className="text-sm text-muted-foreground">{t('suspicious.points.none')}</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className={cn('w-full text-sm', STICKY_FIRST_COLUMN)}>
             <thead className="text-xs text-muted-foreground">
               <tr className="text-start">
                 <th className="py-1 pe-3 text-start font-medium">{t('suspicious.points.time')}</th>

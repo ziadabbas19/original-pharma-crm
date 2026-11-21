@@ -40,4 +40,10 @@ export interface VisitListItemDto {
   /** @nullable */
   archivedAt?: string | null
   location?: null | VisitLocationDto
+  /** @nullable */
+  customerTerritoryId?: string | null
+  /** @nullable */
+  customerTerritoryName?: string | null
+  /** @nullable */
+  customerTerritoryNameAr?: string | null
 }

@@ -55,7 +55,9 @@ Api → Infrastructure → Application → Domain.
 
 ## Authentication
 
-Short-lived JWT access tokens (15 min) plus rotating refresh tokens (30 days, stored hashed).
+Short-lived JWT access tokens (15 min) plus rotating refresh tokens (stored hashed). Every user, whatever
+the role, stays signed in on a device for 30 days after its last use, at most 90 days after the password
+login (`Auth__SessionDays`, `Auth__SessionMaxDays`).
 
 | | Web dashboard / PWA | Native app |
 | --- | --- | --- |
@@ -63,8 +65,28 @@ Short-lived JWT access tokens (15 min) plus rotating refresh tokens (30 days, st
 | Refresh token | httpOnly, Secure, SameSite=Strict cookie, path `/api/auth` | returned in the body, kept in Android Keystore (secure storage) |
 | Refresh call | `POST /api/auth/refresh {client:"web"}` (cookie) | `POST /api/auth/refresh {client:"native", refreshToken}` |
 
-- Every login starts a token **family**. Using an already-rotated token revokes the
-  whole family (theft detection), except within a 30 s grace window for parallel refreshes.
+### Sessions
+
+- Every password login starts a **session** (`user_sessions`): one device, with its name, last use,
+  sliding expiry and hard limit. Its id is the refresh-token family id and the `sid` claim.
+- Each refresh rotates the refresh token and slides the session to 30 days from now, never past
+  90 days from the login. A device that is not used for 30 days, or reaches 90 days, needs the password.
+- Rotation keeps reuse detection: presenting an already-replaced token ends the session, except
+  within `Auth__RefreshReuseGraceSeconds` (10 s) of its replacement, so two refreshes sent together
+  from one device (the app waking up with several requests in flight) both succeed.
+- A session ends at once (refresh tokens revoked, and the session id put on a short-lived revocation
+  list in Redis that the JWT check reads, so access tokens already issued stop working too) when the
+  user signs out (that device only), changes the password (every other device), has the password
+  reset by someone above them, is deactivated or deleted, or one device is signed out from the
+  device list. Ending a phone's session also ends its background uploader session.
+- `GET /api/account/sessions` and `DELETE /api/account/sessions/{id}` list and sign out your own
+  devices; `GET/DELETE /api/users/{id}/sessions[/{sessionId}]` do the same for someone you may reset
+  the password of (`users:reset-password`, in scope and below you), for a lost or stolen phone.
+  There is no screen for these yet. Each sign-out is written to the user audit trail.
+- The clients refresh on open, on return to the foreground (when the access token is about to run
+  out) and on a 401. All waiting requests share one refresh. Only a 401 from the refresh ends the
+  session; offline, timeouts, 5xx and rate limits keep it and the refresh is tried again later.
+
 - The native **background uploader** gets its own family via
   `POST /api/auth/background-session`, so the app and the uploader never rotate each
   other's tokens. The plugin refreshes natively through `POST /api/auth/refresh-native`.
@@ -77,7 +99,7 @@ Short-lived JWT access tokens (15 min) plus rotating refresh tokens (30 days, st
   signing out, and the apps show `/change-password`. Account events are written to
   `user_audit_entries` (`GET /api/users/{id}/audit`).
 - No network at start-up: the rep app restores the last profile and grants from the device
-  and keeps the stored refresh token; only a refused refresh (4xx) signs the user out.
+  and keeps the stored refresh token; only a refused refresh (401) signs the user out.
 
 ## Permissions
 
@@ -434,10 +456,88 @@ Scaling notes: `location_points` will be the largest table; partition by month (
 TimescaleDB) and move inserts to `COPY` / `ON CONFLICT DO NOTHING` when volume grows.
 Enable `SignalR:UseRedisBackplane` when running more than one API instance.
 
+## Visits by day and daily expenses
+
+Days are Egypt days (`Stats__TimeZone`, Africa/Cairo with daylight saving) on both sides:
+`LocalCalendar` on the server, `lib/egypt-day.ts` in the clients.
+
+- `GET /api/visits?day=yyyy-MM-dd&limit=` lists one day (instead of from/to); the list items carry
+  the doctor's town. The rep's Visits screen and the managers' "By day" view of Visits use a day
+  picker (previous, next, Today, a calendar for any date); the chosen day stays in the address.
+- Each town has a default daily expense (`territories.default_daily_expense`, EGP, set from Areas &
+  towns with `expenses:settings`). The first visit of a rep in a town on a day creates that town's
+  line (`expense_lines`, source auto, `original_amount` = the default) in one
+  `INSERT ... ON CONFLICT DO NOTHING` against a partial unique index (rep, day, town) of automatic
+  lines, so simultaneous first visits make one line, and a line the rep removed (archived) or added
+  by hand is never duplicated. Towns with no amount, and visits without a town, create nothing.
+- Reps (`expenses:read-own`, `expenses:write-own`) change their own lines and notes from today back
+  `Expenses__EditableDays` days (45); never for a day still to come (day notes may be written ahead).
+  Managers read their scope (`expenses:read`, scoped like visits) and, with `expenses:manage`,
+  change any past day of the reps in scope and write a manager note. Every create, change, removal
+  and note is written to the activity log with the values before and after.
+- The rep app queues its own changes in the device outbox (`expense-outbox.ts`) like visits and
+  orders; each change carries the time it was made and the server keeps the latest change of each
+  field of a line, so an amount changed on one device never undoes a note written on another.
+- Month totals are always summed from the current lines of the calendar month's days (1st to last,
+  Egypt days): a change made later counts in the month of the line's day. `GET /api/expenses/day`,
+  `/month`, `/month-report` and the range report give day, month, per rep, per city and per day
+  totals; `/export` and `/statement` give CSV (one rep or every rep in scope).
+
+## Phones (every role)
+
+The Android app and the web app on a phone open the same experience for the same person:
+
+- People who manage others (`canUseDashboard`) get the management screens; everyone else the rep app.
+  Field work is recognised by `tracking:report` / `visits:create` held at scope `own` (the admin role
+  holds every permission at scope `all` and is not a field user). Someone with both sees their own
+  field pages under "My field work" in the More menu, and a Management entry in the rep Account tab.
+- Below 768 px the management shell replaces the sidebar with a floating bottom bar: the four most
+  used pages the role may open (`phoneTabs` in `admin-nav.ts`) and More, a full-screen menu with every
+  other page, the profile, theme, language and sign-out.
+- `DataTable` shows rows as cards on phones (title column, labelled fields, a sort picker, select all)
+  with the row actions in a bottom-sheet menu. Filters (`FilterField` in a toolbar or `FilterBar`) move
+  into a bottom sheet with Reset and Apply and show as removable chips. The bulk selection bar sits
+  above the bottom bar. Tables with many numeric columns (permission matrix, statistics tables, a rep's
+  points, a doctor's visit locations) stay tables that scroll inside their own box with a sticky
+  first column.
+- Dialogs are bottom sheets on phones with the buttons pinned at the bottom; inputs, selects and
+  buttons are 44 px tall and checkboxes have a 44 px touch area. The live map keeps the full width
+  and the selected rep's details slide up over it.
+- Exports go through `lib/export-file.ts`: a download in a browser; in the Android app the local
+  `FileSharePlugin` opens Android's "Save as" screen (or the share sheet).
+- Location tracking, the tracking setup, health checks and warnings run only for people who track
+  (`tracksLocation`); `applyCollection` refuses to start the tracker for anyone else.
+- Offline, management screens keep the last loaded data under an offline notice, and changes fail at
+  once with the "no connection" message instead of waiting.
+
 ## Errors and validation
 
 - FluentValidation runs for every action argument (filter); failures return 400
   `ValidationProblemDetails` with camelCase field paths.
 - Expected errors are typed (`NotFound`, `Forbidden`, `Conflict`, `BusinessRule`, ...)
   and returned as ProblemDetails with a stable `code` (e.g. `consent-required`,
-  `outside-geofence`) that the clients translate.
+  `outside-geofence`) that the clients translate. Every body carries `traceId`.
+- Business-rule (422) and conflict (409) titles are written for users and carry
+  `safeToShow: true`; every other title is for developers and is never shown as it is.
+
+### In the clients
+
+`FRONTEND/src/lib/errors/error-handler.ts` is the only code that interprets failed requests
+for display:
+
+- `normalizeError` turns anything thrown into an `AppError` with a `kind` (`network`, `timeout`,
+  `unauthorized`, `forbidden`, `notFound`, `conflict`, `validation`, `rateLimited`, `server`,
+  `cancelled`, `unknown`), the status, code, field errors, `traceId` and whether a retry can help.
+- `getErrorMessage` gives the text: the translation of the problem code (`errors.<code>`), else a
+  title marked `safeToShow`, else the generic text of the kind (`errors.kind.<kind>`). Server and
+  unexpected failures also show the `traceId` as a reference the user can quote.
+- `handleError` logs (development builds only, without bodies or tokens) and shows one toast;
+  identical toasts within 2 s are merged and offline toasts appear at most every 15 s.
+- TanStack Query routes failures through it: queries toast only when there is no cached data to
+  show, mutations always unless `meta.silent`. Forms and dialogs show the error inline instead
+  (`inlineErrors` on the mutation hook, `useFormErrors` / `applyFieldErrors` for field messages).
+- 401 stays with the session refresh in `lib/api-client.ts`: an error only reaches the handler
+  as `unauthorized` after the refresh failed for good, and the handler never redirects. 403 is a
+  message, not a redirect.
+- `<ErrorState>`, `<FormError>` and the router's error and not-found screens all render from
+  the handler's output.

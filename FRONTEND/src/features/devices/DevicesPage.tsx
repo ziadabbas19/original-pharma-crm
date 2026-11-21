@@ -261,7 +261,12 @@ export function DevicesPage() {
         toolbar={
           <>
             <SearchInput value={search} onChange={setSearch} placeholder={t('devices.searchPlaceholder')} />
-            <FilterField label={t('devices.health')}>
+            <FilterField
+              label={t('devices.health')}
+              active={health !== 'all'}
+              display={health === 'unhealthy' ? t('devices.needsAttention') : t('devices.healthy')}
+              onReset={() => setHealth('all')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -275,7 +280,12 @@ export function DevicesPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('devices.platform')}>
+            <FilterField
+              label={t('devices.platform')}
+              active={platform !== ''}
+              display={platform ? t(`devices.platforms.${platform}`) : undefined}
+              onReset={() => setPlatform('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}

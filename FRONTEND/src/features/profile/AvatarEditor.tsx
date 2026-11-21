@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { UserAvatar } from '@/components/UserAvatar'
-import { UserFacingError } from '@/lib/errors'
+import { UserFacingError, handleError, inlineErrors } from '@/lib/errors'
 import { loadMe } from '@/lib/session'
 import { useAppSelector } from '@/store'
 import { SquareCropper } from './SquareCropper'
@@ -30,8 +30,8 @@ export function AvatarEditor() {
   const [file, setFile] = useState<File | null>(null)
   const [crop, setCrop] = useState<(() => Promise<Blob>) | null>(null)
   const [error, setError] = useState<unknown>(null)
-  const upload = useAccountSetAvatar()
-  const remove = useAccountRemoveAvatar()
+  const upload = useAccountSetAvatar(inlineErrors)
+  const remove = useAccountRemoveAvatar(inlineErrors)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const onReady = useCallback((fn: (() => Promise<Blob>) | null) => setCrop(() => fn), [])
 
@@ -55,7 +55,7 @@ export function AvatarEditor() {
       await loadMe()
       setFile(null)
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'account.avatar' }))
     }
   }
 
@@ -65,7 +65,7 @@ export function AvatarEditor() {
       await remove.mutateAsync()
       await loadMe()
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'account.avatar' }))
     }
   }
 

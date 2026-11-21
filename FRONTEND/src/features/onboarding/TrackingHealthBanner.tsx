@@ -17,7 +17,11 @@ export function TrackingHealthBanner() {
   if (!completed || issues.length === 0) return null
 
   return (
-    <Alert variant="warning" className="rounded-none border-x-0 border-t-0">
+    <Alert
+      variant="warning"
+      className="rounded-none border-x-0 border-t-0"
+      data-testid="tracking-health-banner"
+    >
       <AlertTriangleIcon />
       <AlertTitle>{t('health.banner')}</AlertTitle>
       <AlertDescription>

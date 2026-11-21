@@ -14,11 +14,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { handleError, inlineErrors } from '@/lib/errors'
 
 /** Sets a generated temporary password for someone below you and shows it once. */
 export function ResetPasswordDialog({ user, onClose }: { user: UserListItemDto; onClose: () => void }) {
   const { t } = useTranslation()
-  const reset = useUsersResetPassword()
+  const reset = useUsersResetPassword(inlineErrors)
   const [password, setPassword] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<unknown>(null)
@@ -71,7 +72,7 @@ export function ResetPasswordDialog({ user, onClose }: { user: UserListItemDto; 
                   try {
                     setPassword((await reset.mutateAsync({ userId: user.id, data: {} })).temporaryPassword)
                   } catch (e) {
-                    setError(e)
+                    setError(handleError(e, { silent: true, context: 'users.resetPassword' }))
                   }
                 }}
               >

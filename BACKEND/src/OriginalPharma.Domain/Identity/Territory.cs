@@ -33,6 +33,12 @@ public class Territory : Entity
     public Guid? ParentId { get; set; }
     public Territory? Parent { get; set; }
 
+    /// <summary>
+    /// Daily expense of a rep working in this city (EGP; zero means none). The first visit of a day in
+    /// the city creates an expense line with this amount.
+    /// </summary>
+    public decimal DefaultDailyExpense { get; set; }
+
     /// <summary>Deleted while doctors, orders or visits still point at it: hidden from pickers, kept for history.</summary>
     public DateTimeOffset? ArchivedAt { get; set; }
     public ICollection<Territory> Children { get; set; } = new List<Territory>();

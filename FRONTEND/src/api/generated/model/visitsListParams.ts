@@ -17,4 +17,6 @@ export type VisitsListParams = {
   hasFeedback?: boolean
   archived?: boolean
   locationDrift?: boolean
+  day?: string
+  limit?: number
 }

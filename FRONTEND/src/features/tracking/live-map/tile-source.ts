@@ -19,7 +19,7 @@ const DEVELOPMENT_SOURCE: TileSource = {
   tileSize: 256,
   maxzoom: 19,
   attribution:
-    '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
+    'Map data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
 }
 
 function numberOr(value: string | undefined, fallback: number): number {

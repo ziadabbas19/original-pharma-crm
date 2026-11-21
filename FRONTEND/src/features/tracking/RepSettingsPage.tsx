@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   InfoIcon,
   KeyRoundIcon,
+  LayoutDashboardIcon,
   LogOutIcon,
   MapPinIcon,
   ReceiptTextIcon,
@@ -29,7 +30,7 @@ import { Separator } from '@/components/ui/separator'
 import { platform, type AppInfo } from '@/lib/platform'
 import { usePermission } from '@/features/auth/usePermission'
 import { useOrderOutbox } from '@/features/orders/order-outbox'
-import { P } from '@/lib/permissions'
+import { canUseDashboard, P, tracksLocation } from '@/lib/permissions'
 import { accountStatus } from './account-status'
 import { collectionMode } from './collection'
 import { logout } from '@/lib/session'
@@ -47,6 +48,9 @@ export function RepSettingsPage() {
   const outbox = useOrderOutbox()
   const ordersWaiting = outbox.pending.length + outbox.failed.length
   const canSeeStats = usePermission(P.stats.read)
+  const granted = useAppSelector((s) => s.permissions.byKey)
+  const tracks = tracksLocation(granted)
+  const manages = canUseDashboard(granted)
   // Re-read when the server's config arrives (collectionMode falls back to the copy on the device).
   const configMode = useAppSelector((s) => s.tracking.config?.collectionMode)
   const visitOnly = (configMode ?? collectionMode()) === 'visitOnly'
@@ -86,13 +90,19 @@ export function RepSettingsPage() {
         </Card>
       )}
 
-      <Card className="gap-0 py-0" data-testid="account-status">
-        <StatusRow icon={MapPinIcon} label={t('settings.status.location')} state={status.location} />
-        <Separator />
-        <StatusRow icon={BellIcon} label={t('settings.status.notifications')} state={status.notifications} />
-      </Card>
+      {tracks && (
+        <Card className="gap-0 py-0" data-testid="account-status">
+          <StatusRow icon={MapPinIcon} label={t('settings.status.location')} state={status.location} />
+          <Separator />
+          <StatusRow
+            icon={BellIcon}
+            label={t('settings.status.notifications')}
+            state={status.notifications}
+          />
+        </Card>
+      )}
 
-      {visitOnly && (
+      {tracks && visitOnly && (
         <p
           className="flex items-start gap-2 px-1 text-sm text-muted-foreground"
           data-testid="visit-only-note"
@@ -102,12 +112,26 @@ export function RepSettingsPage() {
         </p>
       )}
 
-      <Alert variant="info">
-        <InfoIcon />
-        <AlertDescription>{t('settings.status.note')}</AlertDescription>
-      </Alert>
+      {tracks && (
+        <Alert variant="info">
+          <InfoIcon />
+          <AlertDescription>{t('settings.status.note')}</AlertDescription>
+        </Alert>
+      )}
 
       <Card className="gap-0 py-0" data-testid="account-menu">
+        {manages && (
+          <>
+            <MenuLink
+              to="/admin"
+              icon={LayoutDashboardIcon}
+              title={t('nav.management')}
+              hint={t('nav.managementHint')}
+              chevron={Chevron}
+            />
+            <Separator />
+          </>
+        )}
         <MenuLink
           to="/rep/orders"
           icon={ReceiptTextIcon}
@@ -120,9 +144,9 @@ export function RepSettingsPage() {
           chevron={Chevron}
           attention={ordersWaiting > 0}
         />
-        <Separator />
         {canSeeStats && (
           <>
+            <Separator />
             <MenuLink
               to="/rep/statistics"
               icon={BarChart3Icon}
@@ -130,25 +154,29 @@ export function RepSettingsPage() {
               hint={t('settings.statsHint')}
               chevron={Chevron}
             />
-            <Separator />
           </>
         )}
-        <MenuLink
-          to="/rep/onboarding"
-          icon={WrenchIcon}
-          title={t('settings.trackingSetup')}
-          hint={t('settings.trackingSetupHint')}
-          chevron={Chevron}
-        />
-        <Separator />
-        <MenuLink
-          to="/rep/tracking-health"
-          icon={ActivityIcon}
-          title={t('settings.trackingHealth')}
-          hint={t('settings.trackingHealthHint')}
-          chevron={Chevron}
-          attention={issues.length > 0}
-        />
+        {tracks && (
+          <>
+            <Separator />
+            <MenuLink
+              to="/rep/onboarding"
+              icon={WrenchIcon}
+              title={t('settings.trackingSetup')}
+              hint={t('settings.trackingSetupHint')}
+              chevron={Chevron}
+            />
+            <Separator />
+            <MenuLink
+              to="/rep/tracking-health"
+              icon={ActivityIcon}
+              title={t('settings.trackingHealth')}
+              hint={t('settings.trackingHealthHint')}
+              chevron={Chevron}
+              attention={issues.length > 0}
+            />
+          </>
+        )}
       </Card>
 
       <Card className="gap-0 py-0">
@@ -235,7 +263,7 @@ function MenuLink({
   chevron: Chevron,
   attention = false,
 }: {
-  to: '/rep/onboarding' | '/rep/tracking-health' | '/rep/orders' | '/rep/statistics'
+  to: '/rep/onboarding' | '/rep/tracking-health' | '/rep/orders' | '/rep/statistics' | '/admin'
   icon: LucideIcon
   title: string
   hint: string

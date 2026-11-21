@@ -10,6 +10,7 @@ import {
   SmartphoneIcon,
   TimerIcon,
   UsersIcon,
+  WalletIcon,
   type LucideIcon,
 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
@@ -19,6 +20,7 @@ import {
   useTrackingMonitorGetFlags,
   useTrackingMonitorGetPresence,
   useVisitsList,
+  useExpensesMonthReport,
 } from '@/api/generated/endpoints'
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/components/states'
@@ -31,7 +33,8 @@ import { ReasonBadges } from '@/features/suspicious/trust-display'
 import { liveStatusOf, type LiveStatus } from '@/features/tracking/live-status'
 import { LiveStatusDot } from '@/features/tracking/LiveStatusBadge'
 import { useNow } from '@/hooks/use-now'
-import { formatNumber, formatRelative } from '@/lib/format'
+import { egyptToday, monthOf } from '@/lib/egypt-day'
+import { formatMoney, formatMonth, formatNumber, formatRelative } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import { useAppSelector } from '@/store'
@@ -60,6 +63,7 @@ export function DashboardPage() {
   const canReadVisits = usePermission(P.visits.read)
   const canReadDevices = usePermission(P.devices.read)
   const canReviewSuspicious = usePermission(P.tracking.reviewSuspicious)
+  const canReadExpenses = usePermission(P.expenses.read)
 
   return (
     <>
@@ -69,6 +73,7 @@ export function DashboardPage() {
       />
       <div className="space-y-4">
         {canViewLive && <LiveStats canReviewFlags={canReviewFlags} canReadDevices={canReadDevices} />}
+        {canReadExpenses && <MonthExpensesKpi />}
         <div className="grid stagger-children gap-4 xl:grid-cols-3">
           {canViewLive && <NeedsAttention />}
           {canReviewFlags && <LatestFlags />}
@@ -152,6 +157,40 @@ function LiveStats({ canReviewFlags, canReadDevices }: { canReviewFlags: boolean
   )
 }
 
+/** This calendar month's expenses of everyone in scope, with a link to the month view. */
+function MonthExpensesKpi() {
+  const { t } = useTranslation()
+  const month = monthOf(egyptToday())
+  const report = useExpensesMonthReport({ month }, { query: { staleTime: 60_000 } })
+  return (
+    <Link
+      to="/admin/expenses"
+      search={{ view: 'month' }}
+      className="block rounded-card"
+      data-testid="dashboard-expenses"
+    >
+      <Card className="flex-row items-center gap-3 px-4 py-4 transition-colors hover:border-primary/40 hover:bg-accent/40">
+        <span className="flex size-10 items-center justify-center rounded-[12px] bg-primary-soft text-primary-soft-foreground">
+          <WalletIcon className="size-5" aria-hidden />
+        </span>
+        <span className="grid min-w-0 flex-1 leading-tight">
+          <span className="text-label font-semibold text-muted-foreground">
+            {t('expenses.dashboardTitle')}
+          </span>
+          <span className="text-xs text-muted-foreground">{formatMonth(month)}</span>
+        </span>
+        {report.isLoading ? (
+          <Skeleton className="h-7 w-24" />
+        ) : (
+          <span className="text-xl font-bold tabular-nums">
+            {report.data ? formatMoney(report.data.total) : '—'}
+          </span>
+        )}
+      </Card>
+    </Link>
+  )
+}
+
 const TONE: Record<'success' | 'warning' | 'destructive', string> = {
   success: 'bg-success-soft text-success',
   warning: 'bg-warning-soft text-warning-soft-foreground',
@@ -192,7 +231,7 @@ function Stat({
           <span className={cn('flex size-8 items-center justify-center rounded-[10px]', TONE[tone])}>
             <Icon className="size-4" />
           </span>
-          <span className="truncate">{label}</span>
+          <span className="min-w-0 leading-tight">{label}</span>
         </CardDescription>
         {loading ? (
           <Skeleton className="h-10 w-16" />

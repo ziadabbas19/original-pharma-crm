@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { handleError, inlineErrors } from '@/lib/errors'
 import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -42,7 +43,7 @@ export function AssignDoctorsDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const assign = useDoctorsAssign()
+  const assign = useDoctorsAssign(inlineErrors)
   const [mode, setMode] = useState<AssignMode>(fromRepId ? 'move' : 'copy')
   const [from, setFrom] = useState(fromRepId ?? '')
   const [to, setTo] = useState('')
@@ -68,7 +69,7 @@ export function AssignDoctorsDialog({
       setResult(done)
       onDone()
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'doctors.assign' }))
     }
   }
 

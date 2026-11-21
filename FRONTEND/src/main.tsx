@@ -1,12 +1,15 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import '@/lib/i18n'
+import i18n from '@/lib/i18n'
 import { App } from '@/app/App'
 import { router } from '@/app/router'
+import { configureErrorHandler } from '@/lib/errors'
+import { formatPercent } from '@/lib/format'
 import { isNativePlatform, loadPlatform } from '@/lib/platform'
 import { connectApiClient } from '@/lib/session'
 import { initTheme } from '@/lib/theme'
+import { toast } from '@/lib/toast'
 
 const CHUNK_RELOAD_KEY = 'op.chunkReloadAt'
 
@@ -29,6 +32,12 @@ window.addEventListener('vite:preloadError', (event) => {
 async function start() {
   await loadPlatform()
   initTheme()
+  configureErrorHandler({
+    translate: (key, options) => i18n.t(key, options ?? {}),
+    notify: (request) => void toast.show(request),
+    isDev: import.meta.env.DEV,
+    formatPercent,
+  })
   connectApiClient(
     () => void router.navigate({ to: '/login' }),
     () => void router.navigate({ to: '/change-password' }),

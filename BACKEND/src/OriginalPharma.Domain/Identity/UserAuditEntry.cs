@@ -22,6 +22,9 @@ public enum UserAuditAction
     Deleted = 8,
 
     RolesChanged = 9,
+
+    /// <summary>One signed-in device was signed out by the user or someone above them.</summary>
+    SessionRevoked = 10,
 }
 
 /// <summary>

@@ -22,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { inlineErrors } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import {
@@ -47,7 +48,7 @@ export function RepHomeSettingsSection() {
 function RepHomeForm({ settings }: { settings: RepHomeSettingsDto }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const save = useRepHomeSettingsUpdateRepHome()
+  const save = useRepHomeSettingsUpdateRepHome(inlineErrors)
   const [draft, setDraft] = useState<RepHomeConfig>(() => normalizeRepHome(settings))
   const [target, setTarget] = useState(String(normalizeRepHome(settings).dailyVisitTarget))
   const [saved, setSaved] = useState(false)

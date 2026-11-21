@@ -4,6 +4,7 @@ using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
+using OriginalPharma.Domain.Expenses;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Orders;
@@ -24,6 +25,7 @@ public interface IAppDbContext
     DbSet<RoleAuditEntry> RoleAuditEntries { get; }
     DbSet<UserAuditEntry> UserAuditEntries { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<UserSession> UserSessions { get; }
     DbSet<Territory> Territories { get; }
 
     DbSet<Customer> Customers { get; }
@@ -38,6 +40,9 @@ public interface IAppDbContext
     DbSet<Order> Orders { get; }
     DbSet<OrderLine> OrderLines { get; }
     DbSet<OrderHistoryEntry> OrderHistory { get; }
+
+    DbSet<ExpenseLine> ExpenseLines { get; }
+    DbSet<ExpenseDay> ExpenseDays { get; }
 
     DbSet<Visit> Visits { get; }
     DbSet<VisitPhoto> VisitPhotos { get; }
@@ -56,6 +61,12 @@ public interface IAppDbContext
     DbSet<Device> Devices { get; }
     DbSet<DeviceHealthReport> DeviceHealthReports { get; }
     DbSet<TrackingConsent> TrackingConsents { get; }
+
+    /// <summary>
+    /// Runs one SQL statement (values become parameters) for the few changes EF cannot express, such as
+    /// an atomic "insert unless present". Returns the number of rows affected.
+    /// </summary>
+    Task<int> ExecuteSqlAsync(FormattableString sql, CancellationToken cancellationToken = default);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

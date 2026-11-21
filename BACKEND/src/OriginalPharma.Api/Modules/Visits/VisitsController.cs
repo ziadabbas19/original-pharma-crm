@@ -32,8 +32,11 @@ public sealed class VisitsController(VisitService visits) : ControllerBase
         [FromQuery] VisitFeedbackCategory? feedbackCategory = null,
         [FromQuery] bool? hasFeedback = null,
         [FromQuery] bool archived = false,
-        [FromQuery] bool? locationDrift = null) =>
-        visits.ListAsync(from, to, userId, status, needsReview, cancellationToken, mine, productId, feedbackCategory, hasFeedback, archived, locationDrift);
+        [FromQuery] bool? locationDrift = null,
+        [FromQuery] DateOnly? day = null,
+        [FromQuery] int? limit = null) =>
+        visits.ListAsync(from, to, userId, status, needsReview, cancellationToken, mine, productId, feedbackCategory, hasFeedback, archived,
+            locationDrift, day, limit);
 
     /// <summary>The verification rules of this server (accuracy limit, geofence allowance, edit window).</summary>
     [HttpGet("rules")]

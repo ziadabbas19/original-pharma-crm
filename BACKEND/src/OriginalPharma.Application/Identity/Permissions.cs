@@ -133,6 +133,24 @@ public static class Permissions
         public const string Restore = "visits:restore";
     }
 
+    public static class Expenses
+    {
+        /// <summary>See your own daily expenses and monthly totals.</summary>
+        public const string ReadOwn = "expenses:read-own";
+
+        /// <summary>Change your own daily expenses and notes, within the editable window (Expenses:EditableDays).</summary>
+        public const string WriteOwn = "expenses:write-own";
+
+        /// <summary>See reps' expenses, day by day and per month, within scope (like visits).</summary>
+        public const string Read = "expenses:read";
+
+        /// <summary>Edit or remove reps' expense lines on any day and write manager notes, within scope.</summary>
+        public const string Manage = "expenses:manage";
+
+        /// <summary>Set each city's default daily amount.</summary>
+        public const string Settings = "expenses:settings";
+    }
+
     public static class Tracking
     {
         /// <summary>Send own location, start/end shift, report device health.</summary>
@@ -221,6 +239,11 @@ public static class Permissions
         new(Visits.Feedback, "Write visit feedback and products discussed"),
         new(Visits.Delete, "Delete visits (archived)"),
         new(Visits.Restore, "Restore archived visits"),
+        new(Expenses.ReadOwn, "See own daily expenses"),
+        new(Expenses.WriteOwn, "Change own daily expenses and notes"),
+        new(Expenses.Read, "See reps' daily and monthly expenses"),
+        new(Expenses.Manage, "Edit reps' expenses on any day and add manager notes"),
+        new(Expenses.Settings, "Set each city's default daily expense"),
         new(Tracking.Report, "Send own location and device health"),
         new(Tracking.ViewLive, "See live locations and request live view"),
         new(Tracking.History, "View location history"),
@@ -276,7 +299,7 @@ public static class DefaultRoles
             Permissions.Orders.Deliver, Permissions.Orders.Delete, Permissions.Orders.Restore,
             Permissions.Customers.Delete, Permissions.Customers.Restore, Permissions.Lookups.Delete, Permissions.Lookups.Restore,
             Permissions.Products.Delete, Permissions.Products.Restore, Permissions.Stats.Read, Permissions.Stats.Export,
-            Permissions.Audit.Read)),
+            Permissions.Audit.Read, Permissions.Expenses.Read)),
         new(AreaManager, "مدير المنطقة", "Area manager", "Area manager", 20,
         [
             .. Grants(PermissionScope.Territory,
@@ -285,7 +308,7 @@ public static class DefaultRoles
                 Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Tracking.ReviewSuspicious,
                 Permissions.Devices.Read, Permissions.Reports.Read, Permissions.Orders.Read, Permissions.Orders.Manage, Permissions.Orders.Deliver,
                 Permissions.Orders.Delete, Permissions.Orders.Restore, Permissions.Customers.Delete, Permissions.Customers.Restore,
-                Permissions.Stats.Read, Permissions.Stats.Export),
+                Permissions.Stats.Read, Permissions.Stats.Export, Permissions.Expenses.Read),
             .. Grants(PermissionScope.All, Permissions.Products.Read),
         ]),
         new(Supervisor, "مشرف", "Supervisor", "Supervisor", 30,
@@ -295,7 +318,7 @@ public static class DefaultRoles
                 Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Tracking.ReviewSuspicious,
                 Permissions.Devices.Read, Permissions.Reports.Read, Permissions.Customers.Read, Permissions.Customers.Assign,
                 Permissions.Orders.Read, Permissions.Orders.Manage, Permissions.Orders.Deliver,
-                Permissions.Stats.Read, Permissions.Stats.Export),
+                Permissions.Stats.Read, Permissions.Stats.Export, Permissions.Expenses.Read),
             .. Grants(PermissionScope.Territory, Permissions.Territories.Read),
             .. Grants(PermissionScope.All, Permissions.Products.Read),
         ]),
@@ -305,7 +328,8 @@ public static class DefaultRoles
                 Permissions.Visits.Read, Permissions.Visits.Create, Permissions.Tracking.Report,
                 Permissions.Tracking.History, Permissions.Reports.Read, Permissions.Customers.Read,
                 Permissions.Customers.Create, Permissions.Orders.Create, Permissions.Orders.Read,
-                Permissions.Visits.Feedback, Permissions.Stats.Read),
+                Permissions.Visits.Feedback, Permissions.Stats.Read, Permissions.Expenses.ReadOwn,
+                Permissions.Expenses.WriteOwn),
             .. Grants(PermissionScope.All, Permissions.Products.Read),
         ]),
     ];

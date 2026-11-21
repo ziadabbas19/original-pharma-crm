@@ -34,6 +34,7 @@ import type {
   UpdateUserRequest,
   UserAuditEntryDto,
   UserListItemDto,
+  UserSessionDto,
   UsersGetAuditParams,
   UsersListParams,
 } from '../../model'
@@ -672,6 +673,185 @@ export const useUsersResetPassword = <TError = unknown, TContext = unknown>(
   TContext
 > => {
   return useMutation(getUsersResetPasswordMutationOptions(options), queryClient)
+}
+export const getUsersListSessionsUrl = (userId: string) => {
+  return `/api/users/${userId}/sessions`
+}
+
+export const usersListSessions = async (
+  userId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<UserSessionDto[]> => {
+  return apiFetch<UserSessionDto[]>(getUsersListSessionsUrl(userId), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getUsersListSessionsQueryKey = (userId: string) => {
+  return [`/api/users/${userId}/sessions`] as const
+}
+
+export const getUsersListSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof usersListSessions>>,
+  TError = unknown,
+>(
+  userId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersListSessions>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getUsersListSessionsQueryKey(userId)
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof usersListSessions>>> = ({ signal }) =>
+    usersListSessions(userId, { signal, ...requestOptions })
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: userId !== null && userId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof usersListSessions>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+}
+
+export type UsersListSessionsQueryResult = NonNullable<Awaited<ReturnType<typeof usersListSessions>>>
+export type UsersListSessionsQueryError = unknown
+
+export function useUsersListSessions<TData = Awaited<ReturnType<typeof usersListSessions>>, TError = unknown>(
+  userId: string,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersListSessions>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof usersListSessions>>,
+          TError,
+          Awaited<ReturnType<typeof usersListSessions>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useUsersListSessions<TData = Awaited<ReturnType<typeof usersListSessions>>, TError = unknown>(
+  userId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersListSessions>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof usersListSessions>>,
+          TError,
+          Awaited<ReturnType<typeof usersListSessions>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useUsersListSessions<TData = Awaited<ReturnType<typeof usersListSessions>>, TError = unknown>(
+  userId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersListSessions>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useUsersListSessions<TData = Awaited<ReturnType<typeof usersListSessions>>, TError = unknown>(
+  userId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof usersListSessions>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getUsersListSessionsQueryOptions(userId, options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getUsersRevokeSessionUrl = (userId: string, sessionId: string) => {
+  return `/api/users/${userId}/sessions/${sessionId}`
+}
+
+export const usersRevokeSession = async (
+  userId: string,
+  sessionId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getUsersRevokeSessionUrl(userId, sessionId), {
+    ...options,
+    method: 'DELETE',
+  })
+}
+
+export const getUsersRevokeSessionMutationKey = () => ['usersRevokeSession'] as const
+
+export const getUsersRevokeSessionMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof usersRevokeSession>>,
+    TError,
+    UsersRevokeSessionMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof usersRevokeSession>>,
+  TError,
+  UsersRevokeSessionMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUsersRevokeSessionMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof usersRevokeSession>>,
+    UsersRevokeSessionMutationVariables
+  > = (props) => {
+    const { userId, sessionId } = props ?? {}
+
+    return usersRevokeSession(userId, sessionId, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type UsersRevokeSessionMutationResult = NonNullable<Awaited<ReturnType<typeof usersRevokeSession>>>
+
+export type UsersRevokeSessionMutationError = unknown
+export type UsersRevokeSessionMutationVariables = { userId: string; sessionId: string }
+
+export const useUsersRevokeSession = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof usersRevokeSession>>,
+      TError,
+      UsersRevokeSessionMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof usersRevokeSession>>,
+  TError,
+  UsersRevokeSessionMutationVariables,
+  TContext
+> => {
+  return useMutation(getUsersRevokeSessionMutationOptions(options), queryClient)
 }
 export const getUsersGetAuditUrl = (userId: string, params?: UsersGetAuditParams) => {
   const normalizedParams = new URLSearchParams()

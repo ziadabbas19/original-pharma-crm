@@ -44,6 +44,7 @@ import {
 } from '@/features/roles/permission-labels'
 import { canGrant, userLock } from '@/features/roles/role-rules'
 import { useNow } from '@/hooks/use-now'
+import { inlineErrors } from '@/lib/errors'
 import { toDateInputValue } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
@@ -155,7 +156,7 @@ function OverridesEditor({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const save = useUsersSetPermissionOverrides()
+  const save = useUsersSetPermissionOverrides(inlineErrors)
   const now = useNow(60_000)
   const [rows, setRows] = useState<Record<string, Row>>(() => toRows(initial))
   const [dirty, setDirty] = useState(false)

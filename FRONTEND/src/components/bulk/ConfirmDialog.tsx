@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { handleError } from '@/lib/errors'
 
 /** A plain destructive confirmation (remove a picture, cancel orders): title, one sentence, cancel and confirm. */
 export function ConfirmDialog({
@@ -39,7 +40,7 @@ export function ConfirmDialog({
       await onConfirm()
       onClose()
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'confirm' }))
     } finally {
       setBusy(false)
     }

@@ -4,7 +4,6 @@ export type Language = 'ar' | 'en'
 
 export interface UiState {
   language: Language
-  sidebarOpen: boolean
   /** Desktop sidebar shows icons only (remembered on the device). */
   sidebarCollapsed: boolean
 }
@@ -21,7 +20,6 @@ function readCollapsed(): boolean {
 
 const initialState: UiState = {
   language: 'ar',
-  sidebarOpen: false,
   sidebarCollapsed: readCollapsed(),
 }
 
@@ -31,9 +29,6 @@ const uiSlice = createSlice({
   reducers: {
     languageChanged(state, action: PayloadAction<Language>) {
       state.language = action.payload
-    },
-    sidebarToggled(state, action: PayloadAction<boolean | undefined>) {
-      state.sidebarOpen = action.payload ?? !state.sidebarOpen
     },
     sidebarCollapsedToggled(state) {
       state.sidebarCollapsed = !state.sidebarCollapsed
@@ -46,5 +41,5 @@ const uiSlice = createSlice({
   },
 })
 
-export const { languageChanged, sidebarToggled, sidebarCollapsedToggled } = uiSlice.actions
+export const { languageChanged, sidebarCollapsedToggled } = uiSlice.actions
 export default uiSlice.reducer

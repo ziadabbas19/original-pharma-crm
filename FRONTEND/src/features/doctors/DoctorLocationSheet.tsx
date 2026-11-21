@@ -6,6 +6,7 @@ import type { DoctorLocationHistoryDto } from '@/api/generated/model'
 import { EmptyState, ErrorState, LoadingState } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { STICKY_FIRST_COLUMN } from '@/components/ui/table'
 import { LocationMap, type MapPoint } from '@/features/maps/LazyLocationMap'
 import { formatDateTime, formatDistance, localizedName } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -95,7 +96,10 @@ function DoctorLocationContent({ data }: { data: DoctorLocationHistoryDto }) {
           <EmptyState icon={MapPinIcon} title={t('doctors.locationHistory.noVisits')} className="py-6" />
         ) : (
           <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full min-w-[40rem] text-sm" data-testid="doctor-visit-locations">
+            <table
+              className={cn('w-full min-w-[40rem] text-sm', STICKY_FIRST_COLUMN)}
+              data-testid="doctor-visit-locations"
+            >
               <thead className="bg-muted/50 text-start text-xs text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 text-start font-semibold">#</th>

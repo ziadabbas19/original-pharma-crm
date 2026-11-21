@@ -4,13 +4,13 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BrandLogo } from '@/components/BrandLogo'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { FormError } from '@/components/states'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ApiError } from '@/lib/api-client'
+import { handleError, type AppError } from '@/lib/errors'
 import { login } from '@/lib/session'
 
 const route = getRouteApi('/login')
@@ -20,7 +20,7 @@ export function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { redirect } = route.useSearch()
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<AppError | null>(null)
 
   const form = useForm({
     defaultValues: { email: '', password: '' },
@@ -30,8 +30,7 @@ export function LoginPage() {
         await login(value.email.trim(), value.password)
         await navigate({ to: redirect ?? '/' })
       } catch (e) {
-        const code = e instanceof ApiError ? e.code : 'generic'
-        setError(t([`auth.errors.${code}`, 'auth.errors.generic']))
+        setError(handleError(e, { silent: true, context: 'auth.login' }))
       }
     },
   })
@@ -114,11 +113,7 @@ export function LoginPage() {
               )}
             </form.Field>
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            <FormError error={error} />
 
             <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
               {([canSubmit, isSubmitting]) => (

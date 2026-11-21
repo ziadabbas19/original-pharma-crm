@@ -5,7 +5,11 @@ using OriginalPharma.Application.Common;
 
 namespace OriginalPharma.Api.Common;
 
-/// <summary>Turns exceptions into RFC 7807 ProblemDetails with a stable "code" extension.</summary>
+/// <summary>
+/// Turns exceptions into RFC 7807 ProblemDetails with a stable "code" extension. Business-rule and
+/// conflict messages are written for the person using the app, so they carry "safeToShow": clients may
+/// show that title when they have no translation of the code. Other titles are for developers only.
+/// </summary>
 internal sealed class GlobalExceptionHandler(
     IProblemDetailsService problemDetailsService,
     IHostEnvironment environment,
@@ -50,6 +54,11 @@ internal sealed class GlobalExceptionHandler(
             _ => "server-error",
         };
 
+        if (exception is BusinessRuleException or ConflictException)
+        {
+            problem.Extensions[SafeToShow] = true;
+        }
+
         if (exception is AppException { Details: { } details })
         {
             foreach (var (key, value) in details)
@@ -75,6 +84,9 @@ internal sealed class GlobalExceptionHandler(
             Exception = exception,
         });
     }
+
+    /// <summary>ProblemDetails extension marking a title that may be shown to end users.</summary>
+    public const string SafeToShow = "safeToShow";
 
     private static int StatusFor(AppException exception) => exception switch
     {

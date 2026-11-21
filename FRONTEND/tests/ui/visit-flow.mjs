@@ -336,7 +336,7 @@ try {
       await page.geolocation(TAMER)
       // The installed app has its screens on the phone; the dev server loads each one on first use.
       await nav('/rep/visits/active')
-      await waitId('preset-today')
+      await waitId('day-picker')
       await nav('/rep/visits/00000000-0000-0000-0000-000000000000')
       await page.waitFor(`document.querySelector('main a[href="/rep/visits"]')`)
       await nav('/rep/doctors')
@@ -368,7 +368,7 @@ try {
     },
   )
 
-  await check('my visits: status chips and filters', async () => {
+  await check('my visits: the day picker, status chips and filters', async () => {
     await nav('/rep/visits')
     await waitId('visit-list', 20000)
     await waitId('status-completed')

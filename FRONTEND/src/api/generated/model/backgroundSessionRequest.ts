@@ -5,4 +5,6 @@
 
 export interface BackgroundSessionRequest {
   deviceId: string
+  /** @nullable */
+  deviceName?: string | null
 }

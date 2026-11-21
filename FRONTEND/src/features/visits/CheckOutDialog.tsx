@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { handleError } from '@/lib/errors'
 import { formatDistance, localizedName } from '@/lib/format'
 import type { GeoFix } from '@/lib/platform'
 import { checkOutVisit, type ActiveVisit } from './active-visit'
@@ -65,7 +66,7 @@ export function CheckOutDialog({
       await checkOutVisit(visit, { fix, notes })
       onDone()
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'visits.checkOut' }))
       setBusy(false)
     }
   }

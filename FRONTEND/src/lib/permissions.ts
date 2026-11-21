@@ -51,6 +51,13 @@ export const P = {
     delete: 'visits:delete',
     restore: 'visits:restore',
   },
+  expenses: {
+    readOwn: 'expenses:read-own',
+    writeOwn: 'expenses:write-own',
+    read: 'expenses:read',
+    manage: 'expenses:manage',
+    settings: 'expenses:settings',
+  },
   tracking: {
     report: 'tracking:report',
     viewLive: 'tracking:view-live',
@@ -81,6 +88,28 @@ export function hasPermission(
   return minScope ? scopeRank[scope] >= scopeRank[minScope] : true
 }
 
+/**
+ * Field work is granted for one's own work (scope "own"), as the rep role and custom field roles
+ * hold it. The admin role holds every permission at scope "all" and is not a field user.
+ */
+export function holdsForOwnWork(granted: Record<string, PermissionScope>, key: PermissionKey): boolean {
+  return granted[key] === 'own'
+}
+
+/**
+ * Tracks the device's location (the rep role, or anyone given tracking:report for their own work).
+ * Only these users get location prompts, the battery and permissions setup, tracking warnings and the
+ * tracker itself.
+ */
+export function tracksLocation(granted: Record<string, PermissionScope>): boolean {
+  return holdsForOwnWork(granted, P.tracking.report)
+}
+
+/** Works in the field: tracks location or records their own visits. */
+export function canUseFieldApp(granted: Record<string, PermissionScope>): boolean {
+  return tracksLocation(granted) || holdsForOwnWork(granted, P.visits.create)
+}
+
 /** Dashboard = anything beyond a rep's own work (own location, own doctors, own orders). */
 export function canUseDashboard(granted: Record<string, PermissionScope>): boolean {
   return (
@@ -94,6 +123,7 @@ export function canUseDashboard(granted: Record<string, PermissionScope>): boole
     hasPermission(granted, P.lookups.manage) ||
     hasPermission(granted, P.stats.read, 'team') ||
     hasPermission(granted, P.audit.read) ||
+    hasPermission(granted, P.expenses.read, 'team') ||
     hasPermission(granted, P.tracking.reviewSuspicious) ||
     hasPermission(granted, P.settings.manage)
   )

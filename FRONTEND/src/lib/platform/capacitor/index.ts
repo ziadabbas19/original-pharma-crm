@@ -16,6 +16,7 @@ import type {
 } from '../types'
 import { CapacitorDeviceHealthInspector } from './device-health'
 import { CapacitorDeviceSignalsReader } from './device-signals'
+import { CapacitorFileExporter } from './files'
 import { CapacitorLocationTracker } from './location-tracker'
 
 /** Native Android implementation. */
@@ -27,6 +28,7 @@ export function createCapacitorPlatform(): Platform {
 
   return {
     kind: 'native',
+    files: new CapacitorFileExporter(),
     location,
     secureStorage: new AndroidSecureStorage(),
     offlineDb: new SqliteOfflineDb(),

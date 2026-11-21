@@ -9,6 +9,7 @@ import type {
   SecureStorage,
 } from '../types'
 import { WebDeviceHealthInspector } from './device-health'
+import { WebFileExporter } from './files'
 import { DexieOfflineDb } from './offline-db'
 import { WebLocationTracker } from './location-tracker'
 
@@ -18,6 +19,7 @@ export function createWebPlatform(): Platform {
   const offlineDb = new DexieOfflineDb()
   return {
     kind: 'pwa',
+    files: new WebFileExporter(),
     location: new WebLocationTracker(offlineDb),
     secureStorage: new MemorySecureStorage(),
     offlineDb,

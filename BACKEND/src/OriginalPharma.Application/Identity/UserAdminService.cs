@@ -161,12 +161,14 @@ public sealed class UserAdminService(
                 user.ArchivedAt ??= now;
                 user.ArchivedById ??= actor.Id;
                 affected.Add(user.Id);
-                await accounts.RevokeSessionsAsync(user.Id, null, "user-archived", cancellationToken);
+                await accounts.RevokeSessionsAsync(user.Id, null, SessionRevokeReasons.UserArchived, cancellationToken);
                 db.UserAuditEntries.Add(UserAudit.Entry(user.Id, actor.Id, actor.FullName, UserAuditAction.Archived, details, null, now));
                 await audit.AddAsync(AuditEntities.User, user.Id, AuditAction.Archived, details, cancellationToken: cancellationToken);
             }
             else
             {
+                // The rows go with the user; this also stops access tokens already issued to their devices.
+                await accounts.RevokeSessionsAsync(user.Id, null, SessionRevokeReasons.UserDeleted, cancellationToken);
                 db.UserRoles.RemoveRange(await db.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync(cancellationToken));
                 db.Users.Remove(user);
                 db.UserAuditEntries.Add(UserAudit.Entry(user.Id, actor.Id, actor.FullName, UserAuditAction.Deleted, details, null, now));
@@ -249,6 +251,8 @@ public sealed class UserAdminService(
         await AddAsync(db.UserAuditEntries.Where(e => e.ActorId != null && ids.Contains(e.ActorId.Value)).Select(e => e.ActorId!.Value));
         await AddAsync(db.AuditEntries.Where(e => e.ActorId != null && ids.Contains(e.ActorId.Value)).Select(e => e.ActorId!.Value));
         await AddAsync(db.VisitFeedbackReplies.Where(r => ids.Contains(r.AuthorId)).Select(r => r.AuthorId));
+        await AddAsync(db.ExpenseLines.Where(l => ids.Contains(l.UserId)).Select(l => l.UserId));
+        await AddAsync(db.ExpenseDays.Where(d => ids.Contains(d.UserId)).Select(d => d.UserId));
         return found;
     }
 

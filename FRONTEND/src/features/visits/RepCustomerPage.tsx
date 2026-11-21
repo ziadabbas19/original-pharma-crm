@@ -32,7 +32,7 @@ export function RepCustomerPage() {
         isLoading ? (
           <LoadingState rows={4} />
         ) : (
-          <EmptyState title={t('errors.not-found')} />
+          <EmptyState title={t('errors.kind.notFound')} />
         )
       ) : (
         <>

@@ -49,9 +49,14 @@ is missing, unsafe or still a placeholder, and names each variable to fix.
 | `ForwardedHeaders__ForwardLimit` | `1` | Proxies to read through |
 | `ForwardedHeaders__KnownProxies` | none | Comma-separated proxy addresses |
 | `ForwardedHeaders__KnownNetworks` | none | Comma-separated proxy ranges in CIDR form |
+| `Auth__SessionDays` | `30` | A device stays signed in this many days after its last use (every refresh extends it) |
+| `Auth__SessionMaxDays` | `90` | After this many days from the password login, the password is asked again however often the device is used |
+| `Auth__RefreshReuseGraceSeconds` | `10` | How long a just-replaced refresh token is still accepted (parallel refreshes from one device). Later reuse ends the session |
+| `Jwt__AccessTokenMinutes` | `15` | Access token lifetime. Keep it short: sessions last through refresh tokens |
 | `Auth__RefreshCookie__Domain` | API host only | Leave empty unless another subdomain must receive the cookie |
 | `Auth__RefreshCookie__Secure` | `true` | Must stay `true` in production |
 | `Auth__RefreshCookie__SameSite` | `Strict` | `Strict` or `Lax` |
+| `Expenses__EditableDays` | `45` | How many days back a rep may still change their own expenses; older days only managers with `expenses:manage` |
 | `Database__MigrateOnStartup` | `true` | See [Migrations](#migrations) |
 | `Seed__AdminFullName` | `System Admin` | Display name of the first administrator |
 | `Seed__ResetAdminPassword` | not set | `true` resets the admin's password at startup. Remove it right after. See [Resetting the admin password](#resetting-the-admin-password) |

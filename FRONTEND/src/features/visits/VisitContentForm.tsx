@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { VisitDetailDto } from '@/api/generated/model'
 import { FormError } from '@/components/states'
 import { Button } from '@/components/ui/button'
+import { handleError } from '@/lib/errors'
 import { draftToContent, type VisitDraft } from './active-visit'
 import { queueVisitContent } from './visit-outbox'
 import { VisitContentFields } from './VisitContentFields'
@@ -33,7 +34,7 @@ export function VisitContentForm({ visit, onSaved }: { visit: VisitDetailDto; on
       await queueVisitContent(visit.id, visit.customerName, draftToContent(draft))
       onSaved()
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'visits.content' }))
     } finally {
       setBusy(false)
     }

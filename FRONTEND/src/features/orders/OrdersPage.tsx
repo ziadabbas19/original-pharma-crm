@@ -27,13 +27,14 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { dataTableColumns } from '@/components/data-table/features'
 import { FilterField, SearchInput, ToolbarSpacer } from '@/components/data-table/toolbar'
 import { PageHeader } from '@/components/PageHeader'
-import { FormError } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { usePermission } from '@/features/auth/usePermission'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { apiFetch } from '@/lib/api-client'
+import { handleError } from '@/lib/errors'
+import { exportCsv } from '@/lib/export-file'
 import { formatDay, formatMoney, formatNumber, localizedName, toDateInputValue } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { DELIVERY_STATUSES, OTHER_METHOD, ORDER_STATUSES, PLACE_TYPES } from './order-labels'
@@ -70,7 +71,6 @@ export function OrdersPage() {
   const [search, setSearch] = useState('')
   const [openId, setOpenId] = useState<string | null>(route.useSearch().order ?? null)
   const [exporting, setExporting] = useState(false)
-  const [exportError, setExportError] = useState<unknown>(null)
   const debouncedPlace = useDebouncedValue(place.trim(), 300)
   const debouncedSearch = useDebouncedValue(search.trim(), 300)
 
@@ -123,9 +123,8 @@ export function OrdersPage() {
     [rows],
   )
 
-  const exportCsv = async () => {
+  const exportOrders = async () => {
     setExporting(true)
-    setExportError(null)
     try {
       const text = await apiFetch<string>(
         getOrdersExportUrl({ ...params, lang: i18n.resolvedLanguage === 'en' ? 'en' : 'ar' }),
@@ -133,15 +132,9 @@ export function OrdersPage() {
           headers: { Accept: 'text/csv' },
         },
       )
-      // Excel needs the byte order mark to read Arabic as UTF-8.
-      const blob = new Blob(['﻿', text], { type: 'text/csv;charset=utf-8' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `orders-${from || 'all'}-${to || 'today'}.csv`
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+      await exportCsv(`orders-${from || 'all'}-${to || 'today'}.csv`, text)
     } catch (e) {
-      setExportError(e)
+      handleError(e, { context: 'orders.export' })
     } finally {
       setExporting(false)
     }
@@ -257,13 +250,12 @@ export function OrdersPage() {
         title={t('orders.title')}
         description={t('orders.hint')}
         actions={
-          <Button variant="outline" onClick={() => void exportCsv()} disabled={exporting || !rows?.length}>
+          <Button variant="outline" onClick={() => void exportOrders()} disabled={exporting || !rows?.length}>
             {exporting ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
             {t('orders.export')}
           </Button>
         }
       />
-      <FormError error={exportError} />
       <DataTable
         columns={columns}
         data={rows}
@@ -311,7 +303,12 @@ export function OrdersPage() {
         toolbar={
           <>
             <SearchInput value={search} onChange={setSearch} placeholder={t('orders.searchPlaceholder')} />
-            <FilterField label={t('visits.from')}>
+            <FilterField
+              label={t('visits.from')}
+              active={from !== daysAgo(30)}
+              display={from ? `${t('visits.from')} ${formatDay(from)}` : t('visits.from')}
+              onReset={() => setFrom(daysAgo(30))}
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -324,7 +321,12 @@ export function OrdersPage() {
                 />
               )}
             </FilterField>
-            <FilterField label={t('visits.to')}>
+            <FilterField
+              label={t('visits.to')}
+              active={to !== toDateInputValue(new Date())}
+              display={to ? `${t('visits.to')} ${formatDay(to)}` : t('visits.to')}
+              onReset={() => setTo(toDateInputValue(new Date()))}
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -337,7 +339,12 @@ export function OrdersPage() {
                 />
               )}
             </FilterField>
-            <FilterField label={t('orders.rep')}>
+            <FilterField
+              label={t('orders.rep')}
+              active={repId !== ''}
+              display={reps.find(([id]) => id === repId)?.[1]}
+              onReset={() => setRepId('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -354,7 +361,12 @@ export function OrdersPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('doctors.area')}>
+            <FilterField
+              label={t('doctors.area')}
+              active={areaId !== ''}
+              display={areas.find(([id]) => id === areaId)?.[1]}
+              onReset={() => setAreaId('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -371,7 +383,12 @@ export function OrdersPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('orders.status')}>
+            <FilterField
+              label={t('orders.status')}
+              active={status !== ''}
+              display={status ? t(`orders.statuses.${status}`) : undefined}
+              onReset={() => setStatus('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -388,7 +405,12 @@ export function OrdersPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('orders.deliveryLabel')}>
+            <FilterField
+              label={t('orders.deliveryLabel')}
+              active={delivery !== ''}
+              display={delivery ? t(`orders.delivery.${delivery}`) : undefined}
+              onReset={() => setDelivery('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -405,7 +427,12 @@ export function OrdersPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('orders.placeType')}>
+            <FilterField
+              label={t('orders.placeType')}
+              active={placeType !== ''}
+              display={placeType ? t(`orders.placeTypes.${placeType}`) : undefined}
+              onReset={() => setPlaceType('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -422,7 +449,12 @@ export function OrdersPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('orders.place')}>
+            <FilterField
+              label={t('orders.place')}
+              active={place.trim() !== ''}
+              display={place.trim()}
+              onReset={() => setPlace('')}
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -432,7 +464,16 @@ export function OrdersPage() {
                 />
               )}
             </FilterField>
-            <FilterField label={t('orders.collectionMethod')}>
+            <FilterField
+              label={t('orders.collectionMethod')}
+              active={method !== ''}
+              display={(() => {
+                if (method === OTHER_METHOD) return t('orders.form.otherMethod')
+                const m = (methods.data ?? []).find((x) => x.id === method)
+                return m ? localizedName(m.nameEn, m.nameAr) : undefined
+              })()}
+              onReset={() => setMethod('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}

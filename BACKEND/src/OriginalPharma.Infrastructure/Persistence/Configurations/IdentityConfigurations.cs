@@ -136,6 +136,23 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
     }
 }
 
+internal sealed class UserSessionConfiguration : IEntityTypeConfiguration<UserSession>
+{
+    public void Configure(EntityTypeBuilder<UserSession> builder)
+    {
+        builder.ToTable("user_sessions");
+        builder.Property(s => s.DeviceId).HasMaxLength(128);
+        builder.Property(s => s.DeviceName).HasMaxLength(UserSession.DeviceNameMaxLength);
+        builder.Property(s => s.UserAgent).HasMaxLength(UserSession.UserAgentMaxLength);
+        builder.Property(s => s.CreatedByIp).HasMaxLength(64);
+        builder.Property(s => s.LastIp).HasMaxLength(64);
+        builder.Property(s => s.RevokedReason).HasMaxLength(64);
+        builder.HasIndex(s => new { s.UserId, s.RevokedAt });
+        builder.HasIndex(s => new { s.UserId, s.DeviceId });
+        builder.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 internal sealed class TerritoryConfiguration : IEntityTypeConfiguration<Territory>
 {
     public void Configure(EntityTypeBuilder<Territory> builder)
@@ -144,6 +161,7 @@ internal sealed class TerritoryConfiguration : IEntityTypeConfiguration<Territor
         builder.Property(t => t.Code).HasMaxLength(Territory.CodeMaxLength).IsRequired();
         builder.Property(t => t.Name).HasMaxLength(Territory.NameMaxLength).IsRequired();
         builder.Property(t => t.NameAr).HasMaxLength(Territory.NameMaxLength);
+        builder.Property(t => t.DefaultDailyExpense).HasPrecision(12, 2).HasDefaultValue(0m);
         builder.HasIndex(t => t.Code).IsUnique();
         builder.HasOne(t => t.Parent).WithMany(t => t.Children).HasForeignKey(t => t.ParentId).OnDelete(DeleteBehavior.Restrict);
     }

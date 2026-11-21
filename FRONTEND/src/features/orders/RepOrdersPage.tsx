@@ -20,16 +20,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { usePermission } from '@/features/auth/usePermission'
-import { errorMessage } from '@/lib/errors'
-import { ApiError } from '@/lib/api-client'
-import {
-  formatDateTime,
-  formatDay,
-  formatMoney,
-  formatNumber,
-  formatPercent,
-  formatRelative,
-} from '@/lib/format'
+import { getErrorMessage, restoreError } from '@/lib/errors'
+import { formatDateTime, formatDay, formatMoney, formatNumber, formatRelative } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { discardFailedOrder, syncOrders, useOrderOutbox } from './order-outbox'
 import { DeliveryBadge, OrderStatusBadge } from './OrderStatusBadge'
@@ -149,16 +141,7 @@ export function RepOrdersPage() {
                   <span className="text-sm tabular-nums">{formatMoney(item.payload.estimatedTotal)}</span>
                 </div>
                 <p className="text-sm text-destructive">
-                  {errorMessage(
-                    new ApiError(item.payload.error.status, {
-                      code: item.payload.error.code,
-                      title: item.payload.error.title,
-                      maxDiscountPercent: item.payload.error.maxDiscountPercent,
-                    }),
-                    t,
-                  )}
-                  {item.payload.error.maxDiscountPercent !== undefined &&
-                    ` (${formatPercent(item.payload.error.maxDiscountPercent)})`}
+                  {getErrorMessage(restoreError(item.payload.error), t)}
                 </p>
                 <div className="flex gap-2">
                   <Button asChild size="sm">

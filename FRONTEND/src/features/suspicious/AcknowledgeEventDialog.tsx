@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { inlineErrors } from '@/lib/errors'
 import { invalidateApi } from '@/lib/invalidate-api'
 
 /** The reviewer has seen the event and says what they did about it. */
@@ -28,7 +29,7 @@ export function AcknowledgeEventDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const acknowledge = useLocationIntegrityAcknowledgeEvent()
+  const acknowledge = useLocationIntegrityAcknowledgeEvent(inlineErrors)
   const [comment, setComment] = useState(event.reviewNote ?? '')
   const empty = comment.trim() === ''
 

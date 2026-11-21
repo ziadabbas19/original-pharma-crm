@@ -1,5 +1,6 @@
 import { createRouter } from '@tanstack/react-router'
 import { FullPageSpinner } from '@/components/FullPageSpinner'
+import { NotFound, RouteError } from '@/components/NotFound'
 import { routeTree } from '@/routeTree.gen'
 import { store, type AppStore } from '@/store'
 import { queryClient } from './query-client'
@@ -15,6 +16,9 @@ export const router = createRouter({
   context: { queryClient, store },
   defaultPreload: 'intent',
   defaultPendingComponent: FullPageSpinner,
+  // Nested routes show the same screens inside their layout.
+  defaultErrorComponent: RouteError,
+  defaultNotFoundComponent: NotFound,
   scrollRestoration: true,
 })
 

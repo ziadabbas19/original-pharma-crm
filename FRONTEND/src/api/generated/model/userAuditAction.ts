@@ -15,4 +15,5 @@ export const UserAuditAction = {
   restored: 'restored',
   deleted: 'deleted',
   rolesChanged: 'rolesChanged',
+  sessionRevoked: 'sessionRevoked',
 } as const

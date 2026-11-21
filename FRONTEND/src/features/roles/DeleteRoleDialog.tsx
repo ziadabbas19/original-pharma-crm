@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { useMyRoleLevel } from '@/features/auth/usePermission'
+import { handleError } from '@/lib/errors'
 import { formatNumber } from '@/lib/format'
 import { invalidateRoleData, roleLock, roleName } from './role-rules'
 
@@ -70,7 +71,7 @@ export function DeleteRoleDialog({
       close(false)
       onDeleted()
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'roles.delete' }))
       // Someone may have assigned the role meanwhile: refresh the count shown above.
       await invalidateRoleData(queryClient)
     } finally {

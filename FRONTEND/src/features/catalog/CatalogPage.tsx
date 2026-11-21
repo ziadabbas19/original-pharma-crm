@@ -356,7 +356,19 @@ function ProductsTable({
         toolbar={
           <>
             <SearchInput value={search} onChange={setSearch} placeholder={t('catalog.searchPlaceholder')} />
-            <FilterField label={t('catalog.line')}>
+            <FilterField
+              label={t('catalog.line')}
+              active={lineFilter !== ''}
+              display={
+                lineFilter === UNASSIGNED
+                  ? t('catalog.unassigned')
+                  : localizedName(
+                      lines.find((l) => l.id === lineFilter)?.nameEn ?? '',
+                      lines.find((l) => l.id === lineFilter)?.nameAr,
+                    )
+              }
+              onReset={() => onLineFilterChange('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}

@@ -23,6 +23,8 @@ const ENTITIES = [
   'role',
   'order',
   'visit',
+  'expense',
+  'expense_day',
   'device',
 ]
 const ACTIONS: AuditAction[] = [
@@ -118,7 +120,12 @@ export function ActivityLogPage() {
         toolbar={
           <>
             <SearchInput value={search} onChange={setSearch} />
-            <FilterField label={t('activity.what')}>
+            <FilterField
+              label={t('activity.what')}
+              active={entity !== ''}
+              display={entity ? t(`activity.entities.${entity}`) : undefined}
+              onReset={() => setEntity('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -135,7 +142,12 @@ export function ActivityLogPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('activity.action')}>
+            <FilterField
+              label={t('activity.action')}
+              active={action !== ''}
+              display={action ? t(`activity.actions.${action}`) : undefined}
+              onReset={() => setAction('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}

@@ -6,6 +6,7 @@ using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
+using OriginalPharma.Domain.Expenses;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Orders;
@@ -23,6 +24,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RoleAuditEntry> RoleAuditEntries => Set<RoleAuditEntry>();
     public DbSet<UserAuditEntry> UserAuditEntries => Set<UserAuditEntry>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<ExpenseLine> ExpenseLines => Set<ExpenseLine>();
+    public DbSet<ExpenseDay> ExpenseDays => Set<ExpenseDay>();
+
+    public Task<int> ExecuteSqlAsync(FormattableString sql, CancellationToken cancellationToken = default) =>
+        Database.ExecuteSqlInterpolatedAsync(sql, cancellationToken);
     public DbSet<Territory> Territories => Set<Territory>();
 
     public DbSet<Customer> Customers => Set<Customer>();

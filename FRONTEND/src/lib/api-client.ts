@@ -7,9 +7,15 @@
  * - On 401 refreshes the session once and retries.
  * - Watches X-Permissions-Version so permission edits from the dashboard apply quickly.
  * - Reports when the API refuses a request because the password is temporary.
+ * - Throws ApiError for error responses and NetworkError when the server cannot be reached; what the
+ *   user sees is decided by lib/errors/error-handler.ts.
  */
+// Relative import and optional env access: this file also runs under plain Node in the unit tests.
+import { ApiError, NetworkError, type ProblemDetails } from './errors/types.ts'
 
-export const API_BASE_URL: string = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+export { ApiError, NetworkError, type ProblemDetails }
+
+export const API_BASE_URL: string = (import.meta.env?.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
 /** Problem code of a request refused until the temporary password is replaced. */
 const PASSWORD_CHANGE_REQUIRED = 'password_change_required'
@@ -20,34 +26,13 @@ export function apiAssetUrl(path: string | null | undefined): string | undefined
   return /^https?:/.test(path) ? path : `${API_BASE_URL}${path}`
 }
 
-export interface ProblemDetails {
-  type?: string
-  title?: string
-  status?: number
-  detail?: string
-  code?: string
-  errors?: Record<string, string[]>
-  [key: string]: unknown
-}
-
-export class ApiError extends Error {
-  readonly status: number
-  readonly code: string
-  readonly problem: ProblemDetails
-
-  constructor(status: number, problem: ProblemDetails) {
-    super(problem.title ?? `Request failed with status ${status}`)
-    this.name = 'ApiError'
-    this.status = status
-    this.code = problem.code ?? 'unknown'
-    this.problem = problem
-  }
-}
-
 interface ApiClientHooks {
   getAccessToken: () => string | null
-  /** 'ok' when a new access token is available; 'offline' when the refresh could not reach the server. */
-  refreshSession: () => Promise<'ok' | 'expired' | 'offline'>
+  /**
+   * 'ok' when a new access token is available; 'expired' when the server ended the session;
+   * 'unavailable' when it could not answer (offline, timeout, 5xx, rate limit): the session is kept.
+   */
+  refreshSession: () => Promise<'ok' | 'expired' | 'unavailable'>
   onPermissionsVersion: (version: number) => void
   onUnauthorized: () => void
   onPasswordChangeRequired: () => void
@@ -75,8 +60,9 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
     if (refreshed === 'ok') {
       return parse<T>(await send(url, options))
     }
-    // Keep the session when the server cannot be reached; callers see a network error.
-    if (refreshed === 'offline') throw new TypeError('Network unavailable')
+    // Keep the session when the server cannot answer; callers see a network error and retry later.
+    if (refreshed === 'unavailable') throw new NetworkError()
+    // The refresh failed for good: the session layer signs out (once) and this request reports 401.
     hooks.onUnauthorized()
   }
 
@@ -87,7 +73,12 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
 export async function apiFetchBlob(url: string): Promise<Blob> {
   let response = await send(url, {})
   if (response.status === 401) {
-    if ((await hooks.refreshSession()) !== 'ok') throw new TypeError('Network unavailable')
+    const refreshed = await hooks.refreshSession()
+    if (refreshed === 'unavailable') throw new NetworkError()
+    if (refreshed === 'expired') {
+      hooks.onUnauthorized()
+      throw new ApiError(401, { status: 401, code: 'invalid-refresh-token' })
+    }
     response = await send(url, {})
   }
   if (!response.ok)
@@ -103,11 +94,19 @@ async function send(url: string, options: RequestInit): Promise<Response> {
   }
   headers.set('Accept', 'application/json')
 
-  const response = await fetch(`${API_BASE_URL}${url}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  })
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE_URL}${url}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+    })
+  } catch (error) {
+    // Aborts and timeouts keep their own names; anything else means the server was not reached.
+    if (error instanceof DOMException && (error.name === 'AbortError' || error.name === 'TimeoutError'))
+      throw error
+    throw new NetworkError(error instanceof Error ? error.message : undefined, { cause: error })
+  }
 
   const version = response.headers.get('X-Permissions-Version')
   if (version) {

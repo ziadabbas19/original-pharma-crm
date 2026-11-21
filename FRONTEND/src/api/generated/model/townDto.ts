@@ -14,4 +14,5 @@ export interface TownDto {
   areaName: string | null
   /** @nullable */
   areaNameAr: string | null
+  defaultDailyExpense?: number
 }

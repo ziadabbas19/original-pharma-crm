@@ -11,6 +11,7 @@ import {
   ShieldAlertIcon,
 } from 'lucide-react'
 import { BrandTile } from '@/components/BrandLogo'
+import { FormError } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -19,7 +20,7 @@ import { HomeSection } from '@/features/home/HomeSections'
 import { useTodayPlan } from '@/features/home/use-today-plan'
 import { useRepHomeConfig } from '@/features/home/use-rep-home'
 import { enabledSections } from '@/features/settings/rep-home-config'
-import { ApiError } from '@/lib/api-client'
+import { handleError, type AppError } from '@/lib/errors'
 import { formatDate, formatTime } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { platform } from '@/lib/platform'
@@ -115,7 +116,7 @@ function DayControl() {
   const configMode = useAppSelector((s) => s.tracking.config?.collectionMode)
   const visitOnly = (configMode ?? collectionMode()) === 'visitOnly'
   const [busy, setBusy] = useState<'start' | 'end' | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<AppError | null>(null)
   const [pending, setPending] = useState(0)
 
   useEffect(() => {
@@ -136,8 +137,7 @@ function DayControl() {
     try {
       await (kind === 'start' ? startDay() : endDay())
     } catch (e) {
-      const code = e instanceof ApiError ? e.code : 'generic'
-      setError(t([`rep.errors.${code}`, 'common.error']))
+      setError(handleError(e, { silent: true, context: kind === 'start' ? 'rep.startDay' : 'rep.endDay' }))
     } finally {
       setBusy(null)
     }
@@ -190,11 +190,7 @@ function DayControl() {
       {shift && pending > 0 && (
         <p className="text-xs opacity-90">{t('rep.pendingPoints', { count: pending })}</p>
       )}
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      <FormError error={error} />
     </div>
   )
 }

@@ -15,7 +15,7 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { useGrantedPermissions, useMyRoleLevel } from '@/features/auth/usePermission'
-import { fieldErrors } from '@/lib/errors'
+import { inlineErrors, useFormErrors } from '@/lib/errors'
 import { formatNumber } from '@/lib/format'
 import { DeleteRoleDialog } from './DeleteRoleDialog'
 import { DESCRIPTION_MAX, discountCapError, levelError, nameError, parseDiscountCap } from './role-form'
@@ -30,6 +30,9 @@ import {
 import { LevelBadge, LockedNote, SystemBadge } from './RoleBadges'
 import { Errors, TextField } from './RoleFormFields'
 import type { PermissionDraft } from './usePermissionDraft'
+
+/** Fields that can carry a server validation message. */
+const ROLES_EDIT_FIELDS = ['description', 'level', 'maxDiscountPercent', 'nameAr', 'nameEn']
 
 function formValues(role: RoleDto) {
   return {
@@ -60,10 +63,10 @@ export function RoleDetailsPanel({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const update = useRolesUpdate()
+  const update = useRolesUpdate(inlineErrors)
   const myLevel = useMyRoleLevel()
   const mine = useGrantedPermissions()
-  const [error, setError] = useState<unknown>(null)
+  const errors = useFormErrors(ROLES_EDIT_FIELDS, 'roles.edit')
   const [saved, setSaved] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [copySource, setCopySource] = useState('')
@@ -75,7 +78,7 @@ export function RoleDetailsPanel({
   const form = useForm({
     defaultValues: formValues(role),
     onSubmit: async ({ value }) => {
-      setError(null)
+      errors.clear()
       setSaved(false)
       try {
         const updated = await update.mutateAsync({
@@ -92,12 +95,11 @@ export function RoleDetailsPanel({
         setSaved(true)
         await invalidateRoleData(queryClient)
       } catch (e) {
-        setError(e)
+        errors.capture(e)
       }
     },
   })
 
-  const server = fieldErrors(error)
   const copyOptions = roles.filter((r) => r.id !== role.id)
   const source = copyOptions.find((r) => r.id === copySource)
 
@@ -154,7 +156,7 @@ export function RoleDetailsPanel({
                   disabled={!editable}
                   onBlur={field.handleBlur}
                   onChange={field.handleChange}
-                  errors={[...field.state.meta.errors, ...(server.nameAr ?? [])]}
+                  errors={[...field.state.meta.errors, ...errors.fieldList('nameAr')]}
                 />
               )}
             </form.Field>
@@ -168,7 +170,7 @@ export function RoleDetailsPanel({
                   disabled={!editable}
                   onBlur={field.handleBlur}
                   onChange={field.handleChange}
-                  errors={[...field.state.meta.errors, ...(server.nameEn ?? [])]}
+                  errors={[...field.state.meta.errors, ...errors.fieldList('nameEn')]}
                 />
               )}
             </form.Field>
@@ -193,7 +195,7 @@ export function RoleDetailsPanel({
                   onChange={(e) => field.handleChange(e.target.value)}
                   aria-invalid={field.state.meta.errors.length > 0}
                 />
-                <Errors messages={[...field.state.meta.errors, ...(server.description ?? [])]} />
+                <Errors messages={[...field.state.meta.errors, ...errors.fieldList('description')]} />
               </div>
             )}
           </form.Field>
@@ -225,7 +227,7 @@ export function RoleDetailsPanel({
                     onChange={(e) => field.handleChange(e.target.value)}
                     aria-invalid={field.state.meta.errors.length > 0}
                   />
-                  <Errors messages={[...field.state.meta.errors, ...(server.level ?? [])]} />
+                  <Errors messages={[...field.state.meta.errors, ...errors.fieldList('level')]} />
                 </div>
               )}
             </form.Field>
@@ -252,14 +254,16 @@ export function RoleDetailsPanel({
                     onChange={(e) => field.handleChange(e.target.value)}
                     aria-invalid={field.state.meta.errors.length > 0}
                   />
-                  <Errors messages={[...field.state.meta.errors, ...(server.maxDiscountPercent ?? [])]} />
+                  <Errors
+                    messages={[...field.state.meta.errors, ...errors.fieldList('maxDiscountPercent')]}
+                  />
                 </div>
                 <p className="self-center text-xs text-muted-foreground">{t('roles.form.maxDiscountHelp')}</p>
               </div>
             )}
           </form.Field>
 
-          <FormError error={error} />
+          <FormError error={errors.formError} />
 
           {canManage && (
             <div className="flex flex-wrap items-center gap-2">
@@ -281,7 +285,7 @@ export function RoleDetailsPanel({
                       disabled={!isDirty || isSubmitting}
                       onClick={() => {
                         form.reset(formValues(role))
-                        setError(null)
+                        errors.clear()
                       }}
                     >
                       <Undo2Icon />

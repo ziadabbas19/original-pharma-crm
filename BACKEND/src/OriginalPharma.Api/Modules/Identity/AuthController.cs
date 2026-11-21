@@ -11,7 +11,7 @@ using OriginalPharma.Domain.Identity;
 
 namespace OriginalPharma.Api.Modules.Identity;
 
-public sealed record BackgroundSessionRequest(string DeviceId);
+public sealed record BackgroundSessionRequest(string DeviceId, string? DeviceName = null);
 
 /// <summary>
 /// Login / refresh / logout for both clients:
@@ -56,7 +56,7 @@ public sealed class AuthController(
             throw new UnauthorizedException("invalid-refresh-token", "Session expired. Please sign in again.");
         }
 
-        var tokens = await auth.RefreshAsync(raw, request.Client, request.DeviceId, cancellationToken);
+        var tokens = await auth.RefreshAsync(raw, request.Client, request.DeviceId, request.DeviceName, cancellationToken);
         return Deliver(tokens, request.Client);
     }
 
@@ -86,7 +86,7 @@ public sealed class AuthController(
     [Authorize]
     public async Task<ActionResult<AuthResponse>> BackgroundSession(BackgroundSessionRequest request, CancellationToken cancellationToken)
     {
-        var tokens = await auth.CreateSessionAsync(currentUser.RequireUserId(), ClientKind.Native, request.DeviceId, cancellationToken);
+        var tokens = await auth.CreateSessionAsync(currentUser.RequireUserId(), ClientKind.Native, request.DeviceId, request.DeviceName, cancellationToken);
         return Deliver(tokens, ClientKind.Native);
     }
 
@@ -107,7 +107,7 @@ public sealed class AuthController(
             throw new UnauthorizedException("invalid-refresh-token", "Session expired. Please sign in again.");
         }
 
-        var tokens = await auth.RefreshAsync(refreshToken, ClientKind.Native, deviceId, cancellationToken);
+        var tokens = await auth.RefreshAsync(refreshToken, ClientKind.Native, deviceId, cancellationToken: cancellationToken);
         var expiresIn = (int)Math.Max(0, (tokens.AccessTokenExpiresAt - time.GetUtcNow()).TotalSeconds);
 
         // TODO: confirm against the plugin's refresh documentation and drop the unused aliases.

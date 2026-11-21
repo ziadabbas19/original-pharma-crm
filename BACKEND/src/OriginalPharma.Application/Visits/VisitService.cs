@@ -7,6 +7,7 @@ using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
+using OriginalPharma.Application.Expenses;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Tracking;
@@ -44,6 +45,8 @@ public sealed class VisitService(
     IOptions<LocationTrustOptions> trustOptions,
     IOptions<AnomalyDetectionOptions> anomalyOptions,
     ITrackingNotifier notifier,
+    ExpenseService expenses,
+    LocalCalendar calendar,
     TimeProvider time)
 {
     /// <summary>How many levels of the reporting line are notified of new feedback (supervisor and their manager).</summary>
@@ -77,6 +80,10 @@ public sealed class VisitService(
         // A retry of a check-in that already reached the server (offline queue, lost response).
         if (await FindCheckInAsync(request.ClientRequestId, userId, cancellationToken) is { } repeated)
         {
+            // The day's expense line, in case the first attempt stopped before it.
+            var place = await db.Customers.AsNoTracking().Where(c => c.Id == repeated.CustomerId).Select(c => c.TerritoryId).SingleOrDefaultAsync(cancellationToken);
+            var area = await db.Users.Where(u => u.Id == userId).Select(u => u.TerritoryId).SingleAsync(cancellationToken);
+            await expenses.EnsureAutoLineAsync(userId, area, repeated.CheckInAt, place, cancellationToken);
             return repeated;
         }
 
@@ -230,6 +237,9 @@ public sealed class VisitService(
         {
             await SaveFirstVisitLocationAsync(customer, visit, request, now, trust, cancellationToken);
         }
+
+        // The first visit of the day in the doctor's city adds that city's daily expense.
+        await expenses.EnsureAutoLineAsync(userId, territoryId, checkInAt, customer.TerritoryId, cancellationToken);
 
         if (flag is not null)
         {
@@ -1045,7 +1055,14 @@ public sealed class VisitService(
 
     private static readonly TimeSpan MaxListRange = TimeSpan.FromDays(31);
 
-    /// <summary>Visits in the caller's visits:read scope, newest first. Defaults to the last 7 days.</summary>
+    /// <summary>Largest page of the visits list (<c>limit</c>).</summary>
+    public const int MaxListLimit = MaxListRows;
+
+    /// <summary>
+    /// Visits in the caller's visits:read scope, newest first. Defaults to the last 7 days. <paramref name="day"/>
+    /// selects one Egypt local day instead of from/to; <paramref name="limit"/> returns only the newest ones
+    /// (ask for one more than shown to know there are more).
+    /// </summary>
     public async Task<IReadOnlyList<VisitListItemDto>> ListAsync(
         DateTimeOffset? from,
         DateTimeOffset? to,
@@ -1058,8 +1075,15 @@ public sealed class VisitService(
         Domain.Visits.VisitFeedbackCategory? feedbackCategory = null,
         bool? hasFeedback = null,
         bool archived = false,
-        bool? locationDrift = null)
+        bool? locationDrift = null,
+        DateOnly? day = null,
+        int? limit = null)
     {
+        if (day is { } localDay)
+        {
+            (from, to) = calendar.Bounds(localDay);
+        }
+
         var toUtc = (to ?? time.GetUtcNow()).ToUniversalTime();
         var fromUtc = (from ?? toUtc.AddDays(-7)).ToUniversalTime();
         if (toUtc <= fromUtc || toUtc - fromUtc > MaxListRange)
@@ -1116,7 +1140,7 @@ public sealed class VisitService(
 
         var rows = await query
             .OrderByDescending(v => v.CheckInAt)
-            .Take(MaxListRows)
+            .Take(Math.Clamp(limit ?? MaxListRows, 1, MaxListRows))
             .Select(v => new
             {
                 v.Id,
@@ -1126,6 +1150,8 @@ public sealed class VisitService(
                 CustomerName = v.Customer!.Name,
                 CustomerNameAr = v.Customer.NameAr,
                 CustomerType = v.Customer.Type,
+                CustomerTerritoryId = v.Customer.TerritoryId,
+                Town = db.Territories.Where(t => t.Id == v.Customer.TerritoryId).Select(t => new { t.Name, t.NameAr }).FirstOrDefault(),
                 v.Status,
                 v.CheckInAt,
                 v.CheckInDistanceMeters,
@@ -1174,7 +1200,8 @@ public sealed class VisitService(
                     v.CheckInLocation.Y, v.CheckInLocation.X, v.CheckInAccuracy, v.CheckInIsMock, v.CheckInSignalCodes,
                     v.ClinicLocationOutcome, v.ClinicDistanceMeters, v.PreviousVisitDistanceMeters, v.SincePreviousVisitSeconds,
                     v.MedianDistanceMeters, v.NearestVisitDistanceMeters, v.ReferenceVisitCount, v.CheckInGoodFix,
-                    v.LocationDrift, v.DriftSources)))
+                    v.LocationDrift, v.DriftSources),
+                v.CustomerTerritoryId, v.Town?.Name, v.Town?.NameAr))
             .ToList();
     }
 

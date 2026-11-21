@@ -1,6 +1,5 @@
 import { useForm } from '@tanstack/react-form'
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useRolesCreate } from '@/api/generated/endpoints'
 import type { RoleDto } from '@/api/generated/model'
@@ -19,7 +18,7 @@ import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { useGrantedPermissions, useMyRoleLevel } from '@/features/auth/usePermission'
-import { fieldErrors } from '@/lib/errors'
+import { inlineErrors, useFormErrors } from '@/lib/errors'
 import { formatNumber } from '@/lib/format'
 import { DESCRIPTION_MAX, discountCapError, levelError, nameError, parseDiscountCap } from './role-form'
 import { Errors, TextField } from './RoleFormFields'
@@ -31,6 +30,9 @@ import {
   minAssignableLevel,
   roleName,
 } from './role-rules'
+
+/** Fields that can carry a server validation message. */
+const ROLES_CREATE_FIELDS = ['description', 'level', 'maxDiscountPercent', 'nameAr', 'nameEn']
 
 export function CreateRoleDialog({
   open,
@@ -45,11 +47,11 @@ export function CreateRoleDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const create = useRolesCreate()
+  const create = useRolesCreate(inlineErrors)
   const mine = useGrantedPermissions()
   const myLevel = useMyRoleLevel()
   const minLevel = minAssignableLevel(myLevel)
-  const [error, setError] = useState<unknown>(null)
+  const errors = useFormErrors(ROLES_CREATE_FIELDS, 'roles.create')
 
   const form = useForm({
     defaultValues: {
@@ -61,7 +63,7 @@ export function CreateRoleDialog({
       copyFrom: '',
     },
     onSubmit: async ({ value }) => {
-      setError(null)
+      errors.clear()
       try {
         const role = await create.mutateAsync({
           data: {
@@ -78,12 +80,11 @@ export function CreateRoleDialog({
         onOpenChange(false)
         onCreated(role)
       } catch (e) {
-        setError(e)
+        errors.capture(e)
       }
     },
   })
 
-  const server = fieldErrors(error)
   const nameRule = (value: string) => nameError(value, t)
 
   return (
@@ -92,7 +93,7 @@ export function CreateRoleDialog({
       onOpenChange={(value) => {
         if (!value) {
           form.reset()
-          setError(null)
+          errors.clear()
         }
         onOpenChange(value)
       }}
@@ -120,7 +121,7 @@ export function CreateRoleDialog({
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={field.handleChange}
-                  errors={[...field.state.meta.errors, ...(server.nameAr ?? [])]}
+                  errors={[...field.state.meta.errors, ...errors.fieldList('nameAr')]}
                 />
               )}
             </form.Field>
@@ -133,7 +134,7 @@ export function CreateRoleDialog({
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={field.handleChange}
-                  errors={[...field.state.meta.errors, ...(server.nameEn ?? [])]}
+                  errors={[...field.state.meta.errors, ...errors.fieldList('nameEn')]}
                 />
               )}
             </form.Field>
@@ -157,7 +158,7 @@ export function CreateRoleDialog({
                   onChange={(e) => field.handleChange(e.target.value)}
                   aria-invalid={field.state.meta.errors.length > 0}
                 />
-                <Errors messages={[...field.state.meta.errors, ...(server.description ?? [])]} />
+                <Errors messages={[...field.state.meta.errors, ...errors.fieldList('description')]} />
               </div>
             )}
           </form.Field>
@@ -180,7 +181,7 @@ export function CreateRoleDialog({
                     onChange={(e) => field.handleChange(e.target.value)}
                     aria-invalid={field.state.meta.errors.length > 0}
                   />
-                  <Errors messages={[...field.state.meta.errors, ...(server.level ?? [])]} />
+                  <Errors messages={[...field.state.meta.errors, ...errors.fieldList('level')]} />
                 </div>
               )}
             </form.Field>
@@ -204,7 +205,9 @@ export function CreateRoleDialog({
                     onChange={(e) => field.handleChange(e.target.value)}
                     aria-invalid={field.state.meta.errors.length > 0}
                   />
-                  <Errors messages={[...field.state.meta.errors, ...(server.maxDiscountPercent ?? [])]} />
+                  <Errors
+                    messages={[...field.state.meta.errors, ...errors.fieldList('maxDiscountPercent')]}
+                  />
                 </div>
                 <p className="self-center text-xs text-muted-foreground">{t('roles.form.maxDiscountHelp')}</p>
               </div>
@@ -235,7 +238,7 @@ export function CreateRoleDialog({
             )}
           </form.Field>
 
-          <FormError error={error} />
+          <FormError error={errors.formError} />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

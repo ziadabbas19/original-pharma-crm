@@ -21,11 +21,14 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { usePermission, usePermissionScope } from '@/features/auth/usePermission'
 import { bestLevel, invalidateRoleData, reportsOf } from '@/features/roles/role-rules'
 import { flattenTerritories } from '@/features/territories/territory-tree'
-import { fieldErrors } from '@/lib/errors'
+import { inlineErrors, useFormErrors } from '@/lib/errors'
 import { localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { Field } from './CreateUserDialog'
 import { ManagerSelect } from './ManagerSelect'
+
+/** Fields that can carry a server validation message. */
+const USERS_EDIT_FIELDS = ['fullName', 'managerId', 'territoryId']
 
 /**
  * Profile and reporting line of one user (roles and permissions have their own dialogs).
@@ -44,8 +47,8 @@ export function EditUserDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const update = useUsersUpdate()
-  const [error, setError] = useState<unknown>(null)
+  const update = useUsersUpdate(inlineErrors)
+  const errors = useFormErrors(USERS_EDIT_FIELDS, 'users.edit')
   const manageScope = usePermissionScope(P.users.manage)
   const territoryOptions = useMemo(
     () => flattenTerritories(territories).filter((x) => x.level !== 'town'),
@@ -53,7 +56,7 @@ export function EditUserDialog({
   )
   const canReadProducts = usePermission(P.products.read)
   const productLines = useProductLinesList(undefined, { query: { enabled: canReadProducts } })
-  const setLines = useUsersSetProductLines()
+  const setLines = useUsersSetProductLines(inlineErrors)
   const [lineIds, setLineIds] = useState<string[]>(user.productLineIds ?? [])
   const userLevel = bestLevel(user.roles)
   const reports = useMemo(() => reportsOf(users, user.id), [users, user.id])
@@ -66,7 +69,7 @@ export function EditUserDialog({
       managerId: user.managerId ?? '',
     },
     onSubmit: async ({ value }) => {
-      setError(null)
+      errors.clear()
       try {
         await update.mutateAsync({
           userId: user.id,
@@ -84,12 +87,10 @@ export function EditUserDialog({
         await invalidateRoleData(queryClient)
         onClose()
       } catch (e) {
-        setError(e)
+        errors.capture(e)
       }
     },
   })
-
-  const server = fieldErrors(error)
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -123,7 +124,7 @@ export function EditUserDialog({
                 <Field
                   label={t('users.name')}
                   id="edit-user-name"
-                  errors={[...field.state.meta.errors, ...(server.fullName ?? [])]}
+                  errors={[...field.state.meta.errors, ...errors.fieldList('fullName')]}
                 >
                   <Input
                     id="edit-user-name"
@@ -163,7 +164,7 @@ export function EditUserDialog({
                 <Field
                   label={t('users.area')}
                   id="edit-user-territory"
-                  errors={[...field.state.meta.errors, ...(server.territoryId ?? [])]}
+                  errors={[...field.state.meta.errors, ...errors.fieldList('territoryId')]}
                 >
                   <NativeSelect
                     id="edit-user-territory"
@@ -200,7 +201,7 @@ export function EditUserDialog({
                   label={t('users.manager')}
                   id="edit-user-manager"
                   hint={t('users.reporting.hint')}
-                  errors={[...field.state.meta.errors, ...(server.managerId ?? [])]}
+                  errors={[...field.state.meta.errors, ...errors.fieldList('managerId')]}
                 >
                   <ManagerSelect
                     id="edit-user-manager"
@@ -241,7 +242,7 @@ export function EditUserDialog({
             </fieldset>
           )}
 
-          <FormError error={error} />
+          <FormError error={errors.formError} />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>

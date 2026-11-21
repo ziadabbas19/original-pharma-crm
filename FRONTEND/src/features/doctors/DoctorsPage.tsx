@@ -292,7 +292,12 @@ export function DoctorsPage() {
         toolbar={
           <>
             <SearchInput value={search} onChange={setSearch} placeholder={t('doctors.searchPlaceholder')} />
-            <FilterField label={t('doctors.rep')}>
+            <FilterField
+              label={t('doctors.rep')}
+              active={repId !== ''}
+              display={reps.find((r) => r.id === repId)?.name}
+              onReset={() => setRepId('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -309,7 +314,12 @@ export function DoctorsPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('doctors.area')}>
+            <FilterField
+              label={t('doctors.area')}
+              active={areaId !== ''}
+              display={areas.find((a) => a.id === areaId)?.name}
+              onReset={() => setAreaId('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -326,7 +336,15 @@ export function DoctorsPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('doctors.town')}>
+            <FilterField
+              label={t('doctors.town')}
+              active={townId !== ''}
+              display={(() => {
+                const town = (towns.data ?? []).find((x) => x.id === townId)
+                return town ? localizedName(town.name, town.nameAr) : undefined
+              })()}
+              onReset={() => setTownId('')}
+            >
               {(id) => (
                 <TownSelect
                   id={id}
@@ -338,7 +356,15 @@ export function DoctorsPage() {
                 />
               )}
             </FilterField>
-            <FilterField label={t('doctors.specialty')}>
+            <FilterField
+              label={t('doctors.specialty')}
+              active={specialtyId !== ''}
+              display={(() => {
+                const s = (specialties.data ?? []).find((x) => x.id === specialtyId)
+                return s ? localizedName(s.nameEn, s.nameAr) : undefined
+              })()}
+              onReset={() => setSpecialtyId('')}
+            >
               {(id) => (
                 <SpecialtySelect
                   id={id}

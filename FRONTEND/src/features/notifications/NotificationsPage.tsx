@@ -14,10 +14,11 @@ import { SelectionBar } from '@/components/bulk/SelectionBar'
 import { useBulkRunner, useDeleteTarget } from '@/components/bulk/use-bulk-delete'
 import { useSelection } from '@/components/bulk/use-selection'
 import { PageHeader } from '@/components/PageHeader'
-import { EmptyState, ErrorState, FormError, LoadingState } from '@/components/states'
+import { EmptyState, ErrorState, LoadingState } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { handleError } from '@/lib/errors'
 import { formatDateTime, formatNumber } from '@/lib/format'
 import { invalidateApi } from '@/lib/invalidate-api'
 import { cn } from '@/lib/utils'
@@ -37,7 +38,6 @@ export function NotificationsPage({ app }: { app: 'admin' | 'rep' }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [unreadOnly, setUnreadOnly] = useState(false)
-  const [error, setError] = useState<unknown>(null)
   const list = useNotificationsList({ unreadOnly, limit: 200 })
   const markRead = useMarkNotificationRead()
   const markAll = useNotificationsMarkAllRead()
@@ -51,11 +51,10 @@ export function NotificationsPage({ app }: { app: 'admin' | 'rep' }) {
   }
 
   const open = async (n: NotificationDto) => {
-    setError(null)
     try {
       if (!n.readAt) await markRead([n.id])
     } catch (e) {
-      setError(e)
+      handleError(e, { context: 'notifications.read' })
     }
     if (!n.entityId) return
     if (notificationIsAboutSuspiciousLocation(n)) {
@@ -81,22 +80,20 @@ export function NotificationsPage({ app }: { app: 'admin' | 'rep' }) {
   }
 
   const readSelected = async () => {
-    setError(null)
     try {
       await markRead(selection.ids)
       selection.clear()
     } catch (e) {
-      setError(e)
+      handleError(e, { context: 'notifications.readSelected' })
     }
   }
 
   const readAll = async () => {
-    setError(null)
     try {
       await markAll.mutateAsync()
       await invalidateApi(queryClient, '/api/notifications')
-    } catch (e) {
-      setError(e)
+    } catch {
+      // Shown by the mutation cache.
     }
   }
 
@@ -122,7 +119,6 @@ export function NotificationsPage({ app }: { app: 'admin' | 'rep' }) {
           </div>
         }
       />
-      <FormError error={error} />
       <Card className="gap-0 overflow-hidden py-0">
         {list.isLoading ? (
           <LoadingState className="p-3" />

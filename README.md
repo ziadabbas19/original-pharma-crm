@@ -142,6 +142,18 @@ cd BACKEND && dotnet test        # xUnit v3 on Microsoft.Testing.Platform
 cd FRONTEND && npm run lint && npm run format:check && npm run test:unit && npm run build
 ```
 
+`npm run lint` also runs `npm run check:emoji`, which fails on any emoji or pictographic character
+anywhere in the repository (code, comments, tests, translations, docs, configuration and the Android
+project). The project does not use emoji: status, warnings and success are shown with lucide-react
+icons, and text stays plain.
+
+The error states (list error, server field errors, toasts, not-found screen) have a browser check
+that fakes the API, so only a dev server is needed:
+
+```bash
+cd FRONTEND && UI_TEST_URL=http://localhost:5173 npm run test:ui:errors
+```
+
 The delete confirmation has a browser check. It drives a headless Chromium (`CHROME_PATH`, or a
 Playwright browser in `~/.cache/ms-playwright`) against a running API and dev server with the demo data:
 
@@ -154,6 +166,21 @@ against a throwaway database:
 
 ```bash
 cd FRONTEND && UI_TEST_PASSWORD=<demo password> UI_TEST_URL=http://localhost:5173 npm run test:ui:visits
+```
+
+Every management screen has a browser check at phone size (no sideways scrolling, main action on
+screen, a create and an edit flow, the More menu per role). It changes data, so use a throwaway
+database; `UI_SCREENSHOTS=<folder>` also saves screenshots in Arabic and English, light and dark:
+
+```bash
+cd FRONTEND && UI_TEST_PASSWORD=<demo password> UI_TEST_URL=http://localhost:5174 npm run test:ui:phone
+```
+
+The rep's day and month expenses (a visit adds the city's line, the rep changes it and writes a
+note, the month total follows) have a browser check at phone size, for a throwaway database:
+
+```bash
+cd FRONTEND && UI_TEST_PASSWORD=<demo password> UI_TEST_URL=http://localhost:5174 npm run test:ui:expenses
 ```
 
 The suspicious activity review (a rep's mock location reported through the API, reviewed and acknowledged by the

@@ -388,10 +388,15 @@ internal sealed partial class DatabaseSeeder(
             }
 
             var sessions = db.RefreshTokens.Where(t => t.UserId == user.Id && t.RevokedAt == null);
-            revokedSessions = await sessions.Select(t => t.FamilyId).Distinct().CountAsync(cancellationToken);
+            var families = await sessions.Select(t => t.FamilyId).Distinct().ToListAsync(cancellationToken);
+            var devices = await db.UserSessions.Where(s => s.UserId == user.Id && s.RevokedAt == null).Select(s => s.Id).ToListAsync(cancellationToken);
+            revokedSessions = families.Union(devices).Count();
             await sessions.ExecuteUpdateAsync(s => s
                 .SetProperty(t => t.RevokedAt, now)
-                .SetProperty(t => t.RevokedReason, "password-reset"), cancellationToken);
+                .SetProperty(t => t.RevokedReason, SessionRevokeReasons.PasswordReset), cancellationToken);
+            await db.UserSessions.Where(s => s.UserId == user.Id && s.RevokedAt == null).ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.RevokedAt, now)
+                .SetProperty(x => x.RevokedReason, SessionRevokeReasons.PasswordReset), cancellationToken);
 
             db.UserAuditEntries.Add(new UserAuditEntry
             {

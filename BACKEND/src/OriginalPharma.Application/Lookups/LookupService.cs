@@ -23,7 +23,8 @@ public sealed record LookupDto(
     DateTimeOffset? ArchivedAt = null);
 
 /// <summary>A town with the area it belongs to (for doctor forms and filters).</summary>
-public sealed record TownDto(Guid Id, string Name, string? NameAr, Guid? AreaId, string? AreaName, string? AreaNameAr);
+/// <param name="DefaultDailyExpense">The city's default daily expense (EGP), suggested when a rep adds an expense line for it.</param>
+public sealed record TownDto(Guid Id, string Name, string? NameAr, Guid? AreaId, string? AreaName, string? AreaNameAr, decimal DefaultDailyExpense = 0);
 
 public sealed record SaveLookupRequest(string NameAr, string NameEn, bool IsActive = true, int SortOrder = 0);
 
@@ -45,7 +46,7 @@ public sealed class LookupService(IAppDbContext db, AuditTrail audit, TimeProvid
         db.Territories.AsNoTracking()
             .Where(t => t.Level == Domain.Identity.TerritoryLevel.Town && t.ArchivedAt == null)
             .OrderBy(t => t.Parent!.Name).ThenBy(t => t.Name)
-            .Select(t => new TownDto(t.Id, t.Name, t.NameAr, t.ParentId, t.Parent!.Name, t.Parent.NameAr))
+            .Select(t => new TownDto(t.Id, t.Name, t.NameAr, t.ParentId, t.Parent!.Name, t.Parent.NameAr, t.DefaultDailyExpense))
             .ToListAsync(cancellationToken);
 
     /// <param name="includeInactive">Also entries switched off (for the management screen).</param>

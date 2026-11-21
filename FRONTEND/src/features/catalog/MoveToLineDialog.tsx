@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { handleError } from '@/lib/errors'
 import { formatNumber, localizedName } from '@/lib/format'
 
 const NO_LINE = 'none'
@@ -61,7 +62,7 @@ export function MoveToLineDialog({
       await queryClient.invalidateQueries({ queryKey: ['/api/products'] })
       await queryClient.invalidateQueries({ queryKey: ['/api/product-lines'] })
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'products.move' }))
     } finally {
       setBusy(false)
     }

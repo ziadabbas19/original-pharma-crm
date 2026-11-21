@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { inlineErrors } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import { invalidateApi } from '@/lib/invalidate-api'
 import { cn } from '@/lib/utils'
@@ -100,7 +101,7 @@ const VISIBILITIES: LocationVisibility[] = ['visitOnly', 'allDay']
 function LocationTrustSection({ settings }: { settings: LocationTrustSettingsDto }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const save = useSettingsUpdateLocationTrust()
+  const save = useSettingsUpdateLocationTrust(inlineErrors)
   const [draft, setDraft] = useState<LocationTrustDraft>(() => draftOf(settings))
   const [touched, setTouched] = useState(false)
   const [saved, setSaved] = useState(false)

@@ -6,12 +6,12 @@ using OriginalPharma.Application.Identity;
 
 namespace OriginalPharma.Api.Modules.Identity;
 
-/// <summary>The signed-in user's own account: password and profile picture. No permission needed.</summary>
+/// <summary>The signed-in user's own account: password, profile picture and signed-in devices. No permission needed.</summary>
 [ApiController]
 [Route("api/account")]
 [Tags("Account")]
 [Authorize]
-public sealed class AccountController(AccountService accounts) : ControllerBase
+public sealed class AccountController(AccountService accounts, SessionService sessions) : ControllerBase
 {
     /// <summary>
     /// Change your password (current password required). Signs out your other sessions and clears
@@ -44,6 +44,21 @@ public sealed class AccountController(AccountService accounts) : ControllerBase
     public async Task<IActionResult> RemoveAvatar(CancellationToken cancellationToken)
     {
         await accounts.RemoveAvatarAsync(cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Devices you are signed in on, most recently used first. <c>isCurrent</c> marks this one.</summary>
+    [HttpGet("sessions")]
+    public Task<IReadOnlyList<UserSessionDto>> ListSessions(CancellationToken cancellationToken) =>
+        sessions.ListMineAsync(cancellationToken);
+
+    /// <summary>Sign one device out (a lost phone, or this one). Your other devices stay signed in.</summary>
+    [HttpDelete("sessions/{sessionId:guid}")]
+    [AllowWithTemporaryPassword]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RevokeSession(Guid sessionId, CancellationToken cancellationToken)
+    {
+        await sessions.RevokeMineAsync(sessionId, cancellationToken);
         return NoContent();
     }
 }

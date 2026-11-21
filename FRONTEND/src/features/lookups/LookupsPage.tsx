@@ -38,6 +38,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { usePermission } from '@/features/auth/usePermission'
+import { handleError, inlineErrors } from '@/lib/errors'
 import { formatNumber, localizedName } from '@/lib/format'
 import { invalidateApi } from '@/lib/invalidate-api'
 import { P } from '@/lib/permissions'
@@ -304,10 +305,10 @@ function LookupDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const createSpecialty = useLookupsCreateSpecialty()
-  const updateSpecialty = useLookupsUpdateSpecialty()
-  const createMethod = useLookupsCreateCollectionMethod()
-  const updateMethod = useLookupsUpdateCollectionMethod()
+  const createSpecialty = useLookupsCreateSpecialty(inlineErrors)
+  const updateSpecialty = useLookupsUpdateSpecialty(inlineErrors)
+  const createMethod = useLookupsCreateCollectionMethod(inlineErrors)
+  const updateMethod = useLookupsUpdateCollectionMethod(inlineErrors)
   const [nameAr, setNameAr] = useState(item?.nameAr ?? '')
   const [nameEn, setNameEn] = useState(item?.nameEn ?? '')
   const [sortOrder, setSortOrder] = useState(String(item?.sortOrder ?? nextSortOrder))
@@ -337,7 +338,7 @@ function LookupDialog({
       await invalidateApi(queryClient, '/api/lookups')
       onClose()
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'lookups.save' }))
     }
   }
 

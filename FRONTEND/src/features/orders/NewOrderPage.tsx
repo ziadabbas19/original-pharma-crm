@@ -2,6 +2,7 @@ import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LoadingState } from '@/components/states'
+import { handleError } from '@/lib/errors'
 import { platform } from '@/lib/platform'
 import { newClientRequestId } from './order-math'
 import { discardFailedOrder, queueOrder, type FailedOrder } from './order-outbox'
@@ -50,7 +51,7 @@ export function NewOrderPage() {
       if (retry !== undefined) await discardFailedOrder(retry)
       await navigate({ to: visitId ? '/rep/visits/active' : '/rep/orders' })
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'orders.new' }))
       setBusy(false)
     }
   }

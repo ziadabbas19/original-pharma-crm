@@ -46,6 +46,8 @@ export interface StepFailure {
   status: number
   code: string
   title?: string
+  /** The API wrote the title for people (see lib/errors). */
+  safeToShow?: boolean
 }
 
 export type FailedStep = VisitStep & { error: StepFailure }

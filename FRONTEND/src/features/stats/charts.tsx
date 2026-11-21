@@ -18,7 +18,10 @@ export function Kpi({ label, value, hint }: { label: string; value: string; hint
       <span className="truncate text-label font-semibold text-muted-foreground" title={label}>
         {label}
       </span>
-      <span className="truncate text-2xl font-bold tabular-nums xl:text-[28px]" title={value}>
+      <span
+        className="truncate text-2xl font-bold tabular-nums max-sm:text-xl max-sm:break-words max-sm:whitespace-normal xl:text-[28px]"
+        title={value}
+      >
         {value}
       </span>
       {hint && <span className="truncate text-xs text-muted-foreground">{hint}</span>}

@@ -56,6 +56,34 @@ export function formatPercent(value: number | null | undefined): string {
   )
 }
 
+/** A day key (yyyy-MM-dd) with the weekday: "Saturday, 21 November 2026" / "السبت، 21 نوفمبر 2026". */
+export function formatDayLong(day: string): string {
+  return new Intl.DateTimeFormat(locale(), {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${day}T12:00:00Z`))
+}
+
+/** A day key in short form for lists: "Sat 21 Nov". */
+export function formatDayShort(day: string): string {
+  return new Intl.DateTimeFormat(locale(), {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(`${day}T12:00:00Z`))
+}
+
+/** A month key (yyyy-MM): "November 2026" / "نوفمبر 2026". */
+export function formatMonth(month: string): string {
+  return new Intl.DateTimeFormat(locale(), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(`${month}-15T12:00:00Z`),
+  )
+}
+
 /** Date-only value from the API (yyyy-MM-dd) shown as a local date without time-zone shifts. */
 export function formatDay(value: string | null | undefined): string {
   if (!value) return ''

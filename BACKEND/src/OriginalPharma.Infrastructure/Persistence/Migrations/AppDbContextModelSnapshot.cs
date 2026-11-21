@@ -586,6 +586,159 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.ToTable("specialties", (string)null);
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Expenses.ExpenseDay", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<string>("ManagerNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("manager_note");
+
+                    b.Property<Guid?>("ManagerNoteById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manager_note_by_id");
+
+                    b.Property<DateTimeOffset?>("ManagerNoteChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("manager_note_changed_at");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<DateTimeOffset?>("NoteChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("note_changed_at");
+
+                    b.Property<Guid?>("NoteUpdatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("note_updated_by_id");
+
+                    b.Property<Guid?>("TerritoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("territory_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_expense_days");
+
+                    b.HasIndex("UserId", "Day")
+                        .IsUnique()
+                        .HasDatabaseName("ix_expense_days_user_id_day");
+
+                    b.ToTable("expense_days", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Expenses.ExpenseLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset?>("AmountChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("amount_changed_at");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at");
+
+                    b.Property<Guid?>("ArchivedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("archived_by_id");
+
+                    b.Property<Guid>("CityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("city_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<DateTimeOffset?>("NoteChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("note_changed_at");
+
+                    b.Property<decimal?>("OriginalAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("original_amount");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("integer")
+                        .HasColumnName("source");
+
+                    b.Property<Guid?>("TerritoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("territory_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_expense_lines");
+
+                    b.HasIndex("CityId")
+                        .HasDatabaseName("ix_expense_lines_city_id");
+
+                    b.HasIndex("Day", "UserId")
+                        .HasDatabaseName("ix_expense_lines_day_user_id");
+
+                    b.HasIndex("UserId", "Day")
+                        .HasDatabaseName("ix_expense_lines_user_id_day");
+
+                    b.HasIndex("UserId", "Day", "CityId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_expense_lines_auto_per_day")
+                        .HasFilter("source = 1");
+
+                    b.ToTable("expense_lines", (string)null);
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Identity.Permission", b =>
                 {
                     b.Property<int>("Id")
@@ -855,6 +1008,13 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("code");
 
+                    b.Property<decimal>("DefaultDailyExpense")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("default_daily_expense");
+
                     b.Property<int>("Level")
                         .HasColumnType("integer")
                         .HasColumnName("level");
@@ -1123,6 +1283,87 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_user_permission_overrides_user_id_permission_id");
 
                     b.ToTable("user_permission_overrides", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Identity.UserSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AbsoluteExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("absolute_expires_at");
+
+                    b.Property<int>("Client")
+                        .HasColumnType("integer")
+                        .HasColumnName("client");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedByIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("created_by_ip");
+
+                    b.Property<string>("DeviceId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("device_id");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("device_name");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<bool>("IsBackground")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_background");
+
+                    b.Property<string>("LastIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("last_ip");
+
+                    b.Property<DateTimeOffset>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("revoked_reason");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("user_agent");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_user_sessions");
+
+                    b.HasIndex("UserId", "DeviceId")
+                        .HasDatabaseName("ix_user_sessions_user_id_device_id");
+
+                    b.HasIndex("UserId", "RevokedAt")
+                        .HasDatabaseName("ix_user_sessions_user_id_revoked_at");
+
+                    b.ToTable("user_sessions", (string)null);
                 });
 
             modelBuilder.Entity("OriginalPharma.Domain.Notifications.Notification", b =>
@@ -2656,6 +2897,33 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.Navigation("Customer");
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Expenses.ExpenseDay", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_expense_days_asp_net_users_user_id");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Expenses.ExpenseLine", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Identity.Territory", null)
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_expense_lines_territories_city_id");
+
+                    b.HasOne("OriginalPharma.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_expense_lines_asp_net_users_user_id");
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Identity.RefreshToken", b =>
                 {
                     b.HasOne("OriginalPharma.Domain.Identity.User", "User")
@@ -2736,6 +3004,18 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_user_permission_overrides_users_user_id");
 
                     b.Navigation("Permission");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Identity.UserSession", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_sessions_users_user_id");
 
                     b.Navigation("User");
                 });

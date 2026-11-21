@@ -46,6 +46,7 @@ public sealed class AccountService(
     IDataScopeResolver scopeResolver,
     IPermissionService permissions,
     ImageService images,
+    SessionService sessions,
     TimeProvider time)
 {
     /// <summary>
@@ -77,7 +78,7 @@ public sealed class AccountService(
         await userManager.UpdateAsync(user);
         await permissions.BumpVersionAsync([me], cancellationToken); // lifts the restriction on every instance
 
-        var revoked = await RevokeSessionsAsync(me, currentUser.SessionId, "password-changed", cancellationToken);
+        var revoked = await RevokeSessionsAsync(me, currentUser.SessionId, SessionRevokeReasons.PasswordChanged, cancellationToken);
         await AuditAsync(me, me, UserAuditAction.PasswordChanged, new { revokedSessions = revoked }, cancellationToken);
     }
 
@@ -98,7 +99,7 @@ public sealed class AccountService(
         await userManager.UpdateAsync(user);
         await permissions.BumpVersionAsync([user.Id], cancellationToken); // applies to access tokens already issued
 
-        var revoked = await RevokeSessionsAsync(user.Id, null, "password-reset", cancellationToken);
+        var revoked = await RevokeSessionsAsync(user.Id, null, SessionRevokeReasons.PasswordReset, cancellationToken);
         await AuditAsync(user.Id, actor.Id, UserAuditAction.PasswordReset,
             new { generated = string.IsNullOrWhiteSpace(request.NewPassword), revokedSessions = revoked }, cancellationToken);
         return new TemporaryPasswordDto(password);
@@ -186,22 +187,9 @@ public sealed class AccountService(
         await userManager.UpdateSecurityStampAsync(user);
     }
 
-    /// <summary>Revokes the user's refresh-token families except <paramref name="keepFamilyId"/>.</summary>
-    internal async Task<int> RevokeSessionsAsync(Guid userId, Guid? keepFamilyId, string reason, CancellationToken cancellationToken)
-    {
-        var now = time.GetUtcNow();
-        var families = await db.RefreshTokens
-            .Where(t => t.UserId == userId && t.RevokedAt == null && t.FamilyId != keepFamilyId)
-            .Select(t => t.FamilyId)
-            .Distinct()
-            .CountAsync(cancellationToken);
-        await db.RefreshTokens
-            .Where(t => t.UserId == userId && t.RevokedAt == null && t.FamilyId != keepFamilyId)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(t => t.RevokedAt, now)
-                .SetProperty(t => t.RevokedReason, reason), cancellationToken);
-        return families;
-    }
+    /// <summary>Ends every session of the user except <paramref name="keepSessionId"/> (see <see cref="SessionService"/>).</summary>
+    internal Task<int> RevokeSessionsAsync(Guid userId, Guid? keepSessionId, string reason, CancellationToken cancellationToken) =>
+        sessions.RevokeAllAsync(userId, keepSessionId, reason, cancellationToken);
 
     internal async Task AuditAsync(Guid userId, Guid actorId, UserAuditAction action, object details, CancellationToken cancellationToken)
     {

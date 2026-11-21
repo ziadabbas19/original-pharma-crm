@@ -13,8 +13,10 @@ import { PageHeader } from '@/components/PageHeader'
 import { ErrorState, Spinner } from '@/components/states'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { localizedName } from '@/lib/format'
 import { usePermission } from '@/features/auth/usePermission'
+import { useIsPhone } from '@/hooks/use-media-query'
 import { useNow } from '@/hooks/use-now'
 import { fromDateInputValue, toDateInputValue } from '@/lib/format'
 import { distanceMeters } from '@/lib/geo'
@@ -50,6 +52,7 @@ function today(): string {
  */
 export function LiveMapPage() {
   const { t } = useTranslation()
+  const phone = useIsPhone()
   const dispatch = useAppDispatch()
   const navigate = route.useNavigate()
   const { rep: selectedId = null, day: linkedDay, at: linkedAt } = route.useSearch()
@@ -201,6 +204,38 @@ export function LiveMapPage() {
 
   const firstLoad = presence.isLoading && reps.length === 0
 
+  const detail = selected ? (
+    <RepDetailPanel
+      rep={selected}
+      now={now}
+      following={following}
+      onFollow={() => setFollowing(true)}
+      liveViewOn={watched === selected.userId}
+      onToggleLiveView={() => dispatch(repWatched(watched === selected.userId ? null : selected.userId))}
+      onBack={() => select(null)}
+      canViewHistory={canViewHistory}
+      canReviewFlags={canReviewFlags}
+      day={day}
+      maxDay={maxDay}
+      onDayChange={(value) => {
+        setDay(value)
+        setFitCount(0)
+        if (value !== maxDay) setFollowing(false)
+      }}
+      history={{
+        isLoading: history.isLoading,
+        error: history.error,
+        refetch: () => void history.refetch(),
+      }}
+      summary={summary}
+      visitOnly={visitOnly}
+      onFitRoute={() => {
+        setFollowing(false)
+        setFitCount((c) => c + 1)
+      }}
+    />
+  ) : null
+
   return (
     <div className="flex flex-col gap-3 lg:h-[calc(100dvh-6.5rem)]">
       <PageHeader className="mb-0" title={t('liveMap.title')} />
@@ -270,38 +305,8 @@ export function LiveMapPage() {
             </div>
           ) : firstLoad ? (
             <Spinner />
-          ) : selected ? (
-            <RepDetailPanel
-              rep={selected}
-              now={now}
-              following={following}
-              onFollow={() => setFollowing(true)}
-              liveViewOn={watched === selected.userId}
-              onToggleLiveView={() =>
-                dispatch(repWatched(watched === selected.userId ? null : selected.userId))
-              }
-              onBack={() => select(null)}
-              canViewHistory={canViewHistory}
-              canReviewFlags={canReviewFlags}
-              day={day}
-              maxDay={maxDay}
-              onDayChange={(value) => {
-                setDay(value)
-                setFitCount(0)
-                if (value !== maxDay) setFollowing(false)
-              }}
-              history={{
-                isLoading: history.isLoading,
-                error: history.error,
-                refetch: () => void history.refetch(),
-              }}
-              summary={summary}
-              visitOnly={visitOnly}
-              onFitRoute={() => {
-                setFollowing(false)
-                setFitCount((c) => c + 1)
-              }}
-            />
+          ) : selected && !phone ? (
+            detail
           ) : (
             <RepList
               reps={views}
@@ -317,6 +322,22 @@ export function LiveMapPage() {
           )}
         </Card>
       </div>
+
+      {/* Phones: the map keeps the full width; the selected rep's details slide up over its lower part. */}
+      {phone && (
+        <Sheet open={!!selected} onOpenChange={(open) => !open && select(null)} modal={false}>
+          <SheetContent
+            side="bottom"
+            className="max-h-[55dvh] gap-0 overflow-y-auto"
+            onInteractOutside={(e) => e.preventDefault()}
+            data-testid="rep-detail-sheet"
+          >
+            <SheetTitle className="sr-only">{selected?.fullName ?? t('liveMap.title')}</SheetTitle>
+            <SheetDescription className="sr-only">{t('liveMap.title')}</SheetDescription>
+            {detail}
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   )
 }

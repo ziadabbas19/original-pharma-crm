@@ -14,6 +14,7 @@ import { ErrorState, FormError, LoadingState } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
+import { handleError, inlineErrors } from '@/lib/errors'
 import { fromOrder, toUpdateRequest } from './order-request'
 import { OrderDetails } from './OrderDetails'
 import { OrderForm } from './OrderForm'
@@ -27,8 +28,8 @@ export function RepOrderDetailPage() {
   const queryClient = useQueryClient()
   const order = useOrdersGet(orderId)
   const { products } = useOrderReferenceData()
-  const update = useOrdersUpdate()
-  const cancel = useOrdersCancel()
+  const update = useOrdersUpdate(inlineErrors)
+  const cancel = useOrdersCancel(inlineErrors)
   const [editing, setEditing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [reason, setReason] = useState('')
@@ -66,7 +67,7 @@ export function RepOrderDetailPage() {
             try {
               await done(await update.mutateAsync({ id: orderId, data: toUpdateRequest(values) }))
             } catch (e) {
-              setError(e)
+              setError(handleError(e, { silent: true, context: 'orders.repDetail' }))
             }
           }}
         />
@@ -124,7 +125,7 @@ export function RepOrderDetailPage() {
                           await cancel.mutateAsync({ id: orderId, data: { reason: reason.trim() || null } }),
                         )
                       } catch (e) {
-                        setError(e)
+                        setError(handleError(e, { silent: true, context: 'orders.repDetail' }))
                       }
                     }}
                   >

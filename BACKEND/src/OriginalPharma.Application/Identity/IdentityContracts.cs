@@ -2,10 +2,11 @@ using OriginalPharma.Domain.Identity;
 
 namespace OriginalPharma.Application.Identity;
 
-public sealed record LoginRequest(string Email, string Password, ClientKind Client = ClientKind.Web, string? DeviceId = null);
+/// <param name="DeviceName">What the device is, shown in the list of signed-in devices ("Samsung SM-A546E", "Chrome on Windows").</param>
+public sealed record LoginRequest(string Email, string Password, ClientKind Client = ClientKind.Web, string? DeviceId = null, string? DeviceName = null);
 
 /// <summary>Web clients send no body token (the cookie is used); native clients send the token.</summary>
-public sealed record RefreshRequest(string? RefreshToken = null, ClientKind Client = ClientKind.Web, string? DeviceId = null);
+public sealed record RefreshRequest(string? RefreshToken = null, ClientKind Client = ClientKind.Web, string? DeviceId = null, string? DeviceName = null);
 
 public sealed record LogoutRequest(string? RefreshToken = null);
 
@@ -165,7 +166,12 @@ public interface IAuthService
 {
     Task<AuthTokens> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
 
-    Task<AuthTokens> RefreshAsync(string refreshToken, ClientKind client, string? deviceId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Rotates the refresh token and slides the session forward (Auth:SessionDays from now, never past
+    /// Auth:SessionMaxDays from the login). Answers 401 <c>invalid-refresh-token</c> only when the token
+    /// is unknown, expired, revoked or reused; that is the one answer that ends a session.
+    /// </summary>
+    Task<AuthTokens> RefreshAsync(string refreshToken, ClientKind client, string? deviceId, string? deviceName = null, CancellationToken cancellationToken = default);
 
     Task LogoutAsync(string? refreshToken, CancellationToken cancellationToken = default);
 
@@ -173,7 +179,7 @@ public interface IAuthService
     /// Starts a separate session (new refresh token family) for an already signed-in user.
     /// Used by the native background uploader so it never rotates the app's own tokens.
     /// </summary>
-    Task<AuthTokens> CreateSessionAsync(Guid userId, ClientKind client, string? deviceId, CancellationToken cancellationToken = default);
+    Task<AuthTokens> CreateSessionAsync(Guid userId, ClientKind client, string? deviceId, string? deviceName = null, CancellationToken cancellationToken = default);
 
     Task<MeResponse> GetMeAsync(Guid userId, CancellationToken cancellationToken = default);
 }

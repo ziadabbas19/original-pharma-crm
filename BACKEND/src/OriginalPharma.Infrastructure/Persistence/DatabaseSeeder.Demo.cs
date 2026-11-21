@@ -39,6 +39,32 @@ internal sealed partial class DatabaseSeeder
         await RunOnceAsync("demo-discounts-v1", SeedDiscountsAsync, cancellationToken);
         await RunOnceAsync("demo-activity-v1", SeedActivityAsync, cancellationToken);
         await RunOnceAsync("demo-visit-flow-v1", SeedVisitFlowAsync, cancellationToken);
+        await RunOnceAsync("demo-expenses-v1", SeedCityExpensesAsync, cancellationToken);
+    }
+
+    /// <summary>Daily expense per demo town (EGP), so visits there add a line. Amounts set by hand are kept.</summary>
+    private static readonly Dictionary<string, decimal> TownExpenses = new()
+    {
+        ["T-NSR"] = 60m,
+        ["T-HLP"] = 50m,
+        ["T-NCR"] = 80m,
+        ["T-DOK"] = 50m,
+        ["T-MOH"] = 50m,
+        ["T-OCT"] = 90m,
+        ["T-SMH"] = 70m,
+        ["T-SDG"] = 60m,
+    };
+
+    private async Task SeedCityExpensesAsync(CancellationToken cancellationToken)
+    {
+        var codes = TownExpenses.Keys.ToArray();
+        var towns = await db.Territories.Where(t => codes.Contains(t.Code) && t.DefaultDailyExpense == 0).ToListAsync(cancellationToken);
+        foreach (var town in towns)
+        {
+            town.DefaultDailyExpense = TownExpenses[town.Code];
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>Region, area and first town, the managers and the first rep (skipped on databases that already have territories).</summary>

@@ -13,6 +13,7 @@ import {
   useUsersList,
 } from '@/api/generated/endpoints'
 import type { RepRankRow, StatsRange, StatsSection } from '@/api/generated/model'
+import { FilterBar } from '@/components/data-table/FilterBar'
 import { FilterField } from '@/components/data-table/toolbar'
 import { PageHeader } from '@/components/PageHeader'
 import { ErrorState, LoadingState } from '@/components/states'
@@ -20,7 +21,15 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  STICKY_FIRST_COLUMN,
+} from '@/components/ui/table'
 import { usePermission } from '@/features/auth/usePermission'
 import { formatDay, formatMoney, formatNumber, formatPercent, localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
@@ -115,7 +124,13 @@ function Filters({
     <Card className="py-3">
       <CardContent className="grid gap-3 px-3">
         <PresetChips value={filters.preset} onChange={pick} />
-        <div className="flex flex-wrap items-end gap-2">
+        <FilterBar
+          onClearFilters={
+            filters.repId || filters.areaId || filters.lineId || filters.productId
+              ? () => set({ repId: '', areaId: '', lineId: '', productId: '' })
+              : undefined
+          }
+        >
           {filters.preset === 'custom' && (
             <>
               <FilterField label={t('visits.from')}>
@@ -146,68 +161,71 @@ function Filters({
               </FilterField>
             </>
           )}
-          {canReadUsers && (
-            <Select label={t('orders.rep')} value={filters.repId} onChange={(repId) => set({ repId })}>
-              {(users.data ?? []).map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.fullName}
-                </option>
-              ))}
-            </Select>
+          {canReadUsers &&
+            selectFilter(
+              t('orders.rep'),
+              filters.repId,
+              (repId) => set({ repId }),
+              (users.data ?? []).map((u) => [u.id, u.fullName]),
+              t('table.all'),
+            )}
+          {selectFilter(
+            t('doctors.area'),
+            filters.areaId,
+            (areaId) => set({ areaId }),
+            areas,
+            t('table.all'),
           )}
-          <Select label={t('doctors.area')} value={filters.areaId} onChange={(areaId) => set({ areaId })}>
-            {areas.map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </Select>
           {canReadProducts && (
             <>
-              <Select label={t('catalog.line')} value={filters.lineId} onChange={(lineId) => set({ lineId })}>
-                {(lines.data ?? []).map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {localizedName(l.nameEn, l.nameAr)}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                label={t('catalog.product')}
-                value={filters.productId}
-                onChange={(productId) => set({ productId })}
-              >
-                {(products.data ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {localizedName(p.nameEn, p.nameAr)}
-                  </option>
-                ))}
-              </Select>
+              {selectFilter(
+                t('catalog.line'),
+                filters.lineId,
+                (lineId) => set({ lineId }),
+                (lines.data ?? []).map((l) => [l.id, localizedName(l.nameEn, l.nameAr)]),
+                t('table.all'),
+              )}
+              {selectFilter(
+                t('catalog.product'),
+                filters.productId,
+                (productId) => set({ productId }),
+                (products.data ?? []).map((p) => [p.id, localizedName(p.nameEn, p.nameAr)]),
+                t('table.all'),
+              )}
             </>
           )}
-        </div>
+        </FilterBar>
       </CardContent>
     </Card>
   )
 }
 
-function Select({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  children: ReactNode
-}) {
-  const { t } = useTranslation()
+/**
+ * One "all or one of these" filter. A plain function (not a component) so the FilterBar sees the
+ * FilterField and can move it into the phone's Filters sheet with a chip for the chosen value.
+ */
+function selectFilter(
+  label: string,
+  value: string,
+  onChange: (value: string) => void,
+  options: (readonly [string, string])[],
+  allLabel: string,
+) {
   return (
-    <FilterField label={label}>
+    <FilterField
+      label={label}
+      active={value !== ''}
+      display={options.find(([id]) => id === value)?.[1]}
+      onReset={() => onChange('')}
+    >
       {(id) => (
         <NativeSelect id={id} className="w-40" value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">{t('table.all')}</option>
-          {children}
+          <option value="">{allLabel}</option>
+          {options.map(([optionId, name]) => (
+            <option key={optionId} value={optionId}>
+              {name}
+            </option>
+          ))}
         </NativeSelect>
       )}
     </FilterField>
@@ -387,7 +405,7 @@ function VisitsSection({ params }: { params: StatsParams }) {
               <p className="py-6 text-center text-sm text-muted-foreground">{t('stats.noData')}</p>
             ) : (
               <div className="max-h-80 overflow-auto">
-                <Table>
+                <Table className={STICKY_FIRST_COLUMN}>
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t('orders.rep')}</TableHead>
@@ -526,7 +544,7 @@ function RepsSection({ params }: { params: StatsParams }) {
             </StatCard>
             <StatCard title={t('stats.comparison')} table="reps">
               <div className="overflow-x-auto">
-                <Table>
+                <Table className={STICKY_FIRST_COLUMN}>
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t('orders.rep')}</TableHead>

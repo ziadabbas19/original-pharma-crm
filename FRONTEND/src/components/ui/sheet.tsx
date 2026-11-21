@@ -16,7 +16,7 @@ function SheetClose(props: React.ComponentProps<typeof SheetPrimitive.Close>) {
 const SIDE_CLASSES = {
   start:
     'inset-y-0 inset-s-0 h-full w-3/4 border-e sm:max-w-sm ltr:data-[state=closed]:slide-out-to-left ltr:data-[state=open]:slide-in-from-left rtl:data-[state=closed]:slide-out-to-right rtl:data-[state=open]:slide-in-from-right',
-  end: 'inset-y-0 inset-e-0 h-full w-full border-s sm:max-w-xl ltr:data-[state=closed]:slide-out-to-right ltr:data-[state=open]:slide-in-from-right rtl:data-[state=closed]:slide-out-to-left rtl:data-[state=open]:slide-in-from-left',
+  end: 'inset-y-0 inset-e-0 h-full w-full border-s pt-safe sm:max-w-xl ltr:data-[state=closed]:slide-out-to-right ltr:data-[state=open]:slide-in-from-right rtl:data-[state=closed]:slide-out-to-left rtl:data-[state=open]:slide-in-from-left',
   /** Phone-style sheet from the bottom edge (rep app pickers). */
   bottom:
     'inset-x-0 bottom-0 mx-auto max-h-[90dvh] w-full max-w-lg rounded-t-[20px] border-t pb-safe data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
@@ -50,7 +50,10 @@ function SheetContent({
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close className="absolute inset-e-4 top-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:size-4">
+          <SheetPrimitive.Close
+            data-slot="sheet-close"
+            className="absolute inset-e-4 top-[max(1rem,env(safe-area-inset-top))] rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none max-sm:inset-e-2 max-sm:flex max-sm:size-11 max-sm:items-center max-sm:justify-center [&_svg]:size-4"
+          >
             <XIcon />
             <span className="sr-only">{t('common.close')}</span>
           </SheetPrimitive.Close>

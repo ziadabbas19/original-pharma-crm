@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import { ApiError } from '@/lib/api-client'
+import { handleError, inlineErrors } from '@/lib/errors'
 import { localizedName } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
@@ -38,8 +38,8 @@ export function AddDoctorSheet({
     { search: term },
     { query: { enabled: open && tab === 'find' && term.length >= 2 } },
   )
-  const add = useDoctorsAddToMyList()
-  const create = useDoctorsCreate()
+  const add = useDoctorsAddToMyList(inlineErrors)
+  const create = useDoctorsCreate(inlineErrors)
   const [values, setValues] = useState<DoctorFormValues>(EMPTY_DOCTOR)
   const [touched, setTouched] = useState(false)
   const [error, setError] = useState<unknown>(null)
@@ -60,7 +60,7 @@ export function AddDoctorSheet({
     try {
       await finish(await add.mutateAsync({ id }))
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'doctors.add' }))
     }
   }
 
@@ -85,14 +85,12 @@ export function AddDoctorSheet({
         }),
       )
     } catch (err) {
-      if (
-        err instanceof ApiError &&
-        err.code === 'doctor_exists' &&
-        typeof err.problem.doctorId === 'string'
-      ) {
-        setExistingId(err.problem.doctorId)
+      const failure = handleError(err, { silent: true, context: 'doctors.add' })
+      // The doctor is already known: offer the existing record instead of an error.
+      if (failure.code === 'doctor_exists' && typeof failure.details.doctorId === 'string') {
+        setExistingId(failure.details.doctorId)
       } else {
-        setError(err)
+        setError(failure)
       }
     }
   }

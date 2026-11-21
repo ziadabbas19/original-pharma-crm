@@ -11,7 +11,8 @@ using OriginalPharma.Domain.Identity;
 
 namespace OriginalPharma.Application.Identity;
 
-/// <param name="UsageCount">Doctors, pharmacies, orders and visits that point at the node (it is archived instead of deleted).</param>
+/// <param name="UsageCount">Doctors, pharmacies, orders, visits and expense lines that point at the node (it is archived instead of deleted).</param>
+/// <param name="DefaultDailyExpense">The city's default daily expense (EGP); visits there add it to the rep's day.</param>
 public sealed record TerritoryDto(
     Guid Id,
     string Code,
@@ -23,7 +24,8 @@ public sealed record TerritoryDto(
     int CustomerCount,
     int ChildCount,
     int UsageCount = 0,
-    DateTimeOffset? ArchivedAt = null);
+    DateTimeOffset? ArchivedAt = null,
+    decimal DefaultDailyExpense = 0);
 
 /// <param name="Name">English name.</param>
 /// <param name="Code">Optional; generated when empty.</param>
@@ -78,8 +80,9 @@ public sealed class TerritoryService(
             db.Customers.Count(c => c.TerritoryId == t.Id && c.IsActive && c.ArchivedAt == null),
             t.Children.Count(c => c.ArchivedAt == null),
             db.Customers.Count(c => c.TerritoryId == t.Id) + db.Orders.Count(o => o.TerritoryId == t.Id) +
-            db.Visits.Count(v => v.TerritoryId == t.Id),
-            t.ArchivedAt));
+            db.Visits.Count(v => v.TerritoryId == t.Id) + db.ExpenseLines.Count(l => l.CityId == t.Id),
+            t.ArchivedAt,
+            t.DefaultDailyExpense));
 
     public async Task<TerritoryDto> CreateAsync(CreateTerritoryRequest request, CancellationToken cancellationToken = default)
     {
@@ -131,6 +134,27 @@ public sealed class TerritoryService(
 
         await db.SaveChangesAsync(cancellationToken);
         hierarchy.Invalidate();
+        return await GetAsync(territory.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets a city's default daily expense (expenses:settings). Zero means visits there add no expense.
+    /// Lines already created keep their amount.
+    /// </summary>
+    public async Task<TerritoryDto> SetDefaultExpenseAsync(Guid id, decimal amount, CancellationToken cancellationToken = default)
+    {
+        var territory = await db.Territories.SingleOrDefaultAsync(t => t.Id == id, cancellationToken)
+                        ?? throw new NotFoundException("Territory", id);
+        var rounded = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
+        if (rounded != territory.DefaultDailyExpense)
+        {
+            await audit.AddAsync(AuditEntities.Territory, territory.Id, AuditAction.Updated,
+                new { before = new { territory.DefaultDailyExpense }, after = new { DefaultDailyExpense = rounded } },
+                cancellationToken: cancellationToken);
+            territory.DefaultDailyExpense = rounded;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
         return await GetAsync(territory.Id, cancellationToken);
     }
 
@@ -309,6 +333,9 @@ public sealed class TerritoryService(
             .Select(x => (x.Key, x.Count)));
         Add((await db.Visits.Where(v => v.TerritoryId != null && ids.Contains(v.TerritoryId.Value))
             .GroupBy(v => v.TerritoryId!.Value).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(cancellationToken))
+            .Select(x => (x.Key, x.Count)));
+        Add((await db.ExpenseLines.Where(l => ids.Contains(l.CityId))
+            .GroupBy(l => l.CityId).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(cancellationToken))
             .Select(x => (x.Key, x.Count)));
         return counts;
     }

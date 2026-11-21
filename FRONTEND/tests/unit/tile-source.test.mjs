@@ -12,7 +12,7 @@ test('development falls back to the OpenStreetMap servers', () => {
 test('a configured provider replaces the default completely', () => {
   const source = resolveTileSource({
     VITE_MAP_TILE_URL: 'https://tiles.example.test/{z}/{x}/{y}.png?key=abc',
-    VITE_MAP_TILE_ATTRIBUTION: '© Example',
+    VITE_MAP_TILE_ATTRIBUTION: 'Example Maps',
     VITE_MAP_TILE_SIZE: '512',
     VITE_MAP_TILE_MAX_ZOOM: '20',
   })
@@ -20,7 +20,7 @@ test('a configured provider replaces the default completely', () => {
     tiles: ['https://tiles.example.test/{z}/{x}/{y}.png?key=abc'],
     tileSize: 512,
     maxzoom: 20,
-    attribution: '© Example',
+    attribution: 'Example Maps',
   })
 })
 

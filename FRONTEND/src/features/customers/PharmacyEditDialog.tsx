@@ -20,12 +20,13 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { TownSelect } from '@/features/doctors/doctor-fields'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
+import { handleError, inlineErrors } from '@/lib/errors'
 
 /** Edit a pharmacy: names, address, town, phone, location and geofence. */
 export function PharmacyEditDialog({ customer, onClose }: { customer: CustomerDto; onClose: () => void }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const update = useCustomersUpdate()
+  const update = useCustomersUpdate(inlineErrors)
   const { towns } = useDoctorReferenceData()
   const [name, setName] = useState(customer.name)
   const [nameAr, setNameAr] = useState(customer.nameAr ?? '')
@@ -73,7 +74,7 @@ export function PharmacyEditDialog({ customer, onClose }: { customer: CustomerDt
       await queryClient.invalidateQueries({ queryKey: ['/api/customers'] })
       onClose()
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'pharmacies.edit' }))
     }
   }
 

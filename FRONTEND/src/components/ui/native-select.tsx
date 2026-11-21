@@ -26,6 +26,8 @@ function NativeSelect({
           'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
           'disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive',
           size === 'sm' ? 'h-8 rounded-[10px] text-xs' : 'h-9',
+          // Phones: large enough to tap, and 16 px text so the browser does not zoom in.
+          'max-sm:h-11 max-sm:text-base',
           selectClassName,
         )}
         {...props}

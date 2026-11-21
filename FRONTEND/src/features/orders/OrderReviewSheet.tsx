@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
+import { UserFacingError, handleError, inlineErrors } from '@/lib/errors'
 import { fromOrder, toUpdateRequest } from './order-request'
 import { OrderDetails } from './OrderDetails'
 import { OrderForm } from './OrderForm'
@@ -29,11 +30,11 @@ export function OrderReviewSheet({ orderId, onClose }: { orderId: string; onClos
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const order = useOrdersGet(orderId)
-  const approve = useOrdersApprove()
-  const reject = useOrdersReject()
-  const cancel = useOrdersCancel()
-  const deliver = useOrdersDeliver()
-  const update = useOrdersUpdate()
+  const approve = useOrdersApprove(inlineErrors)
+  const reject = useOrdersReject(inlineErrors)
+  const cancel = useOrdersCancel(inlineErrors)
+  const deliver = useOrdersDeliver(inlineErrors)
+  const update = useOrdersUpdate(inlineErrors)
   const { products } = useOrderReferenceData()
   const [editing, setEditing] = useState(false)
   const [action, setAction] = useState<Action | null>(null)
@@ -45,7 +46,7 @@ export function OrderReviewSheet({ orderId, onClose }: { orderId: string; onClos
   const run = async (kind: Action) => {
     setError(null)
     if (kind === 'reject' && !reason.trim()) {
-      setError(new Error())
+      setError(new UserFacingError(t('errors.reason_required')))
       return
     }
     try {
@@ -58,7 +59,7 @@ export function OrderReviewSheet({ orderId, onClose }: { orderId: string; onClos
       setReason('')
       setInternalNote('')
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'orders.review' }))
     }
   }
 
@@ -89,7 +90,7 @@ export function OrderReviewSheet({ orderId, onClose }: { orderId: string; onClos
                   await queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
                   setEditing(false)
                 } catch (e) {
-                  setError(e)
+                  setError(handleError(e, { silent: true, context: 'orders.review' }))
                 }
               }}
             />

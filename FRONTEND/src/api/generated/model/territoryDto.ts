@@ -19,4 +19,5 @@ export interface TerritoryDto {
   usageCount?: number
   /** @nullable */
   archivedAt?: string | null
+  defaultDailyExpense?: number
 }

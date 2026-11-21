@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
+import { handleError, inlineErrors } from '@/lib/errors'
 import { formatDateTime, localizedName } from '@/lib/format'
 import { invalidateApi } from '@/lib/invalidate-api'
 import { STATUS_BADGE } from './visit-labels'
@@ -27,8 +28,8 @@ export function VisitDetailSheet({ visitId, onClose }: { visitId: string; onClos
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const visit = useVisitsGet(visitId)
-  const seen = useVisitsMarkFeedbackSeen()
-  const reply = useVisitsReply()
+  const seen = useVisitsMarkFeedbackSeen(inlineErrors)
+  const reply = useVisitsReply(inlineErrors)
   const [text, setText] = useState('')
   const [error, setError] = useState<unknown>(null)
 
@@ -42,7 +43,7 @@ export function VisitDetailSheet({ visitId, onClose }: { visitId: string; onClos
     try {
       await applied(await seen.mutateAsync({ visitId }))
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'visits.detail' }))
     }
   }
 
@@ -52,7 +53,7 @@ export function VisitDetailSheet({ visitId, onClose }: { visitId: string; onClos
       await applied(await reply.mutateAsync({ visitId, data: { text: text.trim() } }))
       setText('')
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'visits.detail' }))
     }
   }
 

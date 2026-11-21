@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { usePermission } from '@/features/auth/usePermission'
 import { LocationMap, type MapPoint } from '@/features/maps/LazyLocationMap'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
+import { handleError, inlineErrors } from '@/lib/errors'
 import { formatDateTime, formatDistance } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { DoctorFields } from './doctor-fields'
@@ -29,7 +30,7 @@ import { doctorProblems, type DoctorFormValues } from './doctor-form'
 export function DoctorEditDialog({ doctor, onClose }: { doctor: DoctorDto; onClose: () => void }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const update = useDoctorsUpdate()
+  const update = useDoctorsUpdate(inlineErrors)
   const { towns, specialties } = useDoctorReferenceData()
   const [values, setValues] = useState<DoctorFormValues>({
     name: doctor.name,
@@ -100,7 +101,7 @@ export function DoctorEditDialog({ doctor, onClose }: { doctor: DoctorDto; onClo
       await queryClient.invalidateQueries({ queryKey: ['/api/doctors'] })
       onClose()
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'doctors.edit' }))
     }
   }
 

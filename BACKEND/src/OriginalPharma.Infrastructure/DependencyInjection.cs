@@ -104,6 +104,16 @@ public static class DependencyInjection
 
                         return Task.CompletedTask;
                     },
+                    // A signed-out or revoked device stops working now, not when its access token expires.
+                    OnTokenValidated = async context =>
+                    {
+                        if (Guid.TryParse(context.Principal?.FindFirst(AppClaims.SessionId)?.Value, out var sessionId) &&
+                            await context.HttpContext.RequestServices.GetRequiredService<ISessionRevocationList>()
+                                .ContainsAsync(sessionId, context.HttpContext.RequestAborted))
+                        {
+                            context.Fail("The session was signed out.");
+                        }
+                    },
                 };
             });
 

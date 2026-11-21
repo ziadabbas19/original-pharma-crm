@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { useMyRoleLevel } from '@/features/auth/usePermission'
 import { LevelBadge, LockedNote } from '@/features/roles/RoleBadges'
 import { bestLevel, invalidateRoleData, roleLock, roleName } from '@/features/roles/role-rules'
+import { inlineErrors } from '@/lib/errors'
 
 /**
  * Assign roles to one user. Roles at or above your own level are shown but cannot be
@@ -38,7 +39,7 @@ export function UserRolesDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const setRoles = useUsersSetRoles()
+  const setRoles = useUsersSetRoles(inlineErrors)
   const myLevel = useMyRoleLevel()
   const [selected, setSelected] = useState<string[]>(user.roles.map((r) => r.key))
 

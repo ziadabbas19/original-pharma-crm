@@ -48,8 +48,13 @@ export async function launch() {
   let nextId = 1
   const pending = new Map()
   const problems = []
+  let mockHandler = null
   socket.addEventListener('message', (event) => {
     const message = JSON.parse(event.data)
+    if (message.method === 'Fetch.requestPaused' && mockHandler) {
+      void answerMock(message.params)
+      return
+    }
     if (message.id && pending.has(message.id)) {
       const { resolve, reject } = pending.get(message.id)
       pending.delete(message.id)
@@ -69,6 +74,42 @@ export async function launch() {
     })
   await send('Page.enable')
   await send('Runtime.enable')
+
+  /** Answers one intercepted API request with what the test's handler returns (or lets it through). */
+  async function answerMock({ requestId, request }) {
+    const url = new URL(request.url)
+    // The pattern also catches source modules such as /src/api/...; only API calls are answered.
+    if (!url.pathname.startsWith('/api/')) {
+      await send('Fetch.continueRequest', { requestId })
+      return
+    }
+    let reply
+    try {
+      reply = await mockHandler({
+        method: request.method,
+        path: url.pathname,
+        search: url.searchParams,
+        body: request.postData,
+      })
+    } catch (error) {
+      reply = { status: 500, body: { title: String(error) } }
+    }
+    if (!reply) {
+      await send('Fetch.continueRequest', { requestId })
+      return
+    }
+    const body =
+      reply.body === undefined ? '' : typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body)
+    await send('Fetch.fulfillRequest', {
+      requestId,
+      responseCode: reply.status ?? 200,
+      responseHeaders: [
+        { name: 'Content-Type', value: reply.contentType ?? 'application/json' },
+        ...Object.entries(reply.headers ?? {}).map(([name, value]) => ({ name, value: String(value) })),
+      ],
+      body: Buffer.from(body).toString('base64'),
+    })
+  }
 
   const evaluate = async (expression) => {
     const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
@@ -96,6 +137,14 @@ export async function launch() {
       throw new Error(`Timed out waiting for: ${condition}`)
     },
     sleep,
+    /**
+     * Answers every /api request from the page with handler({ method, path, search, body }), which
+     * returns { status, body, headers } (or nothing to let the request through). No backend needed.
+     */
+    async mockApi(handler) {
+      mockHandler = handler
+      await send('Fetch.enable', { patterns: [{ urlPattern: '*/api/*', requestStage: 'Request' }] })
+    },
     /** Cuts the page off the network (the app sees navigator.onLine = false) or brings it back. */
     async offline(value) {
       await send('Network.enable')

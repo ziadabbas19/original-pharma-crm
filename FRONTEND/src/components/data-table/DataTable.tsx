@@ -1,14 +1,24 @@
-import { flexRender, useTable, type ColumnDef, type RowData, type SortingState } from '@tanstack/react-table'
+import {
+  flexRender,
+  useTable,
+  type Cell,
+  type ColumnDef,
+  type Header,
+  type Row,
+  type RowData,
+  type SortingState,
+} from '@tanstack/react-table'
 import {
   ArrowDownIcon,
   ArrowUpIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsUpDownIcon,
+  EllipsisVerticalIcon,
   SearchXIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { useMemo, type ReactNode } from 'react'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SelectionBar } from '@/components/bulk/SelectionBar'
 import type { Selection } from '@/components/bulk/use-selection'
@@ -17,10 +27,13 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { NativeSelect } from '@/components/ui/native-select'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useIsPhone } from '@/hooks/use-media-query'
 import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { dataTableFeatures, type DataTableFeatures } from './features'
+import { FilterBar } from './FilterBar'
 
 const PAGE_SIZES = [10, 25, 50, 100]
 const NO_ROWS: never[] = []
@@ -91,6 +104,7 @@ export function DataTable<TData extends RowData>({
   bulkActions,
 }: DataTableProps<TData>) {
   const { t } = useTranslation()
+  const phone = useIsPhone()
   const rows: TData[] = data ?? NO_ROWS
 
   const initialState = useMemo(
@@ -153,116 +167,129 @@ export function DataTable<TData extends RowData>({
             <ErrorState error={error} onRetry={onRetry} />
           </div>
         ) : null}
-        <Table>
-          <TableHeader className="bg-muted/40">
-            {table.getHeaderGroups().map((group) => (
-              <TableRow key={group.id} className="hover:bg-transparent">
-                {selection && (
-                  <TableHead className="w-10 px-3">
-                    <Checkbox
-                      aria-label={t('bulk.selectAll', {
-                        count: selection.total,
-                        value: formatNumber(selection.total),
-                      })}
-                      title={t('bulk.selectAll', {
-                        count: selection.total,
-                        value: formatNumber(selection.total),
-                      })}
-                      checked={
-                        selection.allSelected ? true : selection.someSelected ? 'indeterminate' : false
-                      }
-                      onCheckedChange={(v) => selection.setAll(v === true)}
-                    />
-                  </TableHead>
-                )}
-                {group.headers.map((header) => {
-                  const meta = header.column.columnDef.meta
-                  const sorted = header.column.getIsSorted()
-                  const content = header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())
-                  return (
-                    <TableHead
-                      key={header.id}
-                      className={cn(
-                        'px-3 text-muted-foreground',
-                        meta?.className,
-                        header.column.id === 'actions' && ACTIONS_HEAD,
-                      )}
-                      aria-sort={
-                        sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined
-                      }
-                    >
-                      {header.column.getCanSort() ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-                        >
-                          {content}
-                          {sorted === 'asc' ? (
-                            <ArrowUpIcon className="size-3.5" />
-                          ) : sorted === 'desc' ? (
-                            <ArrowDownIcon className="size-3.5" />
-                          ) : (
-                            <ChevronsUpDownIcon className="size-3.5 opacity-40" />
-                          )}
-                        </button>
-                      ) : (
-                        content
-                      )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {pageRows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={selection?.has(row.id) ? 'selected' : undefined}
-                className={cn(onRowClick && 'cursor-pointer', rowClassName?.(row.original))}
-                tabIndex={onRowClick ? 0 : undefined}
-                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                onKeyDown={
-                  onRowClick
-                    ? (e) => {
-                        if (e.target !== e.currentTarget) return
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          onRowClick(row.original)
+        {phone ? (
+          <CardList
+            rows={pageRows}
+            headers={table.getFlatHeaders()}
+            sorting={table.state.sorting}
+            onSort={(next) => table.setSorting(next)}
+            selection={selection}
+            rowLabel={rowLabel}
+            rowClassName={rowClassName}
+            onRowClick={onRowClick}
+          />
+        ) : (
+          <Table>
+            <TableHeader className="bg-muted/40">
+              {table.getHeaderGroups().map((group) => (
+                <TableRow key={group.id} className="hover:bg-transparent">
+                  {selection && (
+                    <TableHead className="w-10 px-3">
+                      <Checkbox
+                        aria-label={t('bulk.selectAll', {
+                          count: selection.total,
+                          value: formatNumber(selection.total),
+                        })}
+                        title={t('bulk.selectAll', {
+                          count: selection.total,
+                          value: formatNumber(selection.total),
+                        })}
+                        checked={
+                          selection.allSelected ? true : selection.someSelected ? 'indeterminate' : false
                         }
-                      }
-                    : undefined
-                }
-              >
-                {selection && (
-                  <TableCell className="w-10 px-3" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      aria-label={t('bulk.selectRow', { name: rowLabel?.(row.original) ?? row.id })}
-                      checked={selection.has(row.id)}
-                      onCheckedChange={(v) => selection.toggle(row.id, v === true)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                    />
-                  </TableCell>
-                )}
-                {row.getAllCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      'px-3',
-                      cell.column.columnDef.meta?.className,
-                      cell.column.id === 'actions' && ACTIONS_CELL,
-                    )}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                        onCheckedChange={(v) => selection.setAll(v === true)}
+                      />
+                    </TableHead>
+                  )}
+                  {group.headers.map((header) => {
+                    const meta = header.column.columnDef.meta
+                    const sorted = header.column.getIsSorted()
+                    const content = header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())
+                    return (
+                      <TableHead
+                        key={header.id}
+                        className={cn(
+                          'px-3 text-muted-foreground',
+                          meta?.className,
+                          header.column.id === 'actions' && ACTIONS_HEAD,
+                        )}
+                        aria-sort={
+                          sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined
+                        }
+                      >
+                        {header.column.getCanSort() ? (
+                          <button
+                            type="button"
+                            onClick={header.column.getToggleSortingHandler()}
+                            className="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                          >
+                            {content}
+                            {sorted === 'asc' ? (
+                              <ArrowUpIcon className="size-3.5" />
+                            ) : sorted === 'desc' ? (
+                              <ArrowDownIcon className="size-3.5" />
+                            ) : (
+                              <ChevronsUpDownIcon className="size-3.5 opacity-40" />
+                            )}
+                          </button>
+                        ) : (
+                          content
+                        )}
+                      </TableHead>
+                    )
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {pageRows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={selection?.has(row.id) ? 'selected' : undefined}
+                  className={cn(onRowClick && 'cursor-pointer', rowClassName?.(row.original))}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.target !== e.currentTarget) return
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            onRowClick(row.original)
+                          }
+                        }
+                      : undefined
+                  }
+                >
+                  {selection && (
+                    <TableCell className="w-10 px-3" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        aria-label={t('bulk.selectRow', { name: rowLabel?.(row.original) ?? row.id })}
+                        checked={selection.has(row.id)}
+                        onCheckedChange={(v) => selection.toggle(row.id, v === true)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      />
+                    </TableCell>
+                  )}
+                  {row.getAllCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      className={cn(
+                        'px-3',
+                        cell.column.columnDef.meta?.className,
+                        cell.column.id === 'actions' && ACTIONS_CELL,
+                      )}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t px-3 py-2 text-sm text-muted-foreground">
           <span className="tabular-nums">
             {t('table.range', {
@@ -316,10 +343,230 @@ export function DataTable<TData extends RowData>({
 
   return (
     <Card className="gap-0 overflow-hidden py-0">
-      {toolbar && <div className="flex flex-wrap items-end gap-2 border-b p-3">{toolbar}</div>}
+      {toolbar && (
+        <div className="border-b p-3">
+          <FilterBar onClearFilters={onClearFilters}>{toolbar}</FilterBar>
+        </div>
+      )}
       {selection && <SelectionBar selection={selection}>{bulkActions}</SelectionBar>}
       {body}
       {footer && <div className="border-t px-3 py-2 text-xs text-muted-foreground">{footer}</div>}
     </Card>
+  )
+}
+
+type CardRow<TData extends RowData> = Row<DataTableFeatures, TData>
+type CardCell<TData extends RowData> = Cell<DataTableFeatures, TData, unknown>
+type CardHeader<TData extends RowData> = Header<DataTableFeatures, TData, unknown>
+
+/**
+ * Rows as cards for phones: the title column on top, the other columns as labelled fields, the
+ * row actions in a menu, and a sort picker and select-all above the list.
+ */
+function CardList<TData extends RowData>({
+  rows,
+  headers,
+  sorting,
+  onSort,
+  selection,
+  rowLabel,
+  rowClassName,
+  onRowClick,
+}: {
+  rows: CardRow<TData>[]
+  headers: CardHeader<TData>[]
+  sorting: SortingState
+  onSort: (sorting: SortingState) => void
+  selection?: Selection
+  rowLabel?: (row: TData) => string
+  rowClassName?: (row: TData) => string | undefined
+  onRowClick?: (row: TData) => void
+}) {
+  const { t } = useTranslation()
+  const headerOf = (id: string) => headers.find((h) => h.column.id === id)
+  const label = (id: string) => {
+    const header = headerOf(id)
+    return header && !header.isPlaceholder
+      ? flexRender(header.column.columnDef.header, header.getContext())
+      : null
+  }
+  const sortable = headers.filter((h) => h.column.getCanSort() && !h.isPlaceholder)
+  const sortValue = sorting[0] ? `${sorting[0].id}:${sorting[0].desc ? 'desc' : 'asc'}` : ''
+
+  return (
+    <div data-testid="card-list">
+      {(sortable.length > 0 || selection) && (
+        <div className="flex flex-wrap items-center gap-3 border-b bg-muted/40 px-3 py-2">
+          {selection && (
+            <label className="flex min-h-11 items-center gap-3 text-sm">
+              <Checkbox
+                checked={selection.allSelected ? true : selection.someSelected ? 'indeterminate' : false}
+                onCheckedChange={(v) => selection.setAll(v === true)}
+              />
+              {t('bulk.selectAll', { count: selection.total, value: formatNumber(selection.total) })}
+            </label>
+          )}
+          {sortable.length > 0 && (
+            <NativeSelect
+              className="ms-auto w-auto min-w-40"
+              value={sortValue}
+              onChange={(e) => {
+                const [id, dir] = e.target.value.split(':')
+                onSort(id ? [{ id, desc: dir === 'desc' }] : [])
+              }}
+              aria-label={t('table.sortBy')}
+            >
+              <option value="">{t('table.sortDefault')}</option>
+              {sortable.map((h) => {
+                const text = headerText(h)
+                return (
+                  <Fragment key={h.id}>
+                    <option value={`${h.column.id}:asc`}>{t('table.sortAscending', { name: text })}</option>
+                    <option value={`${h.column.id}:desc`}>{t('table.sortDescending', { name: text })}</option>
+                  </Fragment>
+                )
+              })}
+            </NativeSelect>
+          )}
+        </div>
+      )}
+      <ul className="divide-y">
+        {rows.map((row) => {
+          const cells = row.getAllCells() as CardCell<TData>[]
+          const actions = cells.find((c) => c.column.id === 'actions')
+          const content = cells.filter(
+            (c) => c.column.id !== 'actions' && c.column.columnDef.meta?.card !== 'hidden',
+          )
+          const title = content.find((c) => c.column.columnDef.meta?.card === 'title') ?? content[0]
+          const fields = content.filter((c) => c !== title)
+          const name = rowLabel?.(row.original) ?? row.id
+          return (
+            <li
+              key={row.id}
+              data-state={selection?.has(row.id) ? 'selected' : undefined}
+              className={cn(
+                'flex items-start gap-3 p-3 data-[state=selected]:bg-primary/5',
+                onRowClick && 'cursor-pointer active:bg-accent',
+                rowClassName?.(row.original),
+              )}
+              tabIndex={onRowClick ? 0 : undefined}
+              onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (e) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onRowClick(row.original)
+                      }
+                    }
+                  : undefined
+              }
+              data-testid="card-row"
+            >
+              {selection && (
+                <div className="flex min-h-11 items-center" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    aria-label={t('bulk.selectRow', { name })}
+                    checked={selection.has(row.id)}
+                    onCheckedChange={(v) => selection.toggle(row.id, v === true)}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                </div>
+              )}
+              <div className="grid min-w-0 flex-1 gap-2">
+                {title && (
+                  <div className="min-w-0 font-medium break-words">
+                    {flexRender(title.column.columnDef.cell, title.getContext())}
+                  </div>
+                )}
+                {fields.length > 0 && (
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                    {fields.map((cell) => (
+                      <div key={cell.id} className="min-w-0">
+                        <dt className="text-xs text-muted-foreground">{label(cell.column.id)}</dt>
+                        <dd className="min-w-0 break-words [&_[data-slot=badge]]:whitespace-normal">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </div>
+              {actions && (
+                <RowActions title={name}>
+                  {flexRender(actions.column.columnDef.cell, actions.getContext())}
+                </RowActions>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+/** Plain text of a column header, for the sort picker (headers may be strings or render functions). */
+function headerText<TData extends RowData>(header: CardHeader<TData>): string {
+  const def = header.column.columnDef.header
+  if (typeof def === 'string') return def
+  if (typeof def === 'function') {
+    try {
+      const rendered: unknown = def(header.getContext())
+      if (typeof rendered === 'string') return rendered
+    } catch {
+      // fall through to the column id
+    }
+  }
+  return header.column.id
+}
+
+/**
+ * A row's actions on a phone: one button that opens a sheet listing them. Buttons show their own
+ * label there (tables hide it when narrow), or their accessible name when they only have an icon, so
+ * every action reads as a labelled row.
+ */
+function RowActions({ title, children }: { title: string; children: ReactNode }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  return (
+    <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={t('table.actionsFor', { name: title })}
+        onClick={() => setOpen(true)}
+        data-testid="row-actions"
+      >
+        <EllipsisVerticalIcon />
+      </Button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side="bottom"
+          className="gap-0"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          data-testid="row-actions-sheet"
+        >
+          <SheetHeader className="border-b">
+            <SheetTitle className="truncate">{title}</SheetTitle>
+            <SheetDescription className="sr-only">{t('table.actions')}</SheetDescription>
+          </SheetHeader>
+          {/* Closes after the action's own click handler has run (it may open a dialog). */}
+          <div
+            className={cn(
+              'grid gap-1 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+              '[&_div]:flex-col [&_div]:items-stretch [&_div]:gap-1 [&>div]:max-w-none',
+              '[&_a]:min-h-12 [&_a]:w-full [&_a]:justify-start [&_button]:h-12 [&_button]:w-full [&_button]:justify-start [&_button]:gap-3 [&_button]:px-3',
+              // Labels: the button's own text (often hidden in narrow tables), or its accessible name.
+              '[&_button>span]:inline!',
+              '[&_button:has(>svg:only-child)]:after:font-medium [&_button:has(>svg:only-child)]:after:content-[attr(aria-label)]',
+            )}
+            onClickCapture={() => setTimeout(() => setOpen(false), 0)}
+          >
+            {children}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
   )
 }

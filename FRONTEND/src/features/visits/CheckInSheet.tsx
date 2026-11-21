@@ -14,6 +14,7 @@ import { FormError } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { handleError } from '@/lib/errors'
 import { localizedName } from '@/lib/format'
 import { platform, type GeoFix } from '@/lib/platform'
 import { useAppSelector } from '@/store'
@@ -91,7 +92,7 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
     try {
       setPhoto((await compressPhoto(file)).dataUrl)
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'visits.checkIn' }))
     } finally {
       setPhotoBusy(false)
     }
@@ -113,7 +114,7 @@ export function CheckInSheet({ customer, onClose }: { customer: VisitCustomer; o
       onClose()
       await navigate({ to: '/rep/visits/active' })
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'visits.checkIn' }))
       setBusy(false)
     }
   }

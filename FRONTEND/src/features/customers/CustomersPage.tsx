@@ -26,13 +26,13 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { dataTableColumns } from '@/components/data-table/features'
 import { FilterField, SearchInput, ToolbarSpacer } from '@/components/data-table/toolbar'
 import { PageHeader } from '@/components/PageHeader'
-import { FormError } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import { usePermission } from '@/features/auth/usePermission'
 import { DoctorEditDialog } from '@/features/doctors/DoctorEditDialog'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { handleError } from '@/lib/errors'
 import { formatDistance, formatNumber, localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { PharmacyEditDialog } from './PharmacyEditDialog'
@@ -51,7 +51,6 @@ export function CustomersPage() {
   const [archived, setArchived] = useState(false)
   const [editingPharmacy, setEditingPharmacy] = useState<CustomerDto | null>(null)
   const [editingDoctor, setEditingDoctor] = useState<DoctorDto | null>(null)
-  const [editError, setEditError] = useState<unknown>(null)
   const term = useDebouncedValue(search.trim(), 350)
   const queryClient = useQueryClient()
   const canEdit = usePermission(P.customers.manage)
@@ -187,9 +186,11 @@ export function CustomersPage() {
                         aria-label={t('common.edit')}
                         title={t('common.edit')}
                         onClick={() => {
-                          setEditError(null)
                           if (row.original.type === 'pharmacy') setEditingPharmacy(row.original)
-                          else void doctorsGet(row.original.id).then(setEditingDoctor).catch(setEditError)
+                          else
+                            void doctorsGet(row.original.id)
+                              .then(setEditingDoctor)
+                              .catch((e: unknown) => handleError(e, { context: 'doctors.open' }))
                         }}
                       >
                         <PencilIcon />
@@ -221,7 +222,6 @@ export function CustomersPage() {
   return (
     <>
       <PageHeader title={t('customers.title')} description={t('customers.hint')} />
-      <FormError error={editError} />
       <DataTable
         columns={columns}
         data={filtered}
@@ -269,7 +269,12 @@ export function CustomersPage() {
         toolbar={
           <>
             <SearchInput value={search} onChange={setSearch} placeholder={t('customers.searchPlaceholder')} />
-            <FilterField label={t('customers.type')}>
+            <FilterField
+              label={t('customers.type')}
+              active={type !== ''}
+              display={type ? t(`customers.types.${type}`) : undefined}
+              onReset={() => setType('')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -283,7 +288,12 @@ export function CustomersPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('customers.status')}>
+            <FilterField
+              label={t('customers.status')}
+              active={status !== 'active'}
+              display={status === 'all' ? t('table.all') : t(`users.${status}`)}
+              onReset={() => setStatus('active')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}

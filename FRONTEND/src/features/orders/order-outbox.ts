@@ -25,7 +25,7 @@ export interface QueuedOrder {
 }
 
 export interface FailedOrder extends QueuedOrder {
-  error: { status: number; code: string; title?: string; maxDiscountPercent?: number }
+  error: { status: number; code: string; title?: string; safeToShow?: boolean; maxDiscountPercent?: number }
   failedAt: string
 }
 
@@ -96,6 +96,7 @@ export function syncOrders(): Promise<{ sent: number; failed: number }> {
               status: error.status,
               code: error.code,
               title: problem.title,
+              safeToShow: problem.safeToShow,
               maxDiscountPercent:
                 typeof problem.maxDiscountPercent === 'number' ? problem.maxDiscountPercent : undefined,
             },

@@ -7,7 +7,9 @@ using OriginalPharma.Application.Common.Auditing;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
+using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Crm;
+using OriginalPharma.Application.Expenses;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Lookups;
 using OriginalPharma.Application.Notifications;
@@ -36,6 +38,10 @@ public static class DependencyInjection
         services.Configure<VisitOptions>(configuration.GetSection(VisitOptions.SectionName));
         services.Configure<ImageOptions>(configuration.GetSection(ImageOptions.SectionName));
         services.Configure<StatsOptions>(configuration.GetSection(StatsOptions.SectionName));
+        services.Configure<ExpenseOptions>(configuration.GetSection(ExpenseOptions.SectionName));
+        services.AddOptions<AuthSessionOptions>()
+            .Bind(configuration.GetSection(AuthSessionOptions.SectionName))
+            .Validate(o => o.SessionDays >= 1 && o.SessionMaxDays >= 1, "Auth__SessionDays and Auth__SessionMaxDays must be at least 1.");
 
         // Shared
         services.AddScoped<IOrgHierarchy, OrgHierarchy>();
@@ -43,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<ImageService>();
         services.AddScoped<AuditTrail>();
         services.AddScoped<AuditLogService>();
+        services.AddScoped<LocalCalendar>();
         services.AddScoped<NotificationService>();
 
         // Identity
@@ -51,6 +58,11 @@ public static class DependencyInjection
         services.AddScoped<UserAdminService>();
         services.AddScoped<TerritoryService>();
         services.AddScoped<AccountService>();
+        services.AddScoped<SessionService>();
+        services.AddSingleton<ISessionRevocationList, SessionRevocationList>();
+
+        // Expenses
+        services.AddScoped<ExpenseService>();
 
         // CRM and lookups
         services.AddScoped<CustomerService>();

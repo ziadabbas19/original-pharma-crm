@@ -84,6 +84,7 @@ export function UsersPage() {
     const byKey = new Map((users.data ?? []).flatMap((u) => u.roles).map((r) => [r.key, r]))
     return [...byKey.values()].toSorted((a, b) => a.level - b.level)
   }, [roles.data, users.data])
+  const selectedRole = roleOptions.find((o) => o.key === role)
 
   const filtered = useMemo(() => {
     if (!users.data) return undefined
@@ -302,7 +303,12 @@ export function UsersPage() {
         toolbar={
           <>
             <SearchInput value={search} onChange={setSearch} placeholder={t('users.searchPlaceholder')} />
-            <FilterField label={t('users.roles')}>
+            <FilterField
+              label={t('users.roles')}
+              active={role !== ''}
+              display={selectedRole ? roleName(selectedRole) : undefined}
+              onReset={() => setRole('')}
+            >
               {(id) => (
                 <NativeSelect id={id} className="w-40" value={role} onChange={(e) => setRole(e.target.value)}>
                   <option value="">{t('table.all')}</option>
@@ -314,7 +320,12 @@ export function UsersPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('users.status')}>
+            <FilterField
+              label={t('users.status')}
+              active={status !== 'all'}
+              display={status === 'all' ? undefined : t(`users.${status}`)}
+              onReset={() => setStatus('all')}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}

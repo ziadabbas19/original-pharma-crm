@@ -6,8 +6,18 @@ import type { StatRow } from '@/api/generated/model'
 import { FormError } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  STICKY_FIRST_COLUMN,
+} from '@/components/ui/table'
 import { apiFetch } from '@/lib/api-client'
+import { handleError } from '@/lib/errors'
+import { exportCsv } from '@/lib/export-file'
 import { formatMoney, formatNumber, localizedName } from '@/lib/format'
 import { BarList } from './charts'
 import { useStatsContext } from './stats-context'
@@ -28,15 +38,9 @@ export function ExportButton({ table }: { table: string }) {
         getStatsExportUrl({ ...params, section, table, lang: i18n.resolvedLanguage === 'en' ? 'en' : 'ar' }),
         { headers: { Accept: 'text/csv' } },
       )
-      // Excel needs the byte order mark to read Arabic as UTF-8.
-      const blob = new Blob(['﻿', text], { type: 'text/csv;charset=utf-8' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `${section}-${table}-${params.From ?? ''}-${params.To ?? ''}.csv`
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+      await exportCsv(`${section}-${table}-${params.From ?? ''}-${params.To ?? ''}.csv`, text)
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'stats.export' }))
     } finally {
       setBusy(false)
     }
@@ -141,7 +145,7 @@ export function BreakdownCard({
         <p className="py-6 text-center text-sm text-muted-foreground">{t('stats.noData')}</p>
       ) : asTable ? (
         <div className="overflow-x-auto">
-          <Table>
+          <Table className={STICKY_FIRST_COLUMN}>
             <TableHeader>
               <TableRow>
                 <TableHead>{t('stats.name')}</TableHead>

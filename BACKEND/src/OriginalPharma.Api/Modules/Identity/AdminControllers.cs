@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using OriginalPharma.Application.Common.Bulk;
+using OriginalPharma.Application.Expenses;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Infrastructure.Identity;
 
@@ -83,7 +84,7 @@ public sealed class RolesController(RoleService roles) : ControllerBase
 [ApiController]
 [Route("api/users")]
 [Tags("Users")]
-public sealed class UsersController(UserAdminService users, AccountService accounts) : ControllerBase
+public sealed class UsersController(UserAdminService users, AccountService accounts, SessionService sessions) : ControllerBase
 {
     /// <param name="archived">Only archived (deleted) users (true), otherwise only users that are not archived.</param>
     [HttpGet]
@@ -135,6 +136,22 @@ public sealed class UsersController(UserAdminService users, AccountService accou
     [HasPermission(Permissions.Users.ResetPassword)]
     public Task<TemporaryPasswordDto> ResetPassword(Guid userId, ResetPasswordRequest request, CancellationToken cancellationToken) =>
         accounts.ResetPasswordAsync(userId, request, cancellationToken);
+
+    /// <summary>Devices the user is signed in on (users:reset-password, the user in scope and below you).</summary>
+    [HttpGet("{userId:guid}/sessions")]
+    [HasPermission(Permissions.Users.ResetPassword)]
+    public Task<IReadOnlyList<UserSessionDto>> ListSessions(Guid userId, CancellationToken cancellationToken) =>
+        sessions.ListForUserAsync(userId, cancellationToken);
+
+    /// <summary>Sign one of the user's devices out, for example a lost or stolen phone. Their other devices stay signed in.</summary>
+    [HttpDelete("{userId:guid}/sessions/{sessionId:guid}")]
+    [HasPermission(Permissions.Users.ResetPassword)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RevokeSession(Guid userId, Guid sessionId, CancellationToken cancellationToken)
+    {
+        await sessions.RevokeForUserAsync(userId, sessionId, cancellationToken);
+        return NoContent();
+    }
 
     /// <summary>Account events (created, password changed or reset, product lines changed), newest first.</summary>
     [HttpGet("{userId:guid}/audit")]
@@ -206,6 +223,12 @@ public sealed class TerritoriesController(TerritoryService territories) : Contro
     [HasPermission(Permissions.Territories.Manage)]
     public Task<TerritoryDto> Update(Guid id, UpdateTerritoryRequest request, CancellationToken cancellationToken) =>
         territories.UpdateAsync(id, request, cancellationToken);
+
+    /// <summary>A city's default daily expense in EGP (expenses:settings). Zero: visits there add no expense line.</summary>
+    [HttpPut("{id:guid}/expense-default")]
+    [HasPermission(Permissions.Expenses.Settings)]
+    public Task<TerritoryDto> SetExpenseDefault(Guid id, SetCityExpenseRequest request, CancellationToken cancellationToken) =>
+        territories.SetDefaultExpenseAsync(id, request.DefaultDailyExpense, cancellationToken);
 
     /// <summary>Delete one node (archived when used). 409 <c>territory_in_use</c> while it has active towns or users.</summary>
     [HttpDelete("{id:guid}")]

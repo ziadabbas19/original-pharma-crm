@@ -25,8 +25,11 @@ export function SelectionBar({
       className={cn(
         'flex flex-wrap items-center gap-2 border-b bg-primary/5 px-3 py-2 text-sm',
         'sticky top-0 z-10',
+        // Phones: a selection mode bar held above the bottom tab bar while the list scrolls.
+        'max-md:fixed max-md:inset-x-3 max-md:top-auto max-md:bottom-[calc(5.75rem+env(safe-area-inset-bottom))] max-md:z-30 max-md:rounded-card max-md:border max-md:bg-card max-md:p-3 max-md:shadow-float',
         className,
       )}
+      data-testid="selection-bar"
     >
       <span className="font-medium tabular-nums" aria-live="polite">
         {t('bulk.selected', { count: selection.count, value: formatNumber(selection.count) })}

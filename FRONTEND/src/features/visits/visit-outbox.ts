@@ -159,7 +159,12 @@ export async function retryVisit(visitId: string): Promise<void> {
 
 function failureOf(error: unknown): StepFailure | null {
   return error instanceof ApiError
-    ? { status: error.status, code: error.code, title: error.problem.title }
+    ? {
+        status: error.status,
+        code: error.code,
+        title: error.problem.title,
+        safeToShow: error.problem.safeToShow,
+      }
     : null
 }
 

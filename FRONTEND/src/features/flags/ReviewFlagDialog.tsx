@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { inlineErrors } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import { FlagStatusBadge, FlagTypeBadge, ScoreBadge, SignalList } from './flag-display'
 
@@ -28,7 +29,7 @@ import { FlagStatusBadge, FlagTypeBadge, ScoreBadge, SignalList } from './flag-d
 export function ReviewFlagDialog({ flag, onClose }: { flag: TrackingFlagDto; onClose: () => void }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const review = useTrackingMonitorReviewFlag()
+  const review = useTrackingMonitorReviewFlag(inlineErrors)
   const [note, setNote] = useState('')
 
   const submit = async (status: TrackingFlagStatus) => {

@@ -18,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { handleError, inlineErrors } from '@/lib/errors'
 import { DiscountFields } from './discount-fields'
 import { parsePercent, percentError } from './discount-rules'
 
@@ -25,8 +26,8 @@ import { parsePercent, percentError } from './discount-rules'
 export function ProductLineDialog({ line, onClose }: { line: ProductLineDto | null; onClose: () => void }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const create = useProductLinesCreate()
-  const update = useProductLinesUpdate()
+  const create = useProductLinesCreate(inlineErrors)
+  const update = useProductLinesUpdate(inlineErrors)
   const [nameAr, setNameAr] = useState(line?.nameAr ?? '')
   const [nameEn, setNameEn] = useState(line?.nameEn ?? '')
   const [description, setDescription] = useState(line?.description ?? '')
@@ -65,7 +66,7 @@ export function ProductLineDialog({ line, onClose }: { line: ProductLineDto | nu
       await queryClient.invalidateQueries({ queryKey: ['/api/products'] })
       onClose()
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'productLines.save' }))
     }
   }
 

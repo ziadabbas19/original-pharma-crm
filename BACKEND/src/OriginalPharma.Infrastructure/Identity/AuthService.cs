@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Images;
 using OriginalPharma.Application.Identity;
@@ -11,23 +10,21 @@ using OriginalPharma.Infrastructure.Persistence;
 
 namespace OriginalPharma.Infrastructure.Identity;
 
-/// <summary>Password login, rotating refresh tokens and the "me" payload.</summary>
+/// <summary>
+/// Password login, rotating refresh tokens and the "me" payload. Each login is a session (one device):
+/// every refresh slides it forward by Auth:SessionDays, up to Auth:SessionMaxDays from the login.
+/// </summary>
 internal sealed class AuthService(
     AppDbContext db,
     UserManager<User> userManager,
     TokenService tokens,
     IPermissionService permissions,
     ICurrentUser currentUser,
-    IOptions<JwtOptions> options,
+    SessionService sessions,
     TimeProvider time,
     ILogger<AuthService> logger) : IAuthService
 {
-    /// <summary>
-    /// Two tabs (or the app and its background uploader) may refresh with the same
-    /// token at once. A just-rotated token is accepted for this long instead of
-    /// being treated as stolen.
-    /// </summary>
-    private static readonly TimeSpan RotationGrace = TimeSpan.FromSeconds(30);
+    private const string Rotated = "rotated";
 
     public async Task<AuthTokens> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
@@ -49,44 +46,81 @@ internal sealed class AuthService(
         }
 
         await userManager.ResetAccessFailedCountAsync(user);
-        return await IssueAsync(user, request.Client, request.DeviceId, Guid.CreateVersion7(), cancellationToken);
+        var session = sessions.Start(user.Id, request.Client, request.DeviceId, request.DeviceName, isBackground: false);
+        return await IssueAsync(user, session, null, cancellationToken);
     }
 
-    public async Task<AuthTokens> RefreshAsync(string refreshToken, ClientKind client, string? deviceId, CancellationToken cancellationToken = default)
+    public async Task<AuthTokens> RefreshAsync(
+        string refreshToken,
+        ClientKind client,
+        string? deviceId,
+        string? deviceName = null,
+        CancellationToken cancellationToken = default)
     {
         var now = time.GetUtcNow();
         var hash = TokenService.Hash(refreshToken);
         var stored = await db.RefreshTokens.SingleOrDefaultAsync(t => t.TokenHash == hash, cancellationToken)
-                     ?? throw new UnauthorizedException("invalid-refresh-token", "Session expired. Please sign in again.");
+                     ?? throw InvalidRefreshToken();
+
+        var session = await db.UserSessions.SingleOrDefaultAsync(s => s.Id == stored.FamilyId, cancellationToken);
+        if (session is null)
+        {
+            // Issued before sessions were recorded: only a token that is still good gets one.
+            if (!stored.IsActive(now))
+            {
+                throw InvalidRefreshToken();
+            }
+
+            session = await sessions.AdoptFamilyAsync(stored, cancellationToken);
+        }
 
         if (stored.RevokedAt is not null)
         {
-            var withinGrace = stored.RevokedReason == "rotated" && now - stored.RevokedAt < RotationGrace;
+            // Two refreshes sent at once with the same token: the second is accepted for a few seconds.
+            var withinGrace = stored.RevokedReason == Rotated && session.RevokedAt is null &&
+                              now - stored.RevokedAt < sessions.Options.ReuseGrace;
             if (!withinGrace)
             {
-                if (stored.ReplacedByTokenId is not null)
+                if (stored.ReplacedByTokenId is not null && session.RevokedAt is null)
                 {
-                    logger.LogWarning("Refresh token reuse detected for user {UserId}; revoking token family {FamilyId}", stored.UserId, stored.FamilyId);
-                    await RevokeFamilyAsync(stored.FamilyId, "reuse-detected", cancellationToken);
+                    logger.LogWarning("Refresh token reuse detected for user {UserId}; revoking session {SessionId}", stored.UserId, session.Id);
+                    await sessions.RevokeAsync([session.Id], SessionRevokeReasons.ReuseDetected, cancellationToken);
                 }
 
-                throw new UnauthorizedException("invalid-refresh-token", "Session expired. Please sign in again.");
+                throw InvalidRefreshToken();
             }
         }
         else if (stored.ExpiresAt <= now)
         {
-            throw new UnauthorizedException("invalid-refresh-token", "Session expired. Please sign in again.");
+            throw InvalidRefreshToken();
+        }
+
+        if (session.RevokedAt is not null || session.ExpiresAt <= now)
+        {
+            throw InvalidRefreshToken();
+        }
+
+        if (session.AbsoluteExpiresAt <= now)
+        {
+            await sessions.RevokeAsync([session.Id], SessionRevokeReasons.MaxAge, cancellationToken);
+            throw InvalidRefreshToken();
         }
 
         var user = await userManager.FindByIdAsync(stored.UserId.ToString());
         if (user is null || !user.IsActive)
         {
-            await RevokeFamilyAsync(stored.FamilyId, "user-inactive", cancellationToken);
-            throw new UnauthorizedException("invalid-refresh-token", "Session expired. Please sign in again.");
+            await sessions.RevokeAsync([session.Id], SessionRevokeReasons.UserInactive, cancellationToken);
+            throw InvalidRefreshToken();
         }
 
-        var issued = await IssueAsync(user, stored.Client, deviceId ?? stored.DeviceId, stored.FamilyId, cancellationToken, stored);
-        return issued;
+        session.DeviceId ??= Clip(deviceId, 128);
+        if (Clip(deviceName, UserSession.DeviceNameMaxLength) is { } name)
+        {
+            session.DeviceName = name;
+        }
+
+        session.LastIp = Clip(currentUser.IpAddress, 64);
+        return await IssueAsync(user, session, stored, cancellationToken);
     }
 
     public async Task LogoutAsync(string? refreshToken, CancellationToken cancellationToken = default)
@@ -100,11 +134,17 @@ internal sealed class AuthService(
         var stored = await db.RefreshTokens.SingleOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
         if (stored is not null)
         {
-            await RevokeFamilyAsync(stored.FamilyId, "logout", cancellationToken);
+            // This device only (and its background uploader); other devices stay signed in.
+            await sessions.RevokeAsync([stored.FamilyId], SessionRevokeReasons.Logout, cancellationToken);
         }
     }
 
-    public async Task<AuthTokens> CreateSessionAsync(Guid userId, ClientKind client, string? deviceId, CancellationToken cancellationToken = default)
+    public async Task<AuthTokens> CreateSessionAsync(
+        Guid userId,
+        ClientKind client,
+        string? deviceId,
+        string? deviceName = null,
+        CancellationToken cancellationToken = default)
     {
         var user = await userManager.FindByIdAsync(userId.ToString());
         if (user is null || !user.IsActive)
@@ -112,7 +152,12 @@ internal sealed class AuthService(
             throw new UnauthorizedException("unauthenticated", "Sign in required.");
         }
 
-        return await IssueAsync(user, client, deviceId, Guid.CreateVersion7(), cancellationToken);
+        // The uploader's session never outlives the session of the app that asked for it.
+        DateTimeOffset? notAfter = currentUser.SessionId is { } parentId
+            ? await db.UserSessions.Where(s => s.Id == parentId).Select(s => (DateTimeOffset?)s.AbsoluteExpiresAt).SingleOrDefaultAsync(cancellationToken)
+            : null;
+        var session = sessions.Start(user.Id, client, deviceId, deviceName, isBackground: true, notAfter);
+        return await IssueAsync(user, session, null, cancellationToken);
     }
 
     public async Task<MeResponse> GetMeAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -133,53 +178,40 @@ internal sealed class AuthService(
             OrderPricing.EffectiveDiscountCap(caps));
     }
 
-    private async Task<AuthTokens> IssueAsync(
-        User user,
-        ClientKind client,
-        string? deviceId,
-        Guid familyId,
-        CancellationToken cancellationToken,
-        RefreshToken? rotatedFrom = null)
+    private async Task<AuthTokens> IssueAsync(User user, UserSession session, RefreshToken? rotatedFrom, CancellationToken cancellationToken)
     {
         var now = time.GetUtcNow();
         var roles = await db.GetRoleSummariesAsync(user.Id, cancellationToken);
         var version = await permissions.GetVersionAsync(user.Id, cancellationToken);
         // Role claims carry the stable keys, never display names.
-        var (accessToken, accessExpiresAt) = tokens.CreateAccessToken(user, roles.Select(r => r.Key), version, familyId);
+        var (accessToken, accessExpiresAt) = tokens.CreateAccessToken(user, roles.Select(r => r.Key), version, session.Id);
 
+        var expiresAt = sessions.SlideFrom(session, now);
         var rawRefresh = TokenService.NewRefreshToken();
         var refresh = new RefreshToken
         {
             UserId = user.Id,
             TokenHash = TokenService.Hash(rawRefresh),
-            FamilyId = familyId,
-            Client = client,
-            DeviceId = deviceId,
+            FamilyId = session.Id,
+            Client = session.Client,
+            DeviceId = session.DeviceId,
             CreatedAt = now,
-            ExpiresAt = now.AddDays(options.Value.RefreshTokenDays),
+            ExpiresAt = expiresAt,
             CreatedByIp = currentUser.IpAddress,
         };
         db.RefreshTokens.Add(refresh);
+        session.LastUsedAt = now;
+        session.ExpiresAt = expiresAt;
 
         if (rotatedFrom is not null && rotatedFrom.RevokedAt is null)
         {
             rotatedFrom.RevokedAt = now;
-            rotatedFrom.RevokedReason = "rotated";
+            rotatedFrom.RevokedReason = Rotated;
             rotatedFrom.ReplacedByTokenId = refresh.Id;
         }
 
         await db.SaveChangesAsync(cancellationToken);
         return new AuthTokens(accessToken, accessExpiresAt, rawRefresh, refresh.ExpiresAt, ToProfile(user, roles));
-    }
-
-    private async Task RevokeFamilyAsync(Guid familyId, string reason, CancellationToken cancellationToken)
-    {
-        var now = time.GetUtcNow();
-        await db.RefreshTokens
-            .Where(t => t.FamilyId == familyId && t.RevokedAt == null)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(t => t.RevokedAt, now)
-                .SetProperty(t => t.RevokedReason, reason), cancellationToken);
     }
 
     private static UserProfileDto ToProfile(User user, IReadOnlyList<RoleSummaryDto> roles) =>
@@ -188,4 +220,13 @@ internal sealed class AuthService(
 
     private static UnauthorizedException InvalidCredentials() =>
         new("invalid-credentials", "Email or password is incorrect.");
+
+    private static UnauthorizedException InvalidRefreshToken() =>
+        new("invalid-refresh-token", "Session expired. Please sign in again.");
+
+    private static string? Clip(string? value, int max)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed.Length <= max ? trimmed : trimmed[..max];
+    }
 }

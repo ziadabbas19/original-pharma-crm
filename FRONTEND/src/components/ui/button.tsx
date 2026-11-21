@@ -22,12 +22,13 @@ const buttonVariants = cva(
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
       },
+      // Phones: every button is at least 44 px tall (and icon buttons 44 px wide) for touch.
       size: {
-        default: 'h-10 px-4 py-2 has-[>svg]:px-3',
-        sm: 'h-8 gap-1.5 rounded-[10px] px-3 has-[>svg]:px-2.5',
+        default: 'h-10 px-4 py-2 has-[>svg]:px-3 max-sm:h-11',
+        sm: 'h-8 gap-1.5 rounded-[10px] px-3 has-[>svg]:px-2.5 max-sm:h-11',
         lg: 'h-12 px-6 text-base has-[>svg]:px-4',
         xl: 'h-14 rounded-[14px] px-8 text-base has-[>svg]:px-6',
-        icon: 'size-10',
+        icon: 'size-10 max-sm:size-11',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },

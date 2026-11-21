@@ -10,4 +10,6 @@ export interface RefreshRequest {
   client?: ClientKind
   /** @nullable */
   deviceId?: string | null
+  /** @nullable */
+  deviceName?: string | null
 }

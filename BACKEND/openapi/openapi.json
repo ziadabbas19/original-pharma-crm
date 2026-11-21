@@ -94,6 +94,22 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "day",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
           }
         ],
         "responses": {
@@ -4087,6 +4103,69 @@
         }
       }
     },
+    "/api/account/sessions": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "operationId": "accountListSessions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserSessionDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserSessionDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserSessionDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/sessions/{sessionId}": {
+      "delete": {
+        "tags": [
+          "Account"
+        ],
+        "operationId": "accountRevokeSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/api/roles": {
       "get": {
         "tags": [
@@ -4905,6 +4984,89 @@
         }
       }
     },
+    "/api/users/{userId}/sessions": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "usersListSessions",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserSessionDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserSessionDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserSessionDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{userId}/sessions/{sessionId}": {
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "usersRevokeSession",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/api/users/{userId}/audit": {
       "get": {
         "tags": [
@@ -5451,6 +5613,67 @@
         }
       }
     },
+    "/api/territories/{id}/expense-default": {
+      "put": {
+        "tags": [
+          "Territories"
+        ],
+        "operationId": "territoriesSetExpenseDefault",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCityExpenseRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCityExpenseRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCityExpenseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerritoryDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerritoryDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerritoryDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/login": {
       "post": {
         "tags": [
@@ -5760,6 +5983,519 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses/day": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "operationId": "expensesDay",
+        "parameters": [
+          {
+            "name": "day",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDayDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDayDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDayDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses/month": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "operationId": "expensesMonth",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseMonthDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseMonthDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseMonthDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses/lines": {
+      "post": {
+        "tags": [
+          "Expenses"
+        ],
+        "operationId": "expensesCreateLine",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExpenseLineRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExpenseLineRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExpenseLineRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseLineDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseLineDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseLineDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses/lines/{id}": {
+      "put": {
+        "tags": [
+          "Expenses"
+        ],
+        "operationId": "expensesUpdateLine",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateExpenseLineRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateExpenseLineRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateExpenseLineRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseLineDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseLineDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseLineDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Expenses"
+        ],
+        "operationId": "expensesRemoveLine",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/expenses/days/{day}/note": {
+      "put": {
+        "tags": [
+          "Expenses"
+        ],
+        "operationId": "expensesSetDayNote",
+        "parameters": [
+          {
+            "name": "day",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetExpenseDayNoteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetExpenseDayNoteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetExpenseDayNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDayDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDayDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDayDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "operationId": "expensesReport",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cityId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseReportDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseReportDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseReportDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses/month-report": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "operationId": "expensesMonthReport",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cityId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseReportDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseReportDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseReportDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses/export": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "operationId": "expensesExport",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cityId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/expenses/statement": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "operationId": "expensesStatement",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
                 }
               }
             }
@@ -7439,6 +8175,12 @@
         "properties": {
           "deviceId": {
             "type": "string"
+          },
+          "deviceName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -7737,8 +8479,7 @@
         "enum": [
           "web",
           "native"
-        ],
-        "default": "web"
+        ]
       },
       "ClinicLocationOutcome": {
         "enum": [
@@ -7839,6 +8580,55 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "CreateExpenseLineRequest": {
+        "required": [
+          "day",
+          "cityId",
+          "amount"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "cityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "userId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "changedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -8990,6 +9780,422 @@
           }
         }
       },
+      "ExpenseCityTotalDto": {
+        "required": [
+          "cityId",
+          "cityName",
+          "cityNameAr",
+          "total",
+          "days"
+        ],
+        "type": "object",
+        "properties": {
+          "cityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "cityNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ExpenseDayDto": {
+        "required": [
+          "userId",
+          "userName",
+          "day",
+          "lines",
+          "total",
+          "note",
+          "managerNote",
+          "managerNoteByName",
+          "monthTotal",
+          "canEdit",
+          "canEditNote",
+          "canManage",
+          "editableFrom",
+          "today"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseLineDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "managerNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "managerNoteByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "monthTotal": {
+            "type": "number",
+            "format": "double"
+          },
+          "canEdit": {
+            "type": "boolean"
+          },
+          "canEditNote": {
+            "type": "boolean"
+          },
+          "canManage": {
+            "type": "boolean"
+          },
+          "editableFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "today": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "ExpenseDayTotalDto": {
+        "required": [
+          "day",
+          "total",
+          "lineCount",
+          "hasNote",
+          "hasEdited"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "lineCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasNote": {
+            "type": "boolean"
+          },
+          "hasEdited": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ExpenseLineDto": {
+        "required": [
+          "id",
+          "userId",
+          "userName",
+          "day",
+          "cityId",
+          "cityName",
+          "cityNameAr",
+          "amount",
+          "originalAmount",
+          "kind",
+          "note",
+          "createdAt",
+          "updatedAt",
+          "updatedByName"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "cityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "cityNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "originalAmount": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ExpenseLineKind"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ExpenseLineKind": {
+        "enum": [
+          "auto",
+          "edited",
+          "manual"
+        ]
+      },
+      "ExpenseMonthDto": {
+        "required": [
+          "userId",
+          "userName",
+          "month",
+          "from",
+          "to",
+          "total",
+          "daysWithExpenses",
+          "byCity",
+          "byDay",
+          "days"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "month": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "daysWithExpenses": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "byCity": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseCityTotalDto"
+            }
+          },
+          "byDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseDayTotalDto"
+            }
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseStatementDayDto"
+            }
+          }
+        }
+      },
+      "ExpenseReportDto": {
+        "required": [
+          "from",
+          "to",
+          "total",
+          "lines",
+          "byRep",
+          "byCity",
+          "byDay",
+          "truncated"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseLineDto"
+            }
+          },
+          "byRep": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseRepTotalDto"
+            }
+          },
+          "byCity": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseCityTotalDto"
+            }
+          },
+          "byDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseDayTotalDto"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ExpenseRepTotalDto": {
+        "required": [
+          "userId",
+          "userName",
+          "total",
+          "days"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ExpenseStatementDayDto": {
+        "required": [
+          "day",
+          "lines",
+          "total",
+          "note",
+          "managerNote"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseLineDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "format": "double"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "managerNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "HealthReportTrigger": {
         "enum": [
           "onboarding",
@@ -9979,6 +11185,12 @@
             "$ref": "#/components/schemas/ClientKind"
           },
           "deviceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deviceName": {
             "type": [
               "null",
               "string"
@@ -11278,6 +12490,12 @@
               "null",
               "string"
             ]
+          },
+          "deviceName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -11902,6 +13120,49 @@
           }
         }
       },
+      "SetCityExpenseRequest": {
+        "required": [
+          "defaultDailyExpense"
+        ],
+        "type": "object",
+        "properties": {
+          "defaultDailyExpense": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "SetExpenseDayNoteRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "managerNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "changedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "SetPermissionOverridesRequest": {
         "required": [
           "overrides"
@@ -12244,6 +13505,11 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "defaultDailyExpense": {
+            "type": "number",
+            "format": "double",
+            "default": 0
           }
         }
       },
@@ -12355,6 +13621,11 @@
               "null",
               "string"
             ]
+          },
+          "defaultDailyExpense": {
+            "type": "number",
+            "format": "double",
+            "default": 0
           }
         }
       },
@@ -12651,6 +13922,31 @@
           }
         }
       },
+      "UpdateExpenseLineRequest": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "changedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "UpdateLocationTrustSettingsRequest": {
         "required": [
           "maxSpeedKmh",
@@ -12939,7 +14235,8 @@
           "archived",
           "restored",
           "deleted",
-          "rolesChanged"
+          "rolesChanged",
+          "sessionRevoked"
         ]
       },
       "UserAuditEntryDto": {
@@ -13127,6 +14424,64 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "UserSessionDto": {
+        "required": [
+          "id",
+          "client",
+          "deviceId",
+          "deviceName",
+          "isBackground",
+          "createdAt",
+          "lastUsedAt",
+          "expiresAt",
+          "absoluteExpiresAt",
+          "isCurrent"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client": {
+            "$ref": "#/components/schemas/ClientKind"
+          },
+          "deviceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deviceName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isBackground": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "absoluteExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isCurrent": {
+            "type": "boolean"
           }
         }
       },
@@ -13730,6 +15085,25 @@
                 "$ref": "#/components/schemas/VisitLocationDto"
               }
             ]
+          },
+          "customerTerritoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "customerTerritoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "customerTerritoryNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -14180,6 +15554,9 @@
     },
     {
       "name": "Images"
+    },
+    {
+      "name": "Expenses"
     },
     {
       "name": "Customers"

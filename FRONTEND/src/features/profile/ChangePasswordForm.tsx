@@ -1,4 +1,4 @@
-import { CheckCircle2Icon, EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react'
+import { CheckCircle2Icon, CheckIcon, DotIcon, EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAccountChangePassword } from '@/api/generated/endpoints'
@@ -7,13 +7,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { handleError, inlineErrors } from '@/lib/errors'
 import { loadMe } from '@/lib/session'
+import { cn } from '@/lib/utils'
 import { passwordProblems } from './password-rules'
 
 /** Change your own password. Other sessions are signed out by the server. */
 export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
   const { t } = useTranslation()
-  const change = useAccountChangePassword()
+  const change = useAccountChangePassword(inlineErrors)
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -41,7 +43,7 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
       setDone(true)
       onDone?.()
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'account.changePassword' }))
     }
   }
 
@@ -91,9 +93,16 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
             return (
               <li
                 key={rule}
-                className={ok ? 'text-success' : touched ? 'text-destructive' : 'text-muted-foreground'}
+                className={cn(
+                  'flex items-center gap-1.5',
+                  ok ? 'text-success' : touched ? 'text-destructive' : 'text-muted-foreground',
+                )}
               >
-                {ok ? '✓ ' : '• '}
+                {ok ? (
+                  <CheckIcon className="size-3.5 shrink-0" aria-hidden />
+                ) : (
+                  <DotIcon className="size-3.5 shrink-0" aria-hidden />
+                )}
                 {t(`password.rules.${rule}`)}
               </li>
             )

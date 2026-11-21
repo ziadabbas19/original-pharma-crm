@@ -169,7 +169,8 @@ try {
     await page.evaluate(`localStorage.setItem('op.language', 'ar'); localStorage.setItem('op.theme', 'dark')`)
     await page.viewport(390, 844, true)
     await page.goto(`${baseUrl}/admin/suspicious-activity?status=acknowledged`)
-    await page.waitFor(byId('open-rep-day'), 20000)
+    // Phones show each rep-day as a card that opens the day (the Review button sits in its menu).
+    await page.waitFor(byId('card-row'), 20000)
     assert.equal(await page.evaluate('document.documentElement.dir'), 'rtl')
     assert.equal(await page.evaluate(`document.documentElement.classList.contains('dark')`), true)
     assert.match(await page.evaluate('document.body.innerText'), /النشاط المشبوه/)

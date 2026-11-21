@@ -14,7 +14,6 @@
     "language": "Language",
     "switchLanguage": "عربي",
     "comingSoon": "Coming soon",
-    "error": "Something went wrong. Please try again.",
     "noAccess": "You do not have access to this page.",
     "offline": "You are offline. Data will be sent when you are back online.",
     "updateAvailable": "A new version is available.",
@@ -44,12 +43,7 @@
     "signIn": "Sign in",
     "signingIn": "Signing in…",
     "required": "Required",
-    "invalidEmail": "Enter a valid email",
-    "errors": {
-      "invalid-credentials": "Email or password is incorrect.",
-      "locked-out": "Too many failed attempts. Try again in a few minutes.",
-      "generic": "Could not sign in. Check your connection and try again."
-    }
+    "invalidEmail": "Enter a valid email"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -74,7 +68,8 @@
       "field": "Field work",
       "tracking": "Tracking",
       "admin": "Administration",
-      "sales": "Sales"
+      "sales": "Sales",
+      "myWork": "My field work"
     },
     "collapse": "Collapse menu",
     "expand": "Expand menu",
@@ -91,7 +86,12 @@
     "activity": "Activity log",
     "suspicious": "Suspicious activity",
     "account": "Account",
-    "needsAttention": "needs attention"
+    "needsAttention": "needs attention",
+    "more": "More",
+    "display": "Display and language",
+    "management": "Management",
+    "managementHint": "The management screens: visits, orders and your team",
+    "expenses": "Expenses"
   },
   "admin": {
     "welcome": "Welcome, {{name}}",
@@ -378,8 +378,6 @@
     "detail": "Visit",
     "mine": "My visits",
     "checkOut": "Check-out",
-    "emptyMine": "No visits in the last 30 days.",
-    "emptyMineHint": "Your visits appear here after you check in.",
     "deleteConsequence": "Visits are archived: hidden from lists and statistics, kept for audit, and can be restored.",
     "editContent": "Edit feedback and products",
     "editableUntil": "You can change this until {{date}}.",
@@ -423,12 +421,6 @@
       "waitingHint": "This visit is saved on this phone. It will be sent automatically when you are online."
     },
     "filters": {
-      "period": "Period",
-      "presets": {
-        "today": "Today",
-        "week": "7 days",
-        "month": "30 days"
-      },
       "allCustomers": "All customers",
       "allProducts": "All products",
       "hasFeedback": "With feedback"
@@ -570,7 +562,24 @@
       "point": "Check-in point",
       "checkInPoint": "Check-in",
       "checkOutPoint": "Check-out"
-    }
+    },
+    "dayTotals": {
+      "visits": "Visits",
+      "completed": "Completed",
+      "review": "To review",
+      "time": "Time at visits",
+      "minutes": "{{value}} min",
+      "summary": "{{visits}} visits, {{completed}} completed, {{review}} to review"
+    },
+    "emptyDay": "No visits on this day.",
+    "emptyFutureDay": "This day has not come yet.",
+    "emptyDayOf": "No visits on this day.",
+    "showMore": "Show more",
+    "views": {
+      "range": "Range",
+      "day": "By day"
+    },
+    "allReps": "All reps"
   },
   "liveMap": {
     "title": "Live map",
@@ -651,11 +660,6 @@
     "openSetup": "Open tracking setup",
     "pendingPoints": "{{count}} locations waiting to be sent",
     "pwaForegroundNote": "On iPhone, keep the app open while working. Location is only sent while the app is on screen.",
-    "errors": {
-      "consent-required": "Please accept the tracking consent in the setup first.",
-      "device-not-ready": "Please finish the tracking setup on this phone first.",
-      "no-active-shift": "Your day is not running."
-    },
     "dayRunningVisitOnly": "Your day is running. Your location is shared only during visits."
   },
   "settings": {
@@ -863,7 +867,8 @@
     "errorTitle": "Could not load the data",
     "noMatches": "No results match these filters",
     "noMatchesHint": "Try a different search or clear the filters.",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "offlineManager": "You are offline. The last loaded data is shown; changes cannot be saved until you are back online."
   },
   "table": {
     "search": "Search",
@@ -873,14 +878,20 @@
     "pageSize": "Rows per page",
     "previous": "Previous page",
     "next": "Next page",
-    "range": "{{first}}–{{last}} of {{total}}"
+    "range": "{{first}}–{{last}} of {{total}}",
+    "filters": "Filters",
+    "filtersHint": "Choose what the list shows",
+    "activeFilters": "Active filters",
+    "removeFilter": "Remove the {{name}} filter",
+    "resetFilters": "Reset",
+    "applyFilters": "Apply",
+    "sortBy": "Sort by",
+    "sortDefault": "Default order",
+    "sortAscending": "{{name}}, ascending",
+    "sortDescending": "{{name}}, descending",
+    "actionsFor": "Actions for {{name}}"
   },
   "errors": {
-    "network": "Cannot reach the server. Check your connection.",
-    "forbidden": "You do not have permission to do this.",
-    "not-found": "This item no longer exists.",
-    "server-error": "The server ran into a problem. Try again in a moment.",
-    "validation": "Some fields are not valid.",
     "unknown-role": "One of the selected roles no longer exists.",
     "unknown-permission": "One of the permissions is not known to the server.",
     "user-create-failed": "The user could not be created: {{detail}}",
@@ -935,12 +946,42 @@
     "stats_table_unknown": "This table cannot be exported.",
     "customer_use_doctor_form": "Doctors are edited from the doctor lists.",
     "visit-in-progress": "Another visit is still open. Check out of it, then send this one again.",
-    "no-active-shift": "Your working day was not running at the time of this visit.",
+    "no-active-shift": "Your working day was not running. Start your day, then try again.",
     "customer-location-missing": "This customer has no saved location.",
     "accuracy-too-low": "The location was not accurate enough for this check-in.",
     "outside-geofence": "This check-in was outside the allowed range.",
     "visit-not-in-progress": "This visit is already closed.",
-    "visit-key-in-use": "This visit could not be saved. Start it again."
+    "visit-key-in-use": "This visit could not be saved. Start it again.",
+    "invalid-credentials": "Email or password is incorrect.",
+    "locked-out": "Too many failed attempts. Try again in a few minutes.",
+    "consent-required": "Please accept the tracking consent in the setup first.",
+    "device-not-ready": "Please finish the tracking setup on this phone first.",
+    "kind": {
+      "network": "No connection. Check your network and try again.",
+      "timeout": "The server took too long to answer. Try again.",
+      "unauthorized": "Your session has ended. Sign in again.",
+      "forbidden": "You do not have permission to do this.",
+      "notFound": "This item no longer exists.",
+      "conflict": "This could not be done because the data changed. Refresh and try again.",
+      "validation": "Some fields are not valid.",
+      "rateLimited": "Too many requests. Wait a moment and try again.",
+      "server": "The server ran into a problem. Try again in a moment.",
+      "cancelled": "The request was cancelled.",
+      "unknown": "Something went wrong. Please try again."
+    },
+    "reference": "Reference: {{id}}",
+    "page": {
+      "title": "This page could not be shown",
+      "notFoundTitle": "Page not found",
+      "notFoundText": "The address may be wrong, or the page has moved.",
+      "home": "Go home"
+    },
+    "expense_future_day": "Expenses can only be entered for today or earlier.",
+    "expense_day_locked": "This day can no longer be changed. Ask your manager.",
+    "expense_city_invalid": "Choose a city from the list.",
+    "expense_city_exists": "This day already has a line for this city. Change that line instead.",
+    "expense_amount_invalid": "Enter a valid amount.",
+    "invalid-month": "The month is not valid."
   },
   "resources": {
     "users": "Users",
@@ -956,7 +997,8 @@
     "orders": "Orders",
     "stats": "Statistics",
     "audit": "Activity log",
-    "settings": "Settings"
+    "settings": "Settings",
+    "expenses": "Expenses"
   },
   "permissionNames": {
     "users": {
@@ -1035,6 +1077,13 @@
     },
     "settings": {
       "manage": "Edit system settings (location trust)"
+    },
+    "expenses": {
+      "read-own": "See own daily expenses",
+      "write-own": "Change own daily expenses and notes",
+      "read": "See reps' daily and monthly expenses",
+      "manage": "Edit reps' expenses on any day and add manager notes",
+      "settings": "Set each city's default daily expense"
     }
   },
   "territories": {
@@ -1066,7 +1115,11 @@
     "edit": "Edit",
     "delete": "Delete",
     "codeAuto": "Leave empty to generate",
-    "deleteConsequence": "Towns and areas that doctors, orders or visits use are archived and keep their history; unused ones are removed. Anything with active towns or users is refused."
+    "deleteConsequence": "Towns and areas that doctors, orders or visits use are archived and keep their history; unused ones are removed. Anything with active towns or users is refused.",
+    "dailyExpense": "Daily expense",
+    "setDailyExpense": "Daily expense",
+    "dailyExpenseLabel": "Daily amount (EGP)",
+    "dailyExpenseHint": "A rep's first visit in this city on a day adds this amount to their expenses. Zero means none."
   },
   "customers": {
     "title": "Doctors & pharmacies",
@@ -1723,7 +1776,9 @@
       "role": "Role",
       "order": "Order",
       "visit": "Visit",
-      "device": "Device"
+      "device": "Device",
+      "expense": "Expense line",
+      "expense_day": "Expense day notes"
     }
   },
   "stats": {
@@ -2018,5 +2073,94 @@
       "empty": "No new messages."
     },
     "noSections": "Your company has not chosen anything to show here."
+  },
+  "exports": {
+    "saved": "{{name}} saved"
+  },
+  "dayPicker": {
+    "previous": "Previous day",
+    "next": "Next day",
+    "choose": "Choose a day",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow"
+  },
+  "monthPicker": {
+    "previous": "Previous month",
+    "next": "Next month",
+    "choose": "Choose a month",
+    "current": "This month"
+  },
+  "expenses": {
+    "title": "Expenses",
+    "hint": "Reps' daily expenses per city, and the totals of each month.",
+    "views": {
+      "days": "Days",
+      "month": "Month"
+    },
+    "dayTitle": "Day expenses",
+    "empty": "No expenses on this day.",
+    "emptyHint": "The first visit in a city adds its daily amount, and you can add a line yourself.",
+    "futureHint": "Expenses can be entered from the day itself.",
+    "waiting": "Waiting to send",
+    "defaultWas": "Default amount {{amount}}",
+    "add": "Add expense",
+    "locked": "This day is older than the editable window.",
+    "lockedOwn": "You can no longer change this day. Your manager can.",
+    "dayNote": "Day note",
+    "managerNote": "Manager note",
+    "noNote": "No note.",
+    "addNote": "Add note",
+    "monthTotal": "Month total",
+    "kinds": {
+      "auto": "Automatic",
+      "edited": "Edited",
+      "manual": "Added by hand"
+    },
+    "editTitle": "Change expense",
+    "addTitle": "Add expense",
+    "addHint": "Choose the city and the amount.",
+    "city": "City",
+    "chooseCity": "Choose a city",
+    "amount": "Amount (EGP)",
+    "amountInvalid": "Enter an amount with at most two decimals.",
+    "note": "Note",
+    "remove": "Remove line",
+    "removeTitle": "Remove this expense line?",
+    "removeText": "The {{city}} expense is removed from this day and is not added automatically again that day.",
+    "monthTitle": "Expenses of {{month}}",
+    "daysWithExpenses_one": "{{value}} day with expenses",
+    "daysWithExpenses_other": "{{value}} days with expenses",
+    "monthTotalLabel": "Month total",
+    "daysLabel": "Days with expenses",
+    "emptyMonth": "No expenses in this month.",
+    "byCity": "By city",
+    "byRep": "By rep",
+    "byDay": "By day",
+    "days_one": "{{value}} day",
+    "days_other": "{{value}} days",
+    "hasNote": "Has a note",
+    "monthlyTitle": "Monthly expenses",
+    "exportCsv": "Export CSV",
+    "exportStatements": "All statements (CSV)",
+    "columns": {
+      "day": "Day",
+      "rep": "Rep",
+      "city": "City",
+      "amount": "Amount",
+      "original": "Default amount",
+      "source": "Source",
+      "note": "Note"
+    },
+    "from": "From",
+    "to": "To",
+    "emptyRange": "No expenses in this period.",
+    "truncated": "The first 5000 lines are shown. Narrow the period to see the rest.",
+    "grandTotal": "Total",
+    "none": "Nothing yet.",
+    "pickRep": "Choose a rep to see their monthly statement.",
+    "pickRepForDay": "Choose a rep to see the day's expenses.",
+    "statementOf": "{{name}}, {{month}}",
+    "dashboardTitle": "Expenses this month"
   }
 }

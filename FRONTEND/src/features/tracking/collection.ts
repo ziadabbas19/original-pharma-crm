@@ -1,6 +1,8 @@
 import { authBackgroundSession, trackingGetConfig } from '@/api/generated/endpoints'
 import type { LocationSource, TrackingConfigDto } from '@/api/generated/model'
 import { platform, type UploaderSession } from '@/lib/platform'
+import { tracksLocation } from '@/lib/permissions'
+import { deviceLabel } from '@/lib/session-refresh'
 import { store } from '@/store'
 import { configChanged, trackingRunningChanged } from '@/store/slices/trackingSlice'
 import { shouldCollect, toCollectionMode, type CollectionMode } from './collection-rules'
@@ -20,7 +22,8 @@ export function trackingSource(): LocationSource {
 /** Native uploader gets its own token pair so it can upload while the app is closed. */
 export async function uploaderSession(deviceId: string): Promise<UploaderSession | undefined> {
   if (platform().kind !== 'native') return undefined
-  const session = await authBackgroundSession({ deviceId })
+  const deviceName = deviceLabel(await platform().app.info())
+  const session = await authBackgroundSession({ deviceId, deviceName })
   return {
     accessToken: session.accessToken,
     refreshToken: session.refreshToken,
@@ -55,6 +58,11 @@ export function rememberConfig(config: TrackingConfigDto): void {
 export async function applyCollection(visitInProgress: boolean, config?: TrackingConfigDto): Promise<void> {
   try {
     const p = platform()
+    // Never for people who do not track (managers, admins): no tracker, no location prompts.
+    if (!tracksLocation(store.getState().permissions.byKey)) {
+      if (await p.location.isRunning()) await p.location.stop()
+      return
+    }
     const want = shouldCollect({
       mode: config ? (toCollectionMode(config.collectionMode) ?? 'allDay') : collectionMode(),
       dayRunning: store.getState().tracking.shift !== null,

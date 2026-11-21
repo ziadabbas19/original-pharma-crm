@@ -184,8 +184,26 @@ export interface AppLifecycle {
   onResume(handler: () => void): () => void
 }
 
+/** A file the app built (an export) handed to the person: saved, shared, or downloaded. */
+export interface ExportFile {
+  name: string
+  mimeType: string
+  data: Blob
+}
+
+/** saved / shared: done; cancelled: the person closed the save or share screen; downloaded: browser download. */
+export type ExportOutcome = 'saved' | 'shared' | 'cancelled' | 'downloaded'
+
+export interface FileExporter {
+  /** Saves the file where the person chooses (Android "Save as"), or downloads it in a browser. */
+  save(file: ExportFile): Promise<ExportOutcome>
+  /** Opens the share sheet (send by WhatsApp, e-mail, ...). Browsers without sharing download instead. */
+  share(file: ExportFile): Promise<ExportOutcome>
+}
+
 export interface Platform {
   kind: PlatformKind
+  files: FileExporter
   location: LocationTracker
   secureStorage: SecureStorage
   offlineDb: OfflineDb

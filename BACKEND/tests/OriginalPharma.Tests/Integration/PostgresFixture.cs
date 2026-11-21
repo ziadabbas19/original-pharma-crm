@@ -188,6 +188,9 @@ public sealed class PostgresFixture : IAsyncLifetime
             .Build();
 
         var services = new ServiceCollection();
+        // Real time unless a test moves it (TestDatabase.Clock); registered before AddApplication's default.
+        services.AddSingleton<TestClock>();
+        services.AddSingleton<TimeProvider>(sp => sp.GetRequiredService<TestClock>());
         services.AddLogging(b =>
         {
             if (logs is not null)
@@ -208,6 +211,9 @@ public sealed class PostgresFixture : IAsyncLifetime
             .AddRoles<Role>()
             .AddEntityFrameworkStores<AppDbContext>();
         services.AddScoped<IPermissionService, PermissionService>();
+        services.AddOptions<JwtOptions>().Configure(o => o.SigningKey = "integration-tests-signing-key-0123456789abcdef");
+        services.AddSingleton<TokenService>();
+        services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<TestCurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<TestCurrentUser>());
         services.AddScoped<DatabaseSeeder>();
@@ -300,6 +306,20 @@ public sealed class NoLiveViewRegistry : ILiveViewRegistry
 
     public Task<DateTimeOffset?> GetLiveUntilAsync(Guid repId, CancellationToken cancellationToken = default) =>
         Task.FromResult<DateTimeOffset?>(null);
+}
+
+/// <summary>The current time of one test database's services: the real clock, moved forward on request.</summary>
+public sealed class TestClock : TimeProvider
+{
+    private TimeSpan _offset;
+
+    public override DateTimeOffset GetUtcNow() => base.GetUtcNow() + _offset;
+
+    /// <summary>Moves "now" forward (or back with a negative value) for everything that follows.</summary>
+    public void Advance(TimeSpan by) => _offset += by;
+
+    /// <summary>Sets "now" to <paramref name="instant"/> (time keeps running from there).</summary>
+    public void SetNow(DateTimeOffset instant) => _offset = instant - base.GetUtcNow();
 }
 
 /// <summary>The caller of one simulated request.</summary>
@@ -406,6 +426,9 @@ public sealed class TestDatabase : IAsyncDisposable
         await using var scope = _services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<IPermissionService>().GetEffectivePermissionsAsync(userId, Ct);
     }
+
+    /// <summary>"Now" for this database's services; tests move it to cross days, months and expiry times.</summary>
+    public TestClock Clock => _services.GetRequiredService<TestClock>();
 
     /// <summary>Notifications pushed live during this test (the in-app rows are in the database).</summary>
     public RecordingNotificationPublisher Published => _services.GetRequiredService<RecordingNotificationPublisher>();

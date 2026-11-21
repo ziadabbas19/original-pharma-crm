@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { handleError } from '@/lib/errors'
 import { formatNumber } from '@/lib/format'
 import { BulkProgressBar } from './BulkProgressBar'
 import { BulkResultSummary } from './BulkResultSummary'
@@ -82,7 +83,7 @@ export function BulkDeleteDialog({
     let active = true
     run({ ids, dryRun: true })
       .then((r) => active && setForecast(r))
-      .catch((e: unknown) => active && setError(e))
+      .catch((e: unknown) => active && setError(handleError(e, { silent: true, context: 'bulk.delete' })))
       .finally(() => active && setPhase('confirm'))
     return () => {
       active = false
@@ -101,7 +102,7 @@ export function BulkDeleteDialog({
       setPhase('done')
       onDone?.(done)
     } catch (e) {
-      setError(e)
+      setError(handleError(e, { silent: true, context: 'bulk.delete' }))
       setPhase('confirm')
     }
   }

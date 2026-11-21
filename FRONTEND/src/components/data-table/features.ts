@@ -16,6 +16,11 @@ import {
 export interface DataTableColumnMeta {
   /** Extra classes for the header and body cells of the column (e.g. `hidden md:table-cell`). */
   className?: string
+  /**
+   * Phones show rows as cards: the first column is the card title and the others are labelled fields.
+   * `title` picks another column for the title; `hidden` leaves the column out of the card.
+   */
+  card?: 'title' | 'hidden'
 }
 
 /**

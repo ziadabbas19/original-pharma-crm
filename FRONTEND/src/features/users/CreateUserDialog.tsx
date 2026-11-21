@@ -25,10 +25,13 @@ import { passwordProblems } from '@/features/profile/password-rules'
 import { LevelBadge, LockedNote } from '@/features/roles/RoleBadges'
 import { bestLevel, invalidateRoleData, roleLock, roleName } from '@/features/roles/role-rules'
 import { flattenTerritories } from '@/features/territories/territory-tree'
-import { fieldErrors } from '@/lib/errors'
+import { inlineErrors, useFormErrors } from '@/lib/errors'
 import { localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { ManagerSelect } from './ManagerSelect'
+
+/** Fields that can carry a server validation message. */
+const USERS_CREATE_FIELDS = ['email', 'fullName', 'managerId', 'password', 'roles', 'territoryId']
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -50,8 +53,8 @@ export function CreateUserDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const create = useUsersCreate()
-  const [error, setError] = useState<unknown>(null)
+  const create = useUsersCreate(inlineErrors)
+  const errors = useFormErrors(USERS_CREATE_FIELDS, 'users.create')
   const [created, setCreated] = useState<CreatedUserDto | null>(null)
   const [copied, setCopied] = useState(false)
   const canReadProducts = usePermission(P.products.read)
@@ -81,7 +84,7 @@ export function CreateUserDialog({
       preferredLanguage: 'ar',
     },
     onSubmit: async ({ value }) => {
-      setError(null)
+      errors.clear()
       try {
         const result = await create.mutateAsync({
           data: {
@@ -100,12 +103,10 @@ export function CreateUserDialog({
         if (result.temporaryPassword) setCreated(result)
         else onOpenChange(false)
       } catch (e) {
-        setError(e)
+        errors.capture(e)
       }
     },
   })
-
-  const server = fieldErrors(error)
 
   return (
     <Dialog
@@ -113,7 +114,7 @@ export function CreateUserDialog({
       onOpenChange={(value) => {
         if (!value) {
           form.reset()
-          setError(null)
+          errors.clear()
           setCreated(null)
           setCopied(false)
         }
@@ -191,7 +192,7 @@ export function CreateUserDialog({
                   <Field
                     label={t('users.name')}
                     id={field.name}
-                    errors={[...field.state.meta.errors, ...(server.fullName ?? [])]}
+                    errors={[...field.state.meta.errors, ...errors.fieldList('fullName')]}
                   >
                     <Input
                       id={field.name}
@@ -220,7 +221,7 @@ export function CreateUserDialog({
                   <Field
                     label={t('users.email')}
                     id={field.name}
-                    errors={[...field.state.meta.errors, ...(server.email ?? [])]}
+                    errors={[...field.state.meta.errors, ...errors.fieldList('email')]}
                   >
                     <Input
                       id={field.name}
@@ -286,7 +287,7 @@ export function CreateUserDialog({
                           <Field
                             label={t('auth.password')}
                             id={field.name}
-                            errors={[...field.state.meta.errors, ...(server.password ?? [])]}
+                            errors={[...field.state.meta.errors, ...errors.fieldList('password')]}
                           >
                             <Input
                               id={field.name}
@@ -334,7 +335,7 @@ export function CreateUserDialog({
                   <Field
                     label={t('users.area')}
                     id={field.name}
-                    errors={[...field.state.meta.errors, ...(server.territoryId ?? [])]}
+                    errors={[...field.state.meta.errors, ...errors.fieldList('territoryId')]}
                   >
                     <NativeSelect
                       id={field.name}
@@ -374,7 +375,7 @@ export function CreateUserDialog({
                     label={t('users.manager')}
                     id={field.name}
                     hint={t('users.reporting.hint')}
-                    errors={[...field.state.meta.errors, ...(server.managerId ?? [])]}
+                    errors={[...field.state.meta.errors, ...errors.fieldList('managerId')]}
                   >
                     <form.Subscribe selector={(s) => s.values.roles}>
                       {(selectedRoles) => (
@@ -435,9 +436,9 @@ export function CreateUserDialog({
                       )
                     })}
                   </div>
-                  {[...field.state.meta.errors, ...(server.roles ?? [])].length > 0 && (
+                  {[...field.state.meta.errors, ...errors.fieldList('roles')].length > 0 && (
                     <p className="text-sm text-destructive">
-                      {[...field.state.meta.errors, ...(server.roles ?? [])].join(' ')}
+                      {[...field.state.meta.errors, ...errors.fieldList('roles')].join(' ')}
                     </p>
                   )}
                 </fieldset>
@@ -486,7 +487,7 @@ export function CreateUserDialog({
               </p>
             )}
 
-            <FormError error={error} />
+            <FormError error={errors.formError} />
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

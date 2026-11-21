@@ -1,8 +1,16 @@
 import { authLogin, authLogout, authMe, authRefresh } from '@/api/generated/endpoints'
 import type { AuthResponse, ClientKind, MeResponse } from '@/api/generated/model'
-import { ApiError, configureApiClient } from '@/lib/api-client'
+import { configureApiClient, NetworkError } from '@/lib/api-client'
 import { clearCache } from '@/lib/offline-cache'
 import { platform } from '@/lib/platform'
+import {
+  deviceLabel,
+  needsRefresh,
+  onceUntilRearmed,
+  refreshOutcomeOf,
+  singleFlight,
+  type RefreshOutcome,
+} from '@/lib/session-refresh'
 import { store } from '@/store'
 import {
   discountCapLoaded,
@@ -19,6 +27,11 @@ import { stopCollection } from '@/features/tracking/collection'
  *   web    - refresh token is an httpOnly cookie; the page never sees it.
  *   native - refresh token is kept in Android Keystore secure storage.
  * Access tokens stay in memory (Redux) only.
+ *
+ * The server keeps a device signed in for 30 days after its last use (90 at most): the app refreshes
+ * silently on open, on return to the foreground and whenever a request finds the access token
+ * expired. Offline, timeouts, server errors and rate limits never sign anyone out; only the server's
+ * 401 to a refresh does (see session-refresh.ts).
  */
 
 const REFRESH_TOKEN_KEY = 'auth.refreshToken'
@@ -26,14 +39,17 @@ const REFRESH_TOKEN_KEY = 'auth.refreshToken'
 /** Last profile and grants, so the rep app can open without network (see bootstrapSession). */
 const ME_CACHE_KEY = 'op.session.me'
 
-type RefreshResult = 'ok' | 'expired' | 'offline'
-
-let refreshing: Promise<RefreshResult> | null = null
 let bootstrapping: Promise<void> | null = null
 let meLoading: Promise<void> | null = null
 
 function clientKind(): ClientKind {
   return platform().kind === 'native' ? 'native' : 'web'
+}
+
+/** Device id and the name shown in the list of signed-in devices. */
+async function device(): Promise<{ deviceId: string; deviceName: string }> {
+  const info = await platform().app.info()
+  return { deviceId: info.deviceId, deviceName: deviceLabel(info, navigator.userAgent) }
 }
 
 async function applyAuthResponse(response: AuthResponse): Promise<void> {
@@ -46,43 +62,60 @@ async function applyAuthResponse(response: AuthResponse): Promise<void> {
 }
 
 export async function login(email: string, password: string): Promise<void> {
-  const { deviceId } = await platform().app.info()
-  const response = await authLogin({ email, password, client: clientKind(), deviceId })
+  const response = await authLogin({ email, password, client: clientKind(), ...(await device()) })
+  signOut.rearm()
   await applyAuthResponse(response)
   if (!response.user.mustChangePassword) await loadMe()
 }
 
 /**
- * Single-flight refresh; concurrent 401s share one request. A refused refresh ends the session;
- * no network (or a server error) keeps it, so an offline rep is not signed out.
+ * Single flight: every request that meets an expired access token waits for the same refresh.
+ * Ends the session only on the server's definitive 401 (and only once, see signOut).
  */
-function refresh(): Promise<RefreshResult> {
-  refreshing ??= (async (): Promise<RefreshResult> => {
-    try {
-      const native = clientKind() === 'native'
-      const refreshToken = native ? await platform().secureStorage.get(REFRESH_TOKEN_KEY) : null
-      if (native && !refreshToken) {
-        await clearLocalSession()
-        return 'expired'
-      }
-
-      const { deviceId } = await platform().app.info()
-      const response = await authRefresh({ client: clientKind(), refreshToken, deviceId })
+const refresh = singleFlight(async (): Promise<RefreshOutcome> => {
+  let outcome: RefreshOutcome
+  try {
+    const native = clientKind() === 'native'
+    const refreshToken = native ? await platform().secureStorage.get(REFRESH_TOKEN_KEY) : null
+    if (native && !refreshToken) {
+      outcome = 'expired' // nothing stored on this device: there is no session to keep
+    } else {
+      const response = await authRefresh({ client: clientKind(), refreshToken, ...(await device()) })
       await applyAuthResponse(response)
       return 'ok'
-    } catch (e) {
-      if (e instanceof ApiError && e.status < 500) {
-        await clearLocalSession()
-        return 'expired'
-      }
-      return 'offline'
     }
-  })().finally(() => (refreshing = null))
-  return refreshing
-}
+  } catch (e) {
+    outcome = refreshOutcomeOf(e)
+  }
+  if (outcome === 'expired') await signOut.run()
+  return outcome
+})
 
 export async function refreshSession(): Promise<boolean> {
   return (await refresh()) === 'ok'
+}
+
+/**
+ * Ends the local session once, however many requests found out together. The sign-in screen is
+ * opened only when someone was signed in; at start-up the route guard redirects by itself.
+ */
+const signOut = onceUntilRearmed(async () => {
+  const wasSignedIn = store.getState().auth.status === 'authenticated'
+  await clearLocalSession()
+  if (wasSignedIn) onSessionEnded()
+})
+
+let onSessionEnded: () => void = () => {}
+
+/**
+ * Coming back to the app (and opening it): renew the access token if it is about to run out, so the
+ * first screen does not wait on a 401. Offline the session simply stays as it is.
+ */
+function keepSessionFresh(): void {
+  platform().app.onResume(() => {
+    const { status, expiresAt } = store.getState().auth
+    if (status === 'authenticated' && needsRefresh(expiresAt)) void refresh()
+  })
 }
 
 /** Loads the profile and the effective permissions (with scopes). */
@@ -101,7 +134,9 @@ export function loadMe(): Promise<void> {
 
 /**
  * Restores the session on app start (once). Route guards await this.
- * Resolves in both cases; check store.getState().auth.status afterwards.
+ * Resolves when the user is known to be signed in or out (check store.getState().auth.status).
+ * Rejects, keeping the stored session, when the server cannot answer and there is no copy of the
+ * profile on the device; the route's error screen then offers to try again.
  */
 export function bootstrapSession(): Promise<void> {
   bootstrapping ??= (async () => {
@@ -110,11 +145,20 @@ export function bootstrapSession(): Promise<void> {
     if (result === 'ok') {
       // A temporary password only opens the change-password screen; the profile follows the change.
       if (store.getState().auth.user?.mustChangePassword) return
-      await loadMe().catch(() => (restoreOfflineSession() ? undefined : clearLocalSession()))
-    } else if (result !== 'offline' || !restoreOfflineSession()) {
+      try {
+        await loadMe()
+      } catch (error) {
+        if (!restoreOfflineSession()) throw error
+      }
+    } else if (result === 'unavailable') {
+      if (!restoreOfflineSession()) throw new NetworkError()
+    } else {
       store.dispatch(sessionEnded())
     }
-  })()
+  })().catch((error: unknown) => {
+    bootstrapping = null // the next navigation tries again
+    throw error
+  })
   return bootstrapping
 }
 
@@ -168,12 +212,13 @@ function restoreOfflineSession(): boolean {
 
 /** Wire the fetch wrapper to the session. Called once at startup. */
 export function connectApiClient(onSignedOut: () => void, onPasswordChangeRequired: () => void): void {
+  onSessionEnded = onSignedOut
+  keepSessionFresh()
   configureApiClient({
     getAccessToken: () => store.getState().auth.accessToken,
     refreshSession: refresh,
-    onUnauthorized: () => {
-      void clearLocalSession().then(onSignedOut)
-    },
+    // The refresh already signed out (once); requests that failed alongside have nothing more to do.
+    onUnauthorized: () => void signOut.run(),
     onPasswordChangeRequired: () => {
       // Reset by a manager during this session: the next screen is the change-password form.
       const { user } = store.getState().auth

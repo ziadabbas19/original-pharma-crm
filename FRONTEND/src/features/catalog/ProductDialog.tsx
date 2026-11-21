@@ -27,7 +27,7 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { ProductThumb } from '@/features/orders/ProductPicker'
 import { IMAGE_ACCEPT, MAX_IMAGE_BYTES } from '@/features/profile/AvatarEditor'
-import { UserFacingError } from '@/lib/errors'
+import { UserFacingError, handleError, inlineErrors } from '@/lib/errors'
 import { formatPercent, localizedName } from '@/lib/format'
 import { DiscountFields } from './discount-fields'
 import { parsePercent, percentError } from './discount-rules'
@@ -46,10 +46,10 @@ export function ProductDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const create = useProductsCreate()
-  const update = useProductsUpdate()
-  const setImage = useProductsSetImage()
-  const removeImage = useProductsRemoveImage()
+  const create = useProductsCreate(inlineErrors)
+  const update = useProductsUpdate(inlineErrors)
+  const setImage = useProductsSetImage(inlineErrors)
+  const removeImage = useProductsRemoveImage(inlineErrors)
   const fileInput = useRef<HTMLInputElement>(null)
   const [product, setProduct] = useState<ProductDto | null>(initial)
   // Empty = no line: the product stays unassigned (only catalog and order managers see it).
@@ -123,7 +123,7 @@ export function ProductDialog({
       if (product) onClose()
       else setProduct(saved) // stay open so a picture can be added
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'products.save' }))
     }
   }
 

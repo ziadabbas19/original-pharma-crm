@@ -172,7 +172,12 @@ export function FlagsPage() {
         toolbar={
           <>
             <SearchInput value={text} onChange={setText} placeholder={t('flags.searchPlaceholder')} />
-            <FilterField label={t('flags.status')}>
+            <FilterField
+              label={t('flags.status')}
+              active={status !== 'open'}
+              display={status === 'all' ? t('table.all') : t(`flags.statuses.${status}`)}
+              onReset={() => setSearch({ status: undefined })}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -188,7 +193,12 @@ export function FlagsPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('flags.type')}>
+            <FilterField
+              label={t('flags.type')}
+              active={!!search.type}
+              display={search.type ? t(`flags.types.${search.type}`) : undefined}
+              onReset={() => setSearch({ type: undefined })}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -207,7 +217,12 @@ export function FlagsPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('flags.rep')}>
+            <FilterField
+              label={t('flags.rep')}
+              active={!!search.userId}
+              display={repName ?? undefined}
+              onReset={() => setSearch({ userId: undefined })}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}

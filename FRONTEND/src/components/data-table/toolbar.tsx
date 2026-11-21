@@ -45,16 +45,23 @@ export function SearchInput({
   )
 }
 
-/** Small label above a filter control. `children` receives the id to put on the control. */
-export function FilterField({
-  label,
-  className,
-  children,
-}: {
+export interface FilterFieldProps {
   label: string
   className?: string
   children: (id: string) => ReactNode
-}) {
+  /** The filter narrows the list (shown as a chip on phones, and counted on the Filters button). */
+  active?: boolean
+  /** Chip text for the current value ("Supervisor", "Last 7 days"). Defaults to the label. */
+  display?: string
+  /** Puts the filter back to "all"; the chip's remove button calls it. */
+  onReset?: () => void
+}
+
+/**
+ * Small label above a filter control. `children` receives the id to put on the control. Inside a
+ * DataTable toolbar or a FilterBar the field moves into the Filters sheet on phones.
+ */
+export function FilterField({ label, className, children }: FilterFieldProps) {
   const id = useId()
   return (
     <div className={cn('grid gap-1', className)}>

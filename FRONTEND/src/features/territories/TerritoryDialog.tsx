@@ -17,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { handleError, inlineErrors } from '@/lib/errors'
 import { localizedName } from '@/lib/format'
 
 const PARENT_LEVEL: Record<TerritoryLevel, TerritoryLevel | null> = {
@@ -42,8 +43,8 @@ export function TerritoryDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const create = useTerritoriesCreate()
-  const update = useTerritoriesUpdate()
+  const create = useTerritoriesCreate(inlineErrors)
+  const update = useTerritoriesUpdate(inlineErrors)
   const level = territory?.level ?? newLevel
   const parentLevel = PARENT_LEVEL[level]
   const parents = territories.filter((x) => x.level === parentLevel)
@@ -76,7 +77,7 @@ export function TerritoryDialog({
       await queryClient.invalidateQueries({ queryKey: ['/api/lookups/towns'] })
       onClose()
     } catch (err) {
-      setError(err)
+      setError(handleError(err, { silent: true, context: 'territories.save' }))
     }
   }
 

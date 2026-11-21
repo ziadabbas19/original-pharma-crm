@@ -24,6 +24,12 @@ public static class AuditEntities
     /// <summary>A suspicious-location flag (raised, acknowledged).</summary>
     public const string LocationFlag = "location_flag";
 
+    /// <summary>A rep's expense line for one city and day.</summary>
+    public const string Expense = "expense";
+
+    /// <summary>The notes of a rep's expense day.</summary>
+    public const string ExpenseDay = "expense_day";
+
     /// <summary>Settings edited from the dashboard (details name the key).</summary>
     public const string Settings = "settings";
 }

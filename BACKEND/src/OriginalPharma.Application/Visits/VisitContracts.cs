@@ -136,7 +136,10 @@ public sealed record VisitListItemDto(
     int ProductCount = 0,
     int ReplyCount = 0,
     DateTimeOffset? ArchivedAt = null,
-    VisitLocationDto? Location = null);
+    VisitLocationDto? Location = null,
+    Guid? CustomerTerritoryId = null,
+    string? CustomerTerritoryName = null,
+    string? CustomerTerritoryNameAr = null);
 
 public sealed record VisitFeedbackSeenDto(Guid UserId, string UserName, DateTimeOffset SeenAt);
 

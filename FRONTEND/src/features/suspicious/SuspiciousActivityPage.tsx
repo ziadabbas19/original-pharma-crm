@@ -150,6 +150,8 @@ export function SuspiciousActivityPage() {
         error={events.error}
         onRetry={() => void events.refetch()}
         getRowId={(g) => g.key}
+        // The row (a card on phones) opens the rep's day, like its Review button.
+        onRowClick={openGroup}
         initialSorting={[{ id: 'day', desc: true }]}
         rowClassName={(g) => (g.open > 0 && g.maxScore >= 70 ? 'bg-destructive/5' : undefined)}
         filtered={isFiltered}
@@ -172,7 +174,12 @@ export function SuspiciousActivityPage() {
         }
         toolbar={
           <>
-            <FilterField label={t('suspicious.from')}>
+            <FilterField
+              label={t('suspicious.from')}
+              active={from !== defaults.from}
+              display={`${t('suspicious.from')} ${formatDay(from)}`}
+              onReset={() => setSearch({ from: undefined })}
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -184,7 +191,12 @@ export function SuspiciousActivityPage() {
                 />
               )}
             </FilterField>
-            <FilterField label={t('suspicious.to')}>
+            <FilterField
+              label={t('suspicious.to')}
+              active={to !== defaults.to}
+              display={`${t('suspicious.to')} ${formatDay(to)}`}
+              onReset={() => setSearch({ to: undefined })}
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -196,7 +208,12 @@ export function SuspiciousActivityPage() {
                 />
               )}
             </FilterField>
-            <FilterField label={t('suspicious.rep')}>
+            <FilterField
+              label={t('suspicious.rep')}
+              active={!!search.userId}
+              display={repName ?? undefined}
+              onReset={() => setSearch({ userId: undefined })}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -216,7 +233,12 @@ export function SuspiciousActivityPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('suspicious.reason')}>
+            <FilterField
+              label={t('suspicious.reason')}
+              active={!!search.reason}
+              display={search.reason ? reasonLabel(search.reason) : undefined}
+              onReset={() => setSearch({ reason: undefined })}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}
@@ -235,7 +257,12 @@ export function SuspiciousActivityPage() {
                 </NativeSelect>
               )}
             </FilterField>
-            <FilterField label={t('flags.status')}>
+            <FilterField
+              label={t('flags.status')}
+              active={status !== 'all'}
+              display={status === 'all' ? undefined : t(`flags.statuses.${status}`)}
+              onReset={() => setSearch({ status: undefined })}
+            >
               {(id) => (
                 <NativeSelect
                   id={id}

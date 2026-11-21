@@ -7,6 +7,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { MockLocationNotice } from '@/features/integrity/MockLocationNotice'
 import { useLocationIntegrity } from '@/features/integrity/useLocationIntegrity'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
+import { startExpenseSync } from '@/features/expenses/expense-outbox'
 import { useOrderOutbox, startOrderSync } from '@/features/orders/order-outbox'
 import { RecheckContext } from '@/features/onboarding/recheck-context'
 import { TrackingHealthBanner } from '@/features/onboarding/TrackingHealthBanner'
@@ -15,7 +16,10 @@ import { useTrackingHub } from '@/features/tracking/useTrackingHub'
 import { ActiveVisitBanner } from '@/features/visits/ActiveVisitBanner'
 import { startVisitSync, useVisitOutbox } from '@/features/visits/visit-outbox'
 import { useDocumentVisible } from '@/hooks/use-document-visible'
+import { tracksLocation } from '@/lib/permissions'
 import { useAppSelector } from '@/store'
+
+const noRecheck = async () => {}
 
 type RepPath = '/rep' | '/rep/visits' | '/rep/doctors' | '/rep/settings'
 
@@ -27,11 +31,23 @@ const TABS: { to: RepPath; label: string; icon: LucideIcon; exact: boolean }[] =
   { to: '/rep/settings', label: 'nav.account', icon: UserRoundIcon, exact: false },
 ]
 
-/** Mobile-first shell of the rep app (also used inside the Android app). */
+/**
+ * Mobile-first shell of the rep app (also used inside the Android app). The tracking machinery (device
+ * health checks, fake location watch, shift sync, tracking warnings) runs only for people who track.
+ */
 export function RepLayout() {
-  const { t } = useTranslation()
+  const tracks = useAppSelector((s) => tracksLocation(s.permissions.byKey))
+  return tracks ? <TrackedRepLayout /> : <RepShell tracking={null} />
+}
+
+function TrackedRepLayout() {
   const recheck = useTrackingHealthMonitor()
   const integrity = useLocationIntegrity()
+  return <RepShell tracking={{ recheck, checkNow: integrity.checkNow }} />
+}
+
+function RepShell({ tracking }: { tracking: { recheck: () => Promise<void>; checkNow: () => void } | null }) {
+  const { t } = useTranslation()
   const issues = useAppSelector((s) => s.tracking.healthIssues.length)
   const outbox = useOrderOutbox()
   const waiting = outbox.pending.length + outbox.failed.length
@@ -39,9 +55,10 @@ export function RepLayout() {
   const visitsRefused = visitOutbox.failed.length + visitOutbox.failedSteps.length
   const visitsWaiting = visitOutbox.pending.length + visitOutbox.steps.length + visitsRefused
 
-  // Queued orders and visit content go out as soon as there is network (and on return to the app).
+  // Queued orders, visit content and expense changes go out as soon as there is network (and on return to the app).
   useEffect(() => startOrderSync(), [])
   useEffect(() => startVisitSync(), [])
+  useEffect(() => startExpenseSync(), [])
 
   // Live notifications only while the app is on screen; the socket closes in the background.
   useTrackingHub(useDocumentVisible())
@@ -51,7 +68,7 @@ export function RepLayout() {
   const accountUrgent = issues > 0 || outbox.failed.length > 0
 
   return (
-    <RecheckContext.Provider value={recheck}>
+    <RecheckContext.Provider value={tracking?.recheck ?? noRecheck}>
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col bg-background">
         <header className="sticky top-0 z-20 border-b bg-card/95 pt-safe backdrop-blur">
           <div className="flex h-14 items-center justify-between px-4">
@@ -61,8 +78,8 @@ export function RepLayout() {
               <LanguageSwitcher />
             </div>
           </div>
-          <MockLocationNotice onCheckNow={integrity.checkNow} />
-          <TrackingHealthBanner />
+          {tracking && <MockLocationNotice onCheckNow={tracking.checkNow} />}
+          {tracking && <TrackingHealthBanner />}
           <ActiveVisitBanner />
         </header>
 

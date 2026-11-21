@@ -1,40 +1,68 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
-import { LogOutIcon, MenuIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, SmartphoneIcon } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ChevronRightIcon,
+  ClipboardListIcon,
+  HomeIcon,
+  LayoutGridIcon,
+  LogOutIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  SmartphoneIcon,
+  StethoscopeIcon,
+  WifiOffIcon,
+  type LucideIcon,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BrandLogo, BrandTile } from '@/components/BrandLogo'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { UserAvatar } from '@/components/UserAvatar'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { ProfileDialog } from '@/features/profile/ProfileDialog'
 import { roleName } from '@/features/roles/role-rules'
 import { useLiveTracking } from '@/features/tracking/useLiveTracking'
-import { canUseDashboard, hasPermission, P } from '@/lib/permissions'
+import { useOnline } from '@/hooks/use-online'
+import {
+  canUseDashboard,
+  canUseFieldApp,
+  hasPermission,
+  holdsForOwnWork,
+  tracksLocation,
+  P,
+} from '@/lib/permissions'
 import { logout } from '@/lib/session'
 import { cn } from '@/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/store'
 import { liveLocationsSelectors } from '@/store/slices/liveLocationsSlice'
-import { sidebarCollapsedToggled, sidebarToggled } from '@/store/slices/uiSlice'
-import { ADMIN_NAV, type AdminNavItem } from './admin-nav'
+import { sidebarCollapsedToggled } from '@/store/slices/uiSlice'
+import {
+  ADMIN_NAV,
+  allowedNav,
+  isActivePath,
+  phoneTabs,
+  type AdminNavItem,
+  type AdminPath,
+} from './admin-nav'
 
 /**
- * Dashboard shell: persistent sidebar on desktop, drawer on phones. Navigation
- * is filtered by permission and re-renders as soon as the grants change.
+ * Management shell: persistent sidebar on wide screens; on phones a floating bottom bar with the four
+ * most used pages and a full-screen More menu with everything else. Navigation is filtered by
+ * permission and re-renders as soon as the grants change.
  */
 export function AdminLayout() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const open = useAppSelector((s) => s.ui.sidebarOpen)
   const collapsed = useAppSelector((s) => s.ui.sidebarCollapsed)
   const granted = useAppSelector((s) => s.permissions.byKey)
   const permissionsVersion = useAppSelector((s) => s.permissions.version)
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const [moreOpen, setMoreOpen] = useState(false)
 
   useLiveTracking()
 
@@ -52,19 +80,16 @@ export function AdminLayout() {
     if (!allowed) void navigate({ to: '/rep' })
   }, [allowed, navigate])
 
-  // The drawer is a phone affordance; close it when the viewport grows to the desktop layout.
+  // The More menu is a phone affordance; close it when the viewport grows to the desktop layout.
   useEffect(() => {
     const media = window.matchMedia('(min-width: 768px)')
-    const onChange = () => media.matches && dispatch(sidebarToggled(false))
+    const onChange = () => media.matches && setMoreOpen(false)
     media.addEventListener('change', onChange)
     return () => media.removeEventListener('change', onChange)
-  }, [dispatch])
+  }, [])
 
   const current = useMemo(
-    () =>
-      ADMIN_NAV.flatMap((s) => s.items).find((item) =>
-        item.to === '/admin' ? pathname === '/admin' || pathname === '/admin/' : pathname.startsWith(item.to),
-      ),
+    () => ADMIN_NAV.flatMap((s) => s.items).find((item) => isActivePath(item, pathname)),
     [pathname],
   )
 
@@ -84,63 +109,290 @@ export function AdminLayout() {
         <SidebarContent collapsed={collapsed} />
       </aside>
 
-      <Sheet open={open} onOpenChange={(value) => dispatch(sidebarToggled(value))}>
-        <SheetContent
-          side="start"
-          className="w-72 border-sidebar-border bg-sidebar p-0 text-sidebar-foreground"
-          showCloseButton={false}
-        >
-          <SheetTitle className="sr-only">{t('nav.menu')}</SheetTitle>
-          <SheetDescription className="sr-only">{t('nav.menuHint')}</SheetDescription>
-          <SidebarContent onNavigate={() => dispatch(sidebarToggled(false))} />
-        </SheetContent>
-      </Sheet>
-
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-card/95 px-3 backdrop-blur md:px-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            aria-label={t('nav.openMenu')}
-            onClick={() => dispatch(sidebarToggled(true))}
-          >
-            <MenuIcon />
-          </Button>
-          <BrandLogo variant="emblem" className="size-7 md:hidden" decorative />
-          <div className="min-w-0 flex-1 truncate font-medium md:hidden">
-            {current ? t(current.label) : t('common.appName')}
+        <header className="sticky top-0 z-30 border-b bg-card/95 pt-safe backdrop-blur">
+          <div className="flex h-14 items-center gap-2 px-3 md:h-16 md:px-6">
+            <BrandLogo variant="emblem" className="size-7 md:hidden" decorative />
+            <div className="min-w-0 flex-1 truncate font-semibold md:hidden" data-testid="phone-title">
+              {current ? t(current.label) : t('common.appName')}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden md:inline-flex"
+              aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
+              title={collapsed ? t('nav.expand') : t('nav.collapse')}
+              onClick={() => dispatch(sidebarCollapsedToggled())}
+            >
+              {collapsed ? (
+                <PanelLeftOpenIcon className="rtl:-scale-x-100" />
+              ) : (
+                <PanelLeftCloseIcon className="rtl:-scale-x-100" />
+              )}
+            </Button>
+            <div className="hidden flex-1 md:block" />
+            <LiveConnectionIndicator />
+            <NotificationBell to="/admin/notifications" />
+            <ThemeSwitcher compact className="hidden md:inline-flex" />
+            <div className="hidden md:block">
+              <LanguageSwitcher />
+            </div>
+            <div className="hidden md:block">
+              <UserChip />
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden md:inline-flex"
+              onClick={() => void signOut()}
+              aria-label={t('common.signOut')}
+            >
+              <LogOutIcon className="rtl:rotate-180" />
+              <span className="hidden lg:inline">{t('common.signOut')}</span>
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="hidden md:inline-flex"
-            aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
-            title={collapsed ? t('nav.expand') : t('nav.collapse')}
-            onClick={() => dispatch(sidebarCollapsedToggled())}
-          >
-            {collapsed ? (
-              <PanelLeftOpenIcon className="rtl:-scale-x-100" />
-            ) : (
-              <PanelLeftCloseIcon className="rtl:-scale-x-100" />
-            )}
-          </Button>
-          <div className="hidden flex-1 md:block" />
-          <LiveConnectionIndicator />
-          <NotificationBell to="/admin/notifications" />
-          <ThemeSwitcher compact className="hidden sm:inline-flex" />
-          <LanguageSwitcher />
-          <UserChip />
-          <Button variant="ghost" size="sm" onClick={() => void signOut()} aria-label={t('common.signOut')}>
-            <LogOutIcon className="rtl:rotate-180" />
-            <span className="hidden lg:inline">{t('common.signOut')}</span>
-          </Button>
+          <OfflineNotice />
         </header>
-        <main className="min-w-0 flex-1 p-4 md:p-6 [&>*]:animate-page-in">
+        {/* Phones: bottom padding keeps the end of every page clear of the floating tab bar. */}
+        <main className="min-w-0 flex-1 p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:p-6 [&>*]:animate-page-in">
           <Outlet />
         </main>
       </div>
+
+      <PhoneTabBar pathname={pathname} onMore={() => setMoreOpen(true)} moreActive={moreOpen} />
+      <MoreMenu
+        open={moreOpen}
+        onOpenChange={setMoreOpen}
+        pathname={pathname}
+        onSignOut={() => void signOut()}
+      />
     </div>
+  )
+}
+
+/** Shown under the header while the device is offline: the screen keeps the last loaded data. */
+function OfflineNotice() {
+  const { t } = useTranslation()
+  const online = useOnline()
+  if (online) return null
+  return (
+    <div
+      className="flex items-center gap-2 border-t bg-warning-soft px-4 py-2 text-sm text-warning-soft-foreground"
+      role="status"
+      data-testid="offline-notice"
+    >
+      <WifiOffIcon className="size-4 shrink-0" aria-hidden />
+      <span>{t('states.offlineManager')}</span>
+    </div>
+  )
+}
+
+/** Floating bottom bar on phones: the four most used pages this user may open, and More. */
+function PhoneTabBar({
+  pathname,
+  onMore,
+  moreActive,
+}: {
+  pathname: string
+  onMore: () => void
+  moreActive: boolean
+}) {
+  const { t } = useTranslation()
+  const granted = useAppSelector((s) => s.permissions.byKey)
+  const tabs = phoneTabs(granted)
+  const inMore = !tabs.some((tab) => isActivePath(tab, pathname))
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-lg px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden"
+      aria-label={t('nav.menu')}
+      data-testid="phone-tab-bar"
+    >
+      <div className="grid h-[68px] grid-cols-5 items-center gap-1 rounded-[26px] border bg-card px-2 shadow-float">
+        {tabs.map((tab) => (
+          <Link
+            key={tab.to}
+            to={tab.to}
+            activeOptions={{ exact: tab.to === '/admin' }}
+            className={TAB_CLASS}
+            activeProps={{ className: TAB_ACTIVE }}
+            data-testid={`tab-${tab.to}`}
+          >
+            <tab.icon className="size-[22px]" aria-hidden />
+            <span className="max-w-full truncate">{t(tab.label)}</span>
+          </Link>
+        ))}
+        <button
+          type="button"
+          onClick={onMore}
+          className={cn(TAB_CLASS, (moreActive || inMore) && TAB_ACTIVE)}
+          aria-haspopup="dialog"
+          aria-expanded={moreActive}
+          data-testid="tab-more"
+        >
+          <LayoutGridIcon className="size-[22px]" aria-hidden />
+          <span className="max-w-full truncate">{t('nav.more')}</span>
+        </button>
+      </div>
+    </nav>
+  )
+}
+
+const TAB_CLASS =
+  'group relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-[20px] px-1 py-1.5 text-[11px] leading-tight font-medium text-nav-inactive transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-95'
+const TAB_ACTIVE = 'bg-primary-soft font-semibold text-primary'
+
+/**
+ * Everything that is not in the bottom bar, full screen: the pages the user may open by section, their
+ * own field work when they also work in the field, and account, display and sign-out.
+ */
+function MoreMenu({
+  open,
+  onOpenChange,
+  pathname,
+  onSignOut,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  pathname: string
+  onSignOut: () => void
+}) {
+  const { t } = useTranslation()
+  const granted = useAppSelector((s) => s.permissions.byKey)
+  const user = useAppSelector((s) => s.auth.user)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const inBar = new Set(phoneTabs(granted).map((tab) => tab.to))
+  const sections = allowedNav(granted)
+    .map((section) => ({ ...section, items: section.items.filter((item) => !inBar.has(item.to)) }))
+    .filter((section) => section.items.length > 0)
+  const close = () => onOpenChange(false)
+
+  // Own field work of someone who also manages (not the admin, who holds everything at scope "all").
+  const field: { to: '/rep' | '/rep/visits' | '/rep/doctors'; label: string; icon: LucideIcon }[] = [
+    ...(tracksLocation(granted) ? [{ to: '/rep' as const, label: 'nav.home', icon: HomeIcon }] : []),
+    ...(holdsForOwnWork(granted, P.visits.create)
+      ? [{ to: '/rep/visits' as const, label: 'nav.myVisits', icon: ClipboardListIcon }]
+      : []),
+    ...(holdsForOwnWork(granted, P.customers.create)
+      ? [{ to: '/rep/doctors' as const, label: 'nav.myDoctors', icon: StethoscopeIcon }]
+      : []),
+  ]
+
+  return (
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="h-dvh max-h-dvh max-w-none gap-0 overflow-y-auto rounded-none border-0 pt-safe"
+          data-testid="more-menu"
+        >
+          <SheetHeader className="border-b">
+            <SheetTitle className="text-lg">{t('nav.more')}</SheetTitle>
+            <SheetDescription className="sr-only">{t('nav.menuHint')}</SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-5 p-4">
+            {user && (
+              <button
+                type="button"
+                onClick={() => setProfileOpen(true)}
+                className="flex min-h-11 items-center gap-3 rounded-card border bg-background p-3 text-start"
+              >
+                <UserAvatar name={user.fullName} src={user.avatarThumbnailUrl} />
+                <span className="grid min-w-0 flex-1 leading-tight">
+                  <span className="truncate font-semibold">{user.fullName}</span>
+                  {user.roles.length > 0 && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {user.roles.map(roleName).join(' · ')}
+                    </span>
+                  )}
+                </span>
+                <ChevronRightIcon className="size-4 text-muted-foreground rtl:rotate-180" aria-hidden />
+              </button>
+            )}
+
+            {sections.map((section) => (
+              <MoreGroup key={section.title} title={t(section.title)}>
+                {section.items.map((item) => (
+                  <MoreLink
+                    key={item.to}
+                    to={item.to}
+                    icon={item.icon}
+                    label={t(item.label)}
+                    onClick={close}
+                    active={isActivePath(item, pathname)}
+                  />
+                ))}
+              </MoreGroup>
+            ))}
+
+            {field.length > 0 && (
+              <MoreGroup title={t('nav.sections.myWork')}>
+                {field.map((item) => (
+                  <MoreLink
+                    key={item.to}
+                    to={item.to}
+                    icon={item.icon}
+                    label={t(item.label)}
+                    onClick={close}
+                  />
+                ))}
+              </MoreGroup>
+            )}
+
+            <MoreGroup title={t('nav.display')}>
+              <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <ThemeSwitcher />
+                <LanguageSwitcher />
+              </div>
+            </MoreGroup>
+
+            <Button variant="outlineDestructive" size="lg" onClick={onSignOut} data-testid="more-sign-out">
+              <LogOutIcon className="rtl:rotate-180" />
+              {t('common.signOut')}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+    </>
+  )
+}
+
+function MoreGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="grid gap-1" aria-label={title}>
+      <h2 className="px-1 pb-1 text-xs font-semibold text-muted-foreground">{title}</h2>
+      <div className="grid divide-y overflow-hidden rounded-card border bg-background">{children}</div>
+    </section>
+  )
+}
+
+function MoreLink({
+  to,
+  icon: Icon,
+  label,
+  onClick,
+  active = false,
+}: {
+  to: AdminPath | '/rep' | '/rep/visits' | '/rep/doctors'
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+  active?: boolean
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className={cn(
+        'flex min-h-12 items-center gap-3 px-3 text-sm font-medium transition-colors hover:bg-accent',
+        active && 'bg-primary-soft text-primary',
+      )}
+      data-testid={`more-${to}`}
+    >
+      <Icon className="size-[18px] shrink-0 text-muted-foreground" aria-hidden />
+      <span className="flex-1 truncate">{label}</span>
+      <ChevronRightIcon className="size-4 text-muted-foreground rtl:rotate-180" aria-hidden />
+    </Link>
   )
 }
 
@@ -148,10 +400,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
   const { t } = useTranslation()
   const granted = useAppSelector((s) => s.permissions.byKey)
 
-  const sections = ADMIN_NAV.map((section) => ({
-    ...section,
-    items: section.items.filter((item) => !item.permission || hasPermission(granted, item.permission)),
-  })).filter((section) => section.items.length > 0)
+  const sections = allowedNav(granted)
 
   return (
     <div className="flex h-full flex-col">
@@ -179,7 +428,7 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
           </div>
         ))}
       </nav>
-      {hasPermission(granted, P.tracking.report) && (
+      {canUseFieldApp(granted) && (
         <div className="border-t border-sidebar-border p-3">
           <Link
             to="/rep"
