@@ -3,6 +3,7 @@ import {
   ActivityIcon,
   BarChart3Icon,
   BellIcon,
+  CalendarCheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   InfoIcon,
@@ -48,6 +49,7 @@ export function RepSettingsPage() {
   const outbox = useOrderOutbox()
   const ordersWaiting = outbox.pending.length + outbox.failed.length
   const canSeeStats = usePermission(P.stats.read)
+  const canPlan = usePermission(P.plans.readOwn)
   const granted = useAppSelector((s) => s.permissions.byKey)
   const tracks = tracksLocation(granted)
   const manages = canUseDashboard(granted)
@@ -144,6 +146,18 @@ export function RepSettingsPage() {
           chevron={Chevron}
           attention={ordersWaiting > 0}
         />
+        {canPlan && (
+          <>
+            <Separator />
+            <MenuLink
+              to="/rep/plans"
+              icon={CalendarCheckIcon}
+              title={t('plans.myTitle')}
+              hint={t('plans.menuHint')}
+              chevron={Chevron}
+            />
+          </>
+        )}
         {canSeeStats && (
           <>
             <Separator />
@@ -263,7 +277,7 @@ function MenuLink({
   chevron: Chevron,
   attention = false,
 }: {
-  to: '/rep/onboarding' | '/rep/tracking-health' | '/rep/orders' | '/rep/statistics' | '/admin'
+  to: '/rep/onboarding' | '/rep/tracking-health' | '/rep/orders' | '/rep/statistics' | '/rep/plans' | '/admin'
   icon: LucideIcon
   title: string
   hint: string

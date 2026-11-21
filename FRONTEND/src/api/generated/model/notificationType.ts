@@ -13,4 +13,7 @@ export const NotificationType = {
   visitFeedback: 'visitFeedback',
   visitFeedbackReply: 'visitFeedbackReply',
   suspiciousLocation: 'suspiciousLocation',
+  planSubmitted: 'planSubmitted',
+  planApproved: 'planApproved',
+  planReturned: 'planReturned',
 } as const

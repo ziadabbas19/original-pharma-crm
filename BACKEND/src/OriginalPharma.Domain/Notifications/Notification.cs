@@ -18,6 +18,15 @@ public enum NotificationType
     /// is the rep, so repeats can be throttled per rep.
     /// </summary>
     SuspiciousLocation = 7,
+
+    /// <summary>A rep the recipient may review sent their weekly plan. <see cref="Notification.EntityId"/> is the plan.</summary>
+    PlanSubmitted = 8,
+
+    /// <summary>A reviewer approved the recipient's weekly plan (with an optional note).</summary>
+    PlanApproved = 9,
+
+    /// <summary>A reviewer returned (or reopened) the recipient's weekly plan with a note.</summary>
+    PlanReturned = 10,
 }
 
 /// <summary>
@@ -33,7 +42,7 @@ public class Notification
 
     public NotificationType Type { get; set; }
 
-    /// <summary>The order, visit or (for suspicious locations) rep the notification is about.</summary>
+    /// <summary>The order, visit, weekly plan or (for suspicious locations) rep the notification is about.</summary>
     public Guid? EntityId { get; set; }
 
     /// <summary>JSON object with the values the text needs (order number, reason, names).</summary>

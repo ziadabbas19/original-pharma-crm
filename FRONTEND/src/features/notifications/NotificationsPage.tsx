@@ -25,7 +25,9 @@ import { cn } from '@/lib/utils'
 import { localDay } from '@/features/suspicious/suspicious-logic'
 import {
   notificationIsAboutOrder,
+  notificationIsAboutPlan,
   notificationIsAboutSuspiciousLocation,
+  notificationPlanWeek,
   notificationText,
 } from './notification-text'
 import { useMarkNotificationRead } from './use-notifications'
@@ -69,6 +71,9 @@ export function NotificationsPage({ app }: { app: 'admin' | 'rep' }) {
           },
         })
       }
+    } else if (notificationIsAboutPlan(n)) {
+      if (app === 'rep') await navigate({ to: '/rep/plans', search: { week: notificationPlanWeek(n) } })
+      else await navigate({ to: '/admin/plans/$planId', params: { planId: n.entityId } })
     } else if (notificationIsAboutOrder(n)) {
       if (app === 'rep') await navigate({ to: '/rep/orders/$orderId', params: { orderId: n.entityId } })
       else await navigate({ to: '/admin/orders', search: { order: n.entityId } })

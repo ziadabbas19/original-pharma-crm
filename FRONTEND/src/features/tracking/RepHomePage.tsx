@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { usePermission } from '@/features/auth/usePermission'
 import { HomeSection } from '@/features/home/HomeSections'
+import { WeekPlanHomeCard } from '@/features/plans/WeekPlanHomeCard'
 import { useTodayPlan } from '@/features/home/use-today-plan'
 import { useRepHomeConfig } from '@/features/home/use-rep-home'
 import { enabledSections } from '@/features/settings/rep-home-config'
@@ -42,6 +43,7 @@ export function RepHomePage() {
   const sections = enabledSections(config)
   const isPwa = platform().kind === 'pwa'
   const canSeeStats = usePermission(P.stats.read)
+  const canPlan = usePermission(P.plans.readOwn)
 
   return (
     <div className="space-y-4">
@@ -81,6 +83,8 @@ export function RepHomePage() {
           />
         ))}
       </div>
+
+      {canPlan && <WeekPlanHomeCard />}
 
       {canSeeStats && (
         <Link to="/rep/statistics" className="block">

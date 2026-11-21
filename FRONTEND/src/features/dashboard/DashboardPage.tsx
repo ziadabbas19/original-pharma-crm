@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import {
   ArrowRightIcon,
+  CalendarCheckIcon,
   CheckCircle2Icon,
   ClipboardListIcon,
   FlagIcon,
@@ -21,6 +22,7 @@ import {
   useTrackingMonitorGetPresence,
   useVisitsList,
   useExpensesMonthReport,
+  usePlansPendingCount,
 } from '@/api/generated/endpoints'
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/components/states'
@@ -64,6 +66,7 @@ export function DashboardPage() {
   const canReadDevices = usePermission(P.devices.read)
   const canReviewSuspicious = usePermission(P.tracking.reviewSuspicious)
   const canReadExpenses = usePermission(P.expenses.read)
+  const canReviewPlans = usePermission(P.plans.review)
 
   return (
     <>
@@ -73,7 +76,12 @@ export function DashboardPage() {
       />
       <div className="space-y-4">
         {canViewLive && <LiveStats canReviewFlags={canReviewFlags} canReadDevices={canReadDevices} />}
-        {canReadExpenses && <MonthExpensesKpi />}
+        {(canReadExpenses || canReviewPlans) && (
+          <div className="grid gap-3 md:grid-cols-2">
+            {canReviewPlans && <PendingPlansKpi />}
+            {canReadExpenses && <MonthExpensesKpi />}
+          </div>
+        )}
         <div className="grid stagger-children gap-4 xl:grid-cols-3">
           {canViewLive && <NeedsAttention />}
           {canReviewFlags && <LatestFlags />}
@@ -184,6 +192,42 @@ function MonthExpensesKpi() {
         ) : (
           <span className="text-xl font-bold tabular-nums">
             {report.data ? formatMoney(report.data.total) : '—'}
+          </span>
+        )}
+      </Card>
+    </Link>
+  )
+}
+
+/** Weekly plans waiting for the manager's review, opening the pending list. */
+function PendingPlansKpi() {
+  const { t } = useTranslation()
+  const pending = usePlansPendingCount({ query: { refetchOnMount: 'always' } })
+  const count = pending.data?.count ?? 0
+  return (
+    <Link to="/admin/plans" className="block rounded-card" data-testid="dashboard-plans">
+      <Card className="flex-row items-center gap-3 px-4 py-4 transition-colors hover:border-primary/40 hover:bg-accent/40">
+        <span
+          className={cn(
+            'flex size-10 items-center justify-center rounded-[12px]',
+            count > 0
+              ? 'bg-warning-soft text-warning-soft-foreground'
+              : 'bg-primary-soft text-primary-soft-foreground',
+          )}
+        >
+          <CalendarCheckIcon className="size-5" aria-hidden />
+        </span>
+        <span className="grid min-w-0 flex-1 leading-tight">
+          <span className="text-label font-semibold text-muted-foreground">{t('plans.dashboardTitle')}</span>
+          <span className="text-xs text-muted-foreground">
+            {count > 0 ? t('plans.dashboardHint') : t('plans.dashboardNone')}
+          </span>
+        </span>
+        {pending.isLoading ? (
+          <Skeleton className="h-7 w-10" />
+        ) : (
+          <span className="text-xl font-bold tabular-nums" data-testid="dashboard-plans-count">
+            {pending.data ? formatNumber(count) : '—'}
           </span>
         )}
       </Card>

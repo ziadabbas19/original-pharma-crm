@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Expenses;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Lookups;
 using OriginalPharma.Infrastructure.Identity;
 
 namespace OriginalPharma.Api.Modules.Identity;
@@ -224,7 +225,19 @@ public sealed class TerritoriesController(TerritoryService territories) : Contro
     public Task<TerritoryDto> Update(Guid id, UpdateTerritoryRequest request, CancellationToken cancellationToken) =>
         territories.UpdateAsync(id, request, cancellationToken);
 
-    /// <summary>A city's default daily expense in EGP (expenses:settings). Zero: visits there add no expense line.</summary>
+    /// <summary>
+    /// Towns whose default daily expense you may set (expenses:settings within its scope), with their
+    /// area and current amount.
+    /// </summary>
+    [HttpGet("expense-defaults")]
+    [HasPermission(Permissions.Expenses.Settings)]
+    public Task<List<TownDto>> ExpenseDefaults(CancellationToken cancellationToken) =>
+        territories.ListExpenseDefaultsAsync(cancellationToken);
+
+    /// <summary>
+    /// A city's default daily expense in EGP (expenses:settings, within its scope; nothing else about the
+    /// town changes). Zero: visits there add no expense line. 403 for a city outside the scope.
+    /// </summary>
     [HttpPut("{id:guid}/expense-default")]
     [HasPermission(Permissions.Expenses.Settings)]
     public Task<TerritoryDto> SetExpenseDefault(Guid id, SetCityExpenseRequest request, CancellationToken cancellationToken) =>

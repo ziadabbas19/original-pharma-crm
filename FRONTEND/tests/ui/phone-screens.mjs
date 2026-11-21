@@ -15,7 +15,13 @@ const baseUrl = process.env.UI_TEST_URL ?? 'http://localhost:5173'
 const password = process.env.UI_TEST_PASSWORD
 if (!password) throw new Error('Set UI_TEST_PASSWORD to the demo password.')
 const screenshots = process.env.UI_SCREENSHOTS
+/** Screenshots of the weekly plan screens (360 and 430 px, both languages and themes). */
+const planScreenshots = process.env.UI_PLAN_SCREENSHOTS
+/** Screenshots of the rep's "Add pharmacy" sheet (360 and 430 px, both languages and themes). */
+const pharmacyScreenshots = process.env.UI_PHARMACY_SCREENSHOTS
 const en = JSON.parse(readFileSync(new URL('../../src/lib/i18n/locales/en.json', import.meta.url), 'utf8'))
+const ar = JSON.parse(readFileSync(new URL('../../src/lib/i18n/locales/ar.json', import.meta.url), 'utf8'))
+const locales = { ar, en }
 
 /** Each screen, with the label of its main action when it has one (English). */
 const SCREENS = [
@@ -27,6 +33,7 @@ const SCREENS = [
   { path: '/admin/customers', title: en.nav.customers },
   { path: '/admin/visits', title: en.nav.visits },
   { path: '/admin/expenses', title: en.nav.expenses },
+  { path: '/admin/plans', title: en.nav.plans },
   { path: '/admin/territories', title: en.nav.territories },
   { path: '/admin/orders', title: en.nav.orders },
   { path: '/admin/products', title: en.nav.products },
@@ -64,6 +71,66 @@ async function go(path) {
 }
 
 const pageOverflow = () => page.evaluate(`document.documentElement.scrollWidth - window.innerWidth`)
+
+/**
+ * Calls the API as the signed-in user. One access token per sign-in is enough (it lasts 15 minutes);
+ * refreshing for every call would run into the sign-in rate limit.
+ */
+let apiToken = null
+const api = async (path, options = {}) => {
+  apiToken ??= await page.evaluate(`fetch('/api/auth/refresh', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client: 'web' }),
+    }).then((r) => r.json()).then((auth) => auth.accessToken)`)
+  return page.evaluate(`(async () => {
+    const response = await fetch(${JSON.stringify(path)}, {
+      method: ${JSON.stringify(options.method ?? 'GET')},
+      headers: { Authorization: 'Bearer ' + ${JSON.stringify(apiToken)}, 'Content-Type': 'application/json' },
+      body: ${options.body ? JSON.stringify(JSON.stringify(options.body)) : 'undefined'},
+    })
+    const body = response.status === 204 ? null : await response.json()
+    if (!response.ok) throw new Error(response.status + ' ' + JSON.stringify(body))
+    return body
+  })()`)
+}
+
+const COMBOS = ['ar', 'en'].flatMap((language) => ['light', 'dark'].map((theme) => ({ language, theme })))
+const WIDTHS = [360, 430]
+
+/** Reloads the app on `path` in another language and theme (as a returning user has them). */
+async function reopenAs(path, { language, theme }) {
+  await page.evaluate(
+    `localStorage.setItem('op.language', '${language}'); localStorage.setItem('op.theme', '${theme}')`,
+  )
+  await page.goto(`${baseUrl}${path}`)
+  await page.waitFor(
+    `document.querySelector('main h1') && !document.querySelector('main [role=status] .animate-spin')`,
+    20000,
+  )
+}
+
+async function shoot(name, folder = planScreenshots) {
+  if (!folder) return
+  mkdirSync(folder, { recursive: true })
+  await page.sleep(500)
+  writeFileSync(join(folder, `${name}.png`), await page.screenshot())
+}
+
+/** The open dialog spans the phone's width and sits on its bottom edge. */
+async function assertBottomSheet(width) {
+  const r = await page.evaluate(
+    `(() => { const r = document.querySelector('[role=dialog]').getBoundingClientRect(); return { left: r.left, right: r.right, bottom: r.bottom } })()`,
+  )
+  assert.ok(
+    r.left <= 1 && r.right >= width - 1 && r.bottom >= 843,
+    `bottom sheet at ${width}px: ${JSON.stringify(r)}`,
+  )
+}
+
+async function closeDialog() {
+  await page.click('[role=dialog] [data-slot=dialog-close]')
+  await page.waitFor(`!document.querySelector('[role=dialog]')`)
+}
 
 /** The button is on screen horizontally and nothing covers its centre once scrolled to. */
 async function reachable(label) {
@@ -291,6 +358,163 @@ try {
     await signIn(page, baseUrl, 'rep@demo.local', password)
     await page.waitFor(`location.pathname.startsWith('/rep')`)
     assert.equal(await page.evaluate(`Boolean(document.querySelector('[data-testid=phone-tab-bar]'))`), false)
+  })
+
+  await check("add pharmacy: the rep's sheet fits 360-430 px in ar/en, light and dark", async () => {
+    for (const combo of COMBOS) {
+      await reopenAs('/rep/doctors', combo)
+      await page.click('[data-testid=tab-pharmacies]')
+      await page.waitFor(`document.querySelector('[data-testid=add-pharmacy]')`, 20000)
+      for (const width of WIDTHS) {
+        await page.viewport(width, 844, true)
+        await page.sleep(300)
+        const overflow = await pageOverflow()
+        assert.ok(overflow <= 1, `pharmacies scroll sideways by ${overflow}px at ${width}px`)
+        assert.equal(
+          await reachable(locales[combo.language].pharmacies.add),
+          'ok',
+          `add reachable at ${width}px`,
+        )
+        await page.click('[data-testid=add-pharmacy]')
+        await page.waitFor(
+          `document.querySelector('[data-testid=add-pharmacy-sheet] #pharmacy-new-town optgroup')`,
+          20000,
+        )
+        const r = await page.evaluate(
+          `(() => { const r = document.querySelector('[data-testid=add-pharmacy-sheet]').getBoundingClientRect(); return { left: r.left, right: r.right, bottom: r.bottom } })()`,
+        )
+        assert.ok(
+          r.left <= 1 && r.right >= width - 1 && r.bottom >= 843,
+          `bottom sheet at ${width}px: ${JSON.stringify(r)}`,
+        )
+        const save = await page.evaluate(
+          `document.querySelector('[data-testid=add-pharmacy-save]').getBoundingClientRect().height`,
+        )
+        assert.ok(save >= 44, `save button is ${save}px high`)
+        await shoot(`rep-add-pharmacy-${combo.language}-${combo.theme}-${width}`, pharmacyScreenshots)
+        await page.click('[data-testid=add-pharmacy-sheet] [data-slot=sheet-close]')
+        await page.waitFor(`!document.querySelector('[data-testid=add-pharmacy-sheet]')`)
+      }
+      await page.viewport(390, 844, true)
+      await page.evaluate(`window.scrollTo(0, 0)`)
+      await shoot(`rep-pharmacies-${combo.language}-${combo.theme}`, pharmacyScreenshots)
+    }
+  })
+
+  let planId
+  await check('weekly plans: the rep screens fit 360-430 px in ar/en, light and dark', async () => {
+    // A draft for next week, so the day editor can be opened.
+    const towns = await api('/api/lookups/towns')
+    const nasr = towns.find((t) => t.name === 'Nasr City')
+    const current = await api('/api/plans/mine')
+    // The first later week the rep may still change (an earlier run may have sent next week's plan).
+    let nextWeek
+    for (let i = 1; i <= 12 && !nextWeek; i++) {
+      const week = new Date(Date.parse(`${current.weekStart}T12:00:00Z`) + i * 7 * 86_400_000)
+        .toISOString()
+        .slice(0, 10)
+      if ((await api(`/api/plans/mine?week=${week}`)).canEdit) nextWeek = week
+    }
+    assert.ok(nextWeek, 'a later week is open for planning')
+    const draft = await api('/api/plans/mine', {
+      method: 'PUT',
+      body: {
+        week: nextWeek,
+        days: [
+          { day: nextWeek, cityId: nasr.id, targetVisits: 6, note: 'Morning clinics', customerIds: [] },
+          {
+            day: new Date(Date.parse(`${nextWeek}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10),
+            cityId: nasr.id,
+            targetVisits: 4,
+            customerIds: [],
+          },
+        ],
+      },
+    })
+    planId = draft.id
+    for (const combo of COMBOS) {
+      await reopenAs(`/rep/plans?week=${nextWeek}`, combo)
+      await page.waitFor(`document.querySelectorAll('[data-testid=plan-day]').length === 7`, 20000)
+      for (const width of WIDTHS) {
+        await page.viewport(width, 844, true)
+        await page.sleep(300)
+        const overflow = await pageOverflow()
+        assert.ok(overflow <= 1, `/rep/plans scrolls sideways by ${overflow}px at ${width}px`)
+        assert.equal(
+          await reachable(locales[combo.language].plans.submit),
+          'ok',
+          `submit reachable at ${width}px`,
+        )
+        await page.evaluate(`window.scrollTo(0, 0)`)
+        await shoot(`rep-plan-${combo.language}-${combo.theme}-${width}`)
+        await page.click('[data-testid=plan-day-edit]')
+        await page.waitFor(`document.querySelector('[data-testid=plan-day-dialog] #plan-city')`)
+        await assertBottomSheet(width)
+        const targets = await page.evaluate(
+          `[...document.querySelectorAll('[data-testid=plan-target-less], [data-testid=plan-target-more]')].map((b) => b.getBoundingClientRect().height)`,
+        )
+        assert.ok(
+          targets.every((h) => h >= 44),
+          `stepper buttons are 44 px: ${targets}`,
+        )
+        await shoot(`rep-plan-day-dialog-${combo.language}-${combo.theme}-${width}`)
+        await closeDialog()
+      }
+      await page.viewport(390, 844, true)
+      await go('/rep')
+      await page.waitFor(`document.querySelector('[data-testid=home-week-plan]')`, 20000)
+      await page.evaluate(
+        `document.querySelector('[data-testid=home-week-plan]').scrollIntoView({ block: 'center' })`,
+      )
+      await shoot(`rep-home-card-${combo.language}-${combo.theme}`)
+    }
+    await api(`/api/plans/${planId}/submit`, { method: 'POST', body: { version: draft.version } })
+  })
+
+  await check('weekly plans: the manager screens fit 360-430 px in ar/en, light and dark', async () => {
+    await page.evaluate(`fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })`)
+    apiToken = null
+    await signIn(page, baseUrl, 'supervisor@demo.local', password)
+    await page.waitFor(`location.pathname.startsWith('/admin')`)
+    for (const combo of COMBOS) {
+      const t = locales[combo.language]
+      await reopenAs('/admin/plans', combo)
+      await page.waitFor(`document.querySelector('[data-testid=plan-row]')`, 20000)
+      for (const width of WIDTHS) {
+        await page.viewport(width, 844, true)
+        await page.sleep(300)
+        assert.ok((await pageOverflow()) <= 1, `/admin/plans fits ${width}px`)
+        assert.ok(
+          await page.evaluate(`Boolean(document.querySelector('[data-testid=open-filters]'))`),
+          'filters in a sheet',
+        )
+        await shoot(`admin-plans-${combo.language}-${combo.theme}-${width}`)
+      }
+      await page.viewport(390, 844, true)
+      await go(`/admin/plans/${planId}`)
+      await page.waitFor(`document.querySelector('[data-testid=plan-return]')`, 20000)
+      for (const width of WIDTHS) {
+        await page.viewport(width, 844, true)
+        await page.sleep(300)
+        assert.ok((await pageOverflow()) <= 1, `plan detail fits ${width}px`)
+        assert.equal(await reachable(t.plans.review.approve), 'ok')
+        assert.equal(await reachable(t.plans.review.return), 'ok')
+        await page.evaluate(`window.scrollTo(0, 0)`)
+        await shoot(`admin-plan-detail-${combo.language}-${combo.theme}-${width}`)
+        await page.click('[data-testid=plan-return]')
+        await page.waitFor(`document.querySelector('[data-testid=plan-review-dialog]')`)
+        await assertBottomSheet(width)
+        await shoot(`admin-plan-return-dialog-${combo.language}-${combo.theme}-${width}`)
+        await closeDialog()
+      }
+      await page.viewport(390, 844, true)
+      await go('/admin')
+      await page.waitFor(`document.querySelector('[data-testid=dashboard-plans-count]')`, 20000)
+      await shoot(`admin-dashboard-${combo.language}-${combo.theme}`)
+    }
+    await page.evaluate(
+      `localStorage.setItem('op.language', 'en'); localStorage.setItem('op.theme', 'light')`,
+    )
   })
 
   assert.deepEqual(

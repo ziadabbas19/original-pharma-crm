@@ -2,6 +2,7 @@ import {
   BarChart3Icon,
   BellIcon,
   BuildingIcon,
+  CalendarCheckIcon,
   ClipboardListIcon,
   HistoryIcon,
   ListChecksIcon,
@@ -40,6 +41,7 @@ export type AdminPath =
   | '/admin/lookups'
   | '/admin/visits'
   | '/admin/expenses'
+  | '/admin/plans'
   | '/admin/flags'
   | '/admin/suspicious-activity'
   | '/admin/devices'
@@ -79,6 +81,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
       { to: '/admin/customers', label: 'nav.customers', icon: BuildingIcon, permission: P.customers.read },
       { to: '/admin/visits', label: 'nav.visits', icon: ClipboardListIcon, permission: P.visits.read },
       { to: '/admin/expenses', label: 'nav.expenses', icon: WalletIcon, permission: P.expenses.read },
+      { to: '/admin/plans', label: 'nav.plans', icon: CalendarCheckIcon, permission: P.plans.read },
       {
         to: '/admin/territories',
         label: 'nav.territories',
@@ -150,6 +153,7 @@ const PHONE_PRIORITY: AdminPath[] = [
   '/admin/orders',
   '/admin/doctors',
   '/admin/expenses',
+  '/admin/plans',
   '/admin/statistics',
   '/admin/suspicious-activity',
   '/admin/users',

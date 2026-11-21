@@ -10,6 +10,7 @@ import { apiFetch } from '@/lib/api-client'
 import { egyptToday, monthOf } from '@/lib/egypt-day'
 import { handleError } from '@/lib/errors'
 import { exportCsv } from '@/lib/export-file'
+import { CityAmountsSection } from './CityAmountsSection'
 import { MonthStatement } from './MonthExpenses'
 import { useMonthExpenses } from './use-month-expenses'
 
@@ -73,6 +74,7 @@ export function RepMonthlyExpensesPage() {
       ) : (
         <LoadingState rows={4} />
       )}
+      <CityAmountsSection />
     </div>
   )
 }

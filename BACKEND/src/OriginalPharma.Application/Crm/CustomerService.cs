@@ -6,6 +6,7 @@ using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Lookups;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
@@ -48,6 +49,25 @@ public sealed record UpdateCustomerRequest(
     double? Lng = null,
     int GeofenceRadiusMeters = 150,
     bool IsActive = true);
+
+/// <summary>A new pharmacy (customers:create-pharmacy). Its location is saved from the first visit, as for doctors.</summary>
+/// <param name="TerritoryId">The town; it must be inside the caller's scope (a rep: their own area).</param>
+public sealed record CreatePharmacyRequest(
+    string Name,
+    string? NameAr,
+    Guid TerritoryId,
+    string? Address = null,
+    string? Phone = null,
+    string? Notes = null);
+
+public static class PharmacyErrorCodes
+{
+    /// <summary>A pharmacy with the same name already exists in that town; the response carries <c>pharmacyId</c>.</summary>
+    public const string Exists = "pharmacy_exists";
+
+    /// <summary>The town is outside the caller's customers:create-pharmacy scope.</summary>
+    public const string TownOutOfScope = "pharmacy_town_out_of_scope";
+}
 
 /// <summary>
 /// Doctors and pharmacies. Reading follows customers:read by territory; pharmacy details are edited
@@ -94,6 +114,97 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
         }
 
         return await ProjectAsync(query.OrderBy(c => c.Name).Take(MaxRows), cancellationToken);
+    }
+
+    /// <summary>Towns where the caller may add a pharmacy (customers:create-pharmacy within its scope), by area then name.</summary>
+    public async Task<List<TownDto>> PharmacyTownsAsync(CancellationToken cancellationToken = default)
+    {
+        var allowed = await PharmacyTownIdsAsync(cancellationToken);
+        var towns = db.Territories.AsNoTracking().Where(t => t.Level == TerritoryLevel.Town && t.ArchivedAt == null);
+        if (allowed is not null)
+        {
+            towns = towns.Where(t => allowed.Contains(t.Id));
+        }
+
+        return await towns
+            .OrderBy(t => t.Parent!.Name).ThenBy(t => t.Name)
+            .Select(t => new TownDto(t.Id, t.Name, t.NameAr, t.ParentId, t.Parent!.Name, t.Parent.NameAr, t.DefaultDailyExpense))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds a pharmacy in a town of the caller's scope (customers:create-pharmacy). Pharmacies belong to
+    /// reps through their area, so a rep's new pharmacy is on their list at once; there is no other
+    /// rep to give it to. Same name in the same town is refused like a doctor (409 with the existing id).
+    /// The location comes from the first visit with a good fix.
+    /// </summary>
+    public async Task<CustomerDto> CreatePharmacyAsync(CreatePharmacyRequest request, CancellationToken cancellationToken = default)
+    {
+        var me = currentUser.RequireUserId();
+        if (!await db.Territories.AnyAsync(t => t.Id == request.TerritoryId && t.Level == TerritoryLevel.Town && t.ArchivedAt == null, cancellationToken))
+        {
+            throw new BusinessRuleException(DoctorErrorCodes.TownInvalid, "Choose a town.");
+        }
+
+        var allowed = await PharmacyTownIdsAsync(cancellationToken);
+        if (allowed is not null && !allowed.Contains(request.TerritoryId))
+        {
+            throw new ForbiddenException(PharmacyErrorCodes.TownOutOfScope, "You can add pharmacies only in the towns of your area.");
+        }
+
+        var name = request.Name.Trim();
+        var lower = name.ToLower();
+        var existing = await db.Customers.AsNoTracking()
+            .Where(c => c.Type == CustomerType.Pharmacy && c.TerritoryId == request.TerritoryId && c.Name.ToLower() == lower)
+            .Select(c => (Guid?)c.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing is { } existingId)
+        {
+            throw new ConflictException(PharmacyErrorCodes.Exists, "A pharmacy with this name already exists in this town.")
+            {
+                Details = new Dictionary<string, object?> { ["pharmacyId"] = existingId },
+            };
+        }
+
+        var pharmacy = new Customer
+        {
+            Type = CustomerType.Pharmacy,
+            Name = name,
+            NameAr = Clean(request.NameAr),
+            Address = Clean(request.Address),
+            TerritoryId = request.TerritoryId,
+            Phone = Clean(request.Phone),
+            Notes = Clean(request.Notes),
+            CreatedAt = time.GetUtcNow(),
+            CreatedById = me,
+        };
+        db.Customers.Add(pharmacy);
+        await audit.AddAsync(AuditEntities.Customer, pharmacy.Id, AuditAction.Created, new
+        {
+            pharmacy.Type,
+            pharmacy.Name,
+            pharmacy.NameAr,
+            pharmacy.Address,
+            pharmacy.TerritoryId,
+            pharmacy.Phone,
+            createdById = me,
+        }, cancellationToken: cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return (await ProjectAsync(db.Customers.AsNoTracking().Where(c => c.Id == pharmacy.Id), cancellationToken)).Single();
+    }
+
+    /// <summary>Towns open to the caller's customers:create-pharmacy scope; null for every town.</summary>
+    private async Task<HashSet<Guid>?> PharmacyTownIdsAsync(CancellationToken cancellationToken)
+    {
+        var scope = await scopeResolver.ResolveAsync(Permissions.Customers.CreatePharmacy, cancellationToken);
+        var roots = await scope.ResolveTerritoryIdsAsync(db, cancellationToken);
+        if (roots is null)
+        {
+            return null;
+        }
+
+        var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
+        return roots.SelectMany(tree.SelfAndDescendants).ToHashSet();
     }
 
     /// <summary>Edit a pharmacy (customers:manage, inside that scope).</summary>
@@ -325,6 +436,20 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
     private sealed record CustomerState(
         string Name, string? NameAr, string? Address, Guid? TerritoryId, string? Phone, string? Notes,
         double? Lat, double? Lng, int Radius, bool IsActive);
+}
+
+/// <summary>The same field rules as the managers' pharmacy form.</summary>
+public sealed class CreatePharmacyRequestValidator : AbstractValidator<CreatePharmacyRequest>
+{
+    public CreatePharmacyRequestValidator()
+    {
+        RuleFor(x => x.Name).Must(n => !string.IsNullOrWhiteSpace(n)).WithMessage("Name is required.").MaximumLength(Customer.NameMaxLength);
+        RuleFor(x => x.NameAr).MaximumLength(Customer.NameMaxLength);
+        RuleFor(x => x.Address).MaximumLength(500);
+        RuleFor(x => x.Phone).MaximumLength(Customer.PhoneMaxLength);
+        RuleFor(x => x.Notes).MaximumLength(Customer.NotesMaxLength);
+        RuleFor(x => x.TerritoryId).NotEmpty();
+    }
 }
 
 public sealed class UpdateCustomerRequestValidator : AbstractValidator<UpdateCustomerRequest>

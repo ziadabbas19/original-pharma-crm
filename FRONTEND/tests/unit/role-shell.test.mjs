@@ -24,6 +24,8 @@ const supervisor = grants(
   'customers:read',
   'orders:read',
   'stats:read',
+  'plans:read',
+  'plans:review',
 )
 // The admin role holds every permission at scope "all", tracking:report included.
 const admin = grants(
@@ -78,4 +80,17 @@ test('pages the role may not open are not offered', () => {
     assert.ok(!paths.includes(hidden), hidden)
   }
   assert.ok(paths.includes('/admin/suspicious-activity'))
+})
+
+test('weekly plans: managers get the Plans page, reps reach theirs from Account and Home', () => {
+  const paths = allowedNav(supervisor).flatMap((s) => s.items.map((i) => i.to))
+  assert.ok(paths.includes('/admin/plans'))
+  // Plans does not push a more used page out of the phone bar.
+  assert.ok(!phoneTabs(supervisor).some((t) => t.to === '/admin/plans'))
+  const repWithPlans = { ...rep, 'plans:read-own': 'own', 'plans:write-own': 'own' }
+  assert.equal(canUseDashboard(repWithPlans), false)
+  assert.equal(canUseFieldApp(repWithPlans), true)
+  // A custom role that only reads the team's plans still gets the management screens.
+  assert.equal(canUseDashboard({ 'plans:read': 'team' }), true)
+  assert.equal(canUseDashboard({ 'plans:read': 'own' }), false)
 })

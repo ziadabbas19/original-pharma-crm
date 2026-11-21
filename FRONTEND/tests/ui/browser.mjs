@@ -181,7 +181,8 @@ export async function launch() {
       socket.close()
       chrome.kill('SIGKILL')
       await sleep(200)
-      rmSync(profile, { recursive: true, force: true })
+      // Chrome may still be writing its cache for a moment after the kill.
+      rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })
     },
   }
   return page

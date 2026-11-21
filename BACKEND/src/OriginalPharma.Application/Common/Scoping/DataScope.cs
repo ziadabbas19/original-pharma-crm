@@ -54,6 +54,9 @@ public sealed class DataScope
 public interface IDataScopeResolver
 {
     Task<DataScope> ResolveAsync(string permissionKey, CancellationToken cancellationToken = default);
+
+    /// <summary>The same for another user, e.g. to find who may review a rep's work.</summary>
+    Task<DataScope> ResolveForAsync(Guid userId, string permissionKey, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

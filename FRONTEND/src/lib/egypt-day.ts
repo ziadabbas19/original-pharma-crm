@@ -84,6 +84,28 @@ export function dayToDate(day: DayKey): Date {
   return new Date(`${day}T12:00:00Z`)
 }
 
+/** Day of the week of a day key: 0 = Sunday ... 6 = Saturday (as .NET DayOfWeek counts them). */
+export function weekdayOf(day: DayKey): number {
+  return new Date(`${day}T12:00:00Z`).getUTCDay()
+}
+
+/** Saturday, the first day of a plan week unless Plans:WeekStartsOn says otherwise. */
+export const SATURDAY = 6
+
+/** The first day of the week `day` belongs to, for weeks starting on `firstDay` (0 = Sunday). */
+export function weekStartOf(day: DayKey, firstDay: number = SATURDAY): DayKey {
+  return addDays(day, -((weekdayOf(day) - firstDay + 7) % 7))
+}
+
+/** The seven days of the week that starts on `start`. */
+export function weekDays(start: DayKey): DayKey[] {
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i))
+}
+
+export function addWeeks(start: DayKey, count: number): DayKey {
+  return addDays(start, count * 7)
+}
+
 /** What the day picker shows for a day: today, yesterday, tomorrow, or null for any other day. */
 export function relativeDayName(day: DayKey, today: DayKey): 'today' | 'yesterday' | 'tomorrow' | null {
   const diff = daysBetween(today, day)

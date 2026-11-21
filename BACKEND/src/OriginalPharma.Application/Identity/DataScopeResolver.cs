@@ -10,9 +10,11 @@ internal sealed class DataScopeResolver(
     IPermissionService permissions,
     IOrgHierarchy hierarchy) : IDataScopeResolver
 {
-    public async Task<DataScope> ResolveAsync(string permissionKey, CancellationToken cancellationToken = default)
+    public Task<DataScope> ResolveAsync(string permissionKey, CancellationToken cancellationToken = default) =>
+        ResolveForAsync(currentUser.RequireUserId(), permissionKey, cancellationToken);
+
+    public async Task<DataScope> ResolveForAsync(Guid userId, string permissionKey, CancellationToken cancellationToken = default)
     {
-        var userId = currentUser.RequireUserId();
         var effective = await permissions.GetEffectivePermissionsAsync(userId, cancellationToken);
 
         return effective.ScopeOf(permissionKey) switch

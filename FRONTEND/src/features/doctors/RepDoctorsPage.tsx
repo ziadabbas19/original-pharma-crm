@@ -21,6 +21,9 @@ import { formatNumber, localizedName } from '@/lib/format'
 import { readCache, writeCache } from '@/lib/offline-cache'
 import { P } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
+import { AddPharmacySheet } from '@/features/customers/AddPharmacySheet'
+import { canAddPharmacy } from '@/features/customers/pharmacy-form'
+import { useAppSelector } from '@/store'
 import { AddDoctorSheet } from './AddDoctorSheet'
 import { OutsideAreaBadge, SpecialtySelect, TownSelect } from './doctor-fields'
 import { DoctorEditDialog } from './DoctorEditDialog'
@@ -35,14 +38,34 @@ const removeFromList = (request: BulkDeleteRequest): Promise<BulkResult> =>
 function RepPharmacies() {
   const { t } = useTranslation()
   const pharmacies = usePharmacies()
+  const canAdd = useAppSelector((s) => canAddPharmacy(s.permissions.byKey))
+  const [adding, setAdding] = useState(false)
   const [search, setSearch] = useState('')
   const q = search.trim().toLowerCase()
   const rows = (pharmacies.data ?? []).filter(
     (p) => !q || p.name.toLowerCase().includes(q) || (p.nameAr ?? '').includes(q),
   )
 
+  const addButton = canAdd && (
+    <Button size="lg" onClick={() => setAdding(true)} data-testid="add-pharmacy">
+      <PlusIcon />
+      {t('pharmacies.add')}
+    </Button>
+  )
+
   return (
     <div className="space-y-4 [&_input]:h-11">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl font-semibold">
+          {t('visits.pharmacies.pharmacies')}{' '}
+          {pharmacies.data && (
+            <span className="text-base font-normal text-muted-foreground">
+              ({formatNumber(pharmacies.data.length)})
+            </span>
+          )}
+        </h1>
+        {(pharmacies.data?.length ?? 0) > 0 && addButton}
+      </div>
       <SearchInput
         value={search}
         onChange={setSearch}
@@ -54,7 +77,12 @@ function RepPharmacies() {
       ) : pharmacies.error && !pharmacies.data ? (
         <ErrorState error={pharmacies.error} onRetry={() => void pharmacies.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={PillIcon} title={t('visits.pharmacies.empty')} />
+        <EmptyState
+          icon={PillIcon}
+          title={pharmacies.data?.length ? t('states.noMatches') : t('visits.pharmacies.empty')}
+          description={canAdd && !pharmacies.data?.length ? t('pharmacies.emptyHint') : undefined}
+          action={pharmacies.data?.length ? undefined : addButton || undefined}
+        />
       ) : (
         <ul className="space-y-2">
           {rows.map((p) => (
@@ -76,6 +104,7 @@ function RepPharmacies() {
           ))}
         </ul>
       )}
+      {canAdd && <AddPharmacySheet open={adding} onOpenChange={setAdding} onAdded={() => setSearch('')} />}
     </div>
   )
 }

@@ -30,6 +30,9 @@ public static class AuditEntities
     /// <summary>The notes of a rep's expense day.</summary>
     public const string ExpenseDay = "expense_day";
 
+    /// <summary>A rep's weekly plan (created, days changed, submitted, approved, returned, reopened).</summary>
+    public const string WeeklyPlan = "weekly_plan";
+
     /// <summary>Settings edited from the dashboard (details name the key).</summary>
     public const string Settings = "settings";
 }

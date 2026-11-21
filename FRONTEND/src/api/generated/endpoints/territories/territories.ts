@@ -27,6 +27,7 @@ import type {
   SetCityExpenseRequest,
   TerritoriesListParams,
   TerritoryDto,
+  TownDto,
   UpdateTerritoryRequest,
 } from '../../model'
 
@@ -563,6 +564,114 @@ export const useTerritoriesDelete = <TError = ProblemDetails, TContext = unknown
 > => {
   return useMutation(getTerritoriesDeleteMutationOptions(options), queryClient)
 }
+export const getTerritoriesExpenseDefaultsUrl = () => {
+  return `/api/territories/expense-defaults`
+}
+
+export const territoriesExpenseDefaults = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TownDto[]> => {
+  return apiFetch<TownDto[]>(getTerritoriesExpenseDefaultsUrl(), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getTerritoriesExpenseDefaultsQueryKey = () => {
+  return [`/api/territories/expense-defaults`] as const
+}
+
+export const getTerritoriesExpenseDefaultsQueryOptions = <
+  TData = Awaited<ReturnType<typeof territoriesExpenseDefaults>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesExpenseDefaults>>, TError, TData>>
+  request?: SecondParameter<typeof apiFetch>
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getTerritoriesExpenseDefaultsQueryKey()
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof territoriesExpenseDefaults>>> = ({ signal }) =>
+    territoriesExpenseDefaults({ signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof territoriesExpenseDefaults>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type TerritoriesExpenseDefaultsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof territoriesExpenseDefaults>>
+>
+export type TerritoriesExpenseDefaultsQueryError = unknown
+
+export function useTerritoriesExpenseDefaults<
+  TData = Awaited<ReturnType<typeof territoriesExpenseDefaults>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesExpenseDefaults>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof territoriesExpenseDefaults>>,
+          TError,
+          Awaited<ReturnType<typeof territoriesExpenseDefaults>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTerritoriesExpenseDefaults<
+  TData = Awaited<ReturnType<typeof territoriesExpenseDefaults>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesExpenseDefaults>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof territoriesExpenseDefaults>>,
+          TError,
+          Awaited<ReturnType<typeof territoriesExpenseDefaults>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTerritoriesExpenseDefaults<
+  TData = Awaited<ReturnType<typeof territoriesExpenseDefaults>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesExpenseDefaults>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTerritoriesExpenseDefaults<
+  TData = Awaited<ReturnType<typeof territoriesExpenseDefaults>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof territoriesExpenseDefaults>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getTerritoriesExpenseDefaultsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
 export const getTerritoriesSetExpenseDefaultUrl = (id: string) => {
   return `/api/territories/${id}/expense-default`
 }

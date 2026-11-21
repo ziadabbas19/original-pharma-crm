@@ -175,6 +175,12 @@ Defaults for the sales features: Rep `customers:create`, `orders:create`, `order
 `orders:manage`, `users:reset-password` (team); AreaManager the same with territory scope;
 SalesManager also `products:manage`, `lookups:manage` (all). `users:create` is Admin only
 until granted from the matrix.
+Reps also hold `customers:create-pharmacy` (own): "Add pharmacy" on the Pharmacies tab creates a pharmacy in
+a town of their area only (`POST /api/customers/pharmacies`, towns from `GET /api/customers/pharmacy-towns`).
+Pharmacies belong to reps through their area, so it is on the rep's list at once. The same name in the same
+town is refused (409 `pharmacy_exists` with the existing id), the creation is in the activity log, and the
+location comes from the first visit, as for doctors. Editing and deleting pharmacies stay with
+`customers:manage` and `customers:delete`. Like adding a doctor, it needs a connection (no offline queue).
 
 **Caching and fast propagation**
 
@@ -465,7 +471,11 @@ Days are Egypt days (`Stats__TimeZone`, Africa/Cairo with daylight saving) on bo
   the doctor's town. The rep's Visits screen and the managers' "By day" view of Visits use a day
   picker (previous, next, Today, a calendar for any date); the chosen day stays in the address.
 - Each town has a default daily expense (`territories.default_daily_expense`, EGP, set from Areas &
-  towns with `expenses:settings`). The first visit of a rep in a town on a day creates that town's
+  towns with `expenses:settings`, or from the rep app's Expenses screen, section "Default daily amounts",
+  when a role was given that permission). The permission's scope decides which towns (own and team: the
+  areas of the people concerned, territory: the caller's part of the tree, all: every town;
+  `GET /api/territories/expense-defaults` lists them), and it changes only the amount: name, code and
+  area need `territories:manage`. No default role but Admin holds it. The first visit of a rep in a town on a day creates that town's
   line (`expense_lines`, source auto, `original_amount` = the default) in one
   `INSERT ... ON CONFLICT DO NOTHING` against a partial unique index (rep, day, town) of automatic
   lines, so simultaneous first visits make one line, and a line the rep removed (archived) or added

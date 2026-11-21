@@ -1756,6 +1756,195 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.ToTable("order_lines", (string)null);
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Plans.WeeklyPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("review_note");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<Guid?>("TerritoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("territory_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<DateOnly>("WeekStart")
+                        .HasColumnType("date")
+                        .HasColumnName("week_start");
+
+                    b.HasKey("Id")
+                        .HasName("pk_weekly_plans");
+
+                    b.HasIndex("Status", "WeekStart")
+                        .HasDatabaseName("ix_weekly_plans_status_week_start");
+
+                    b.HasIndex("UserId", "WeekStart")
+                        .IsUnique()
+                        .HasDatabaseName("ix_weekly_plans_user_id_week_start");
+
+                    b.ToTable("weekly_plans", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Plans.WeeklyPlanCustomer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<Guid>("PlanDayId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_day_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_weekly_plan_customers");
+
+                    b.HasIndex("CustomerId")
+                        .HasDatabaseName("ix_weekly_plan_customers_customer_id");
+
+                    b.HasIndex("PlanDayId", "CustomerId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_weekly_plan_customers_plan_day_id_customer_id");
+
+                    b.ToTable("weekly_plan_customers", (string)null);
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Plans.WeeklyPlanDay", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("city_id");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_id");
+
+                    b.Property<int>("TargetVisits")
+                        .HasColumnType("integer")
+                        .HasColumnName("target_visits");
+
+                    b.HasKey("Id")
+                        .HasName("pk_weekly_plan_days");
+
+                    b.HasIndex("CityId")
+                        .HasDatabaseName("ix_weekly_plan_days_city_id");
+
+                    b.HasIndex("PlanId", "Day")
+                        .IsUnique()
+                        .HasDatabaseName("ix_weekly_plan_days_plan_id_day");
+
+                    b.ToTable("weekly_plan_days", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_weekly_plan_days_target", "target_visits BETWEEN 0 AND 100");
+                        });
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Plans.WeeklyPlanEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor_name");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("FromStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("from_status");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_id");
+
+                    b.Property<int>("ToStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("to_status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_weekly_plan_events");
+
+                    b.HasIndex("PlanId", "CreatedAt")
+                        .HasDatabaseName("ix_weekly_plan_events_plan_id_created_at");
+
+                    b.ToTable("weekly_plan_events", (string)null);
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Tracking.Device", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3083,6 +3272,60 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_order_lines_products_product_id");
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Plans.WeeklyPlan", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_weekly_plans_users_user_id");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Plans.WeeklyPlanCustomer", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Crm.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_weekly_plan_customers_customers_customer_id");
+
+                    b.HasOne("OriginalPharma.Domain.Plans.WeeklyPlanDay", null)
+                        .WithMany("Customers")
+                        .HasForeignKey("PlanDayId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_weekly_plan_customers_weekly_plan_days_plan_day_id");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Plans.WeeklyPlanDay", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Identity.Territory", null)
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_weekly_plan_days_territories_city_id");
+
+                    b.HasOne("OriginalPharma.Domain.Plans.WeeklyPlan", null)
+                        .WithMany("Days")
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_weekly_plan_days_weekly_plans_plan_id");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Plans.WeeklyPlanEvent", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Plans.WeeklyPlan", null)
+                        .WithMany("Events")
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_weekly_plan_events_weekly_plans_plan_id");
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Tracking.DeviceHealthReport", b =>
                 {
                     b.HasOne("OriginalPharma.Domain.Tracking.Device", null)
@@ -3192,6 +3435,18 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.Navigation("History");
 
                     b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Plans.WeeklyPlan", b =>
+                {
+                    b.Navigation("Days");
+
+                    b.Navigation("Events");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Plans.WeeklyPlanDay", b =>
+                {
+                    b.Navigation("Customers");
                 });
 
             modelBuilder.Entity("OriginalPharma.Domain.Visits.Visit", b =>

@@ -24,6 +24,7 @@ export const P = {
     read: 'customers:read',
     manage: 'customers:manage',
     create: 'customers:create',
+    createPharmacy: 'customers:create-pharmacy',
     assign: 'customers:assign',
     delete: 'customers:delete',
     restore: 'customers:restore',
@@ -57,6 +58,12 @@ export const P = {
     read: 'expenses:read',
     manage: 'expenses:manage',
     settings: 'expenses:settings',
+  },
+  plans: {
+    readOwn: 'plans:read-own',
+    writeOwn: 'plans:write-own',
+    read: 'plans:read',
+    review: 'plans:review',
   },
   tracking: {
     report: 'tracking:report',
@@ -124,6 +131,7 @@ export function canUseDashboard(granted: Record<string, PermissionScope>): boole
     hasPermission(granted, P.stats.read, 'team') ||
     hasPermission(granted, P.audit.read) ||
     hasPermission(granted, P.expenses.read, 'team') ||
+    hasPermission(granted, P.plans.read, 'team') ||
     hasPermission(granted, P.tracking.reviewSuspicious) ||
     hasPermission(granted, P.settings.manage)
   )

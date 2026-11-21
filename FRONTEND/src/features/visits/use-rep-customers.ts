@@ -82,6 +82,8 @@ export function useRepCustomers() {
   )
   return {
     customers,
+    doctors: doctors.data,
+    pharmacies: pharmacies.data,
     isLoading: doctors.isLoading || pharmacies.isLoading,
     error: doctors.error ?? pharmacies.error,
   }

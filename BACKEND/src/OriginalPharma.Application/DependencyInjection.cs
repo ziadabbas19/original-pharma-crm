@@ -14,6 +14,7 @@ using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Lookups;
 using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Orders;
+using OriginalPharma.Application.Plans;
 using OriginalPharma.Application.Settings;
 using OriginalPharma.Application.Stats;
 using OriginalPharma.Application.Tracking;
@@ -39,6 +40,7 @@ public static class DependencyInjection
         services.Configure<ImageOptions>(configuration.GetSection(ImageOptions.SectionName));
         services.Configure<StatsOptions>(configuration.GetSection(StatsOptions.SectionName));
         services.Configure<ExpenseOptions>(configuration.GetSection(ExpenseOptions.SectionName));
+        services.Configure<PlanOptions>(configuration.GetSection(PlanOptions.SectionName));
         services.AddOptions<AuthSessionOptions>()
             .Bind(configuration.GetSection(AuthSessionOptions.SectionName))
             .Validate(o => o.SessionDays >= 1 && o.SessionMaxDays >= 1, "Auth__SessionDays and Auth__SessionMaxDays must be at least 1.");
@@ -63,6 +65,9 @@ public static class DependencyInjection
 
         // Expenses
         services.AddScoped<ExpenseService>();
+
+        // Weekly plans
+        services.AddScoped<PlanService>();
 
         // CRM and lookups
         services.AddScoped<CustomerService>();

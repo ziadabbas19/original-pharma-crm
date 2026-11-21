@@ -57,6 +57,7 @@ is missing, unsafe or still a placeholder, and names each variable to fix.
 | `Auth__RefreshCookie__Secure` | `true` | Must stay `true` in production |
 | `Auth__RefreshCookie__SameSite` | `Strict` | `Strict` or `Lax` |
 | `Expenses__EditableDays` | `45` | How many days back a rep may still change their own expenses; older days only managers with `expenses:manage` |
+| `Plans__WeekStartsOn` | `Saturday` | First day of a weekly plan (`Saturday`, `Sunday`, `Monday`, ...). Weeks are Egypt days |
 | `Database__MigrateOnStartup` | `true` | See [Migrations](#migrations) |
 | `Seed__AdminFullName` | `System Admin` | Display name of the first administrator |
 | `Seed__ResetAdminPassword` | not set | `true` resets the admin's password at startup. Remove it right after. See [Resetting the admin password](#resetting-the-admin-password) |

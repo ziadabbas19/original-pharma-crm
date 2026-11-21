@@ -22,8 +22,11 @@ import type {
   BulkDeleteRequest,
   BulkIdsRequest,
   BulkResult,
+  CreatePharmacyRequest,
   CustomerDto,
   CustomersListParams,
+  ProblemDetails,
+  TownDto,
   UpdateCustomerRequest,
 } from '../../model'
 
@@ -182,6 +185,194 @@ export function useCustomersList<TData = Awaited<ReturnType<typeof customersList
   return withQueryKey(query, queryOptions.queryKey)
 }
 
+export const getCustomersPharmacyTownsUrl = () => {
+  return `/api/customers/pharmacy-towns`
+}
+
+export const customersPharmacyTowns = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TownDto[]> => {
+  return apiFetch<TownDto[]>(getCustomersPharmacyTownsUrl(), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getCustomersPharmacyTownsQueryKey = () => {
+  return [`/api/customers/pharmacy-towns`] as const
+}
+
+export const getCustomersPharmacyTownsQueryOptions = <
+  TData = Awaited<ReturnType<typeof customersPharmacyTowns>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof customersPharmacyTowns>>, TError, TData>>
+  request?: SecondParameter<typeof apiFetch>
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getCustomersPharmacyTownsQueryKey()
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof customersPharmacyTowns>>> = ({ signal }) =>
+    customersPharmacyTowns({ signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof customersPharmacyTowns>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CustomersPharmacyTownsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof customersPharmacyTowns>>
+>
+export type CustomersPharmacyTownsQueryError = unknown
+
+export function useCustomersPharmacyTowns<
+  TData = Awaited<ReturnType<typeof customersPharmacyTowns>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof customersPharmacyTowns>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof customersPharmacyTowns>>,
+          TError,
+          Awaited<ReturnType<typeof customersPharmacyTowns>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCustomersPharmacyTowns<
+  TData = Awaited<ReturnType<typeof customersPharmacyTowns>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof customersPharmacyTowns>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof customersPharmacyTowns>>,
+          TError,
+          Awaited<ReturnType<typeof customersPharmacyTowns>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCustomersPharmacyTowns<
+  TData = Awaited<ReturnType<typeof customersPharmacyTowns>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof customersPharmacyTowns>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCustomersPharmacyTowns<
+  TData = Awaited<ReturnType<typeof customersPharmacyTowns>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof customersPharmacyTowns>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getCustomersPharmacyTownsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getCustomersCreatePharmacyUrl = () => {
+  return `/api/customers/pharmacies`
+}
+
+export const customersCreatePharmacy = async (
+  createPharmacyRequest: CreatePharmacyRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<CustomerDto> => {
+  return apiFetch<CustomerDto>(getCustomersCreatePharmacyUrl(), {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(createPharmacyRequest),
+  })
+}
+
+export const getCustomersCreatePharmacyMutationKey = () => ['customersCreatePharmacy'] as const
+
+export const getCustomersCreatePharmacyMutationOptions = <
+  TError = ProblemDetails,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof customersCreatePharmacy>>,
+    TError,
+    CustomersCreatePharmacyMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof customersCreatePharmacy>>,
+  TError,
+  CustomersCreatePharmacyMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCustomersCreatePharmacyMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof customersCreatePharmacy>>,
+    CustomersCreatePharmacyMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return customersCreatePharmacy(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type CustomersCreatePharmacyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof customersCreatePharmacy>>
+>
+export type CustomersCreatePharmacyMutationBody = CreatePharmacyRequest
+export type CustomersCreatePharmacyMutationError = ProblemDetails
+export type CustomersCreatePharmacyMutationVariables = { data: CreatePharmacyRequest }
+
+export const useCustomersCreatePharmacy = <TError = ProblemDetails, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof customersCreatePharmacy>>,
+      TError,
+      CustomersCreatePharmacyMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof customersCreatePharmacy>>,
+  TError,
+  CustomersCreatePharmacyMutationVariables,
+  TContext
+> => {
+  return useMutation(getCustomersCreatePharmacyMutationOptions(options), queryClient)
+}
 export const getCustomersUpdateUrl = (id: string) => {
   return `/api/customers/${id}`
 }

@@ -10,6 +10,7 @@ using OriginalPharma.Domain.Expenses;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Orders;
+using OriginalPharma.Domain.Plans;
 using OriginalPharma.Domain.Tracking;
 using OriginalPharma.Domain.Visits;
 
@@ -27,6 +28,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<ExpenseLine> ExpenseLines => Set<ExpenseLine>();
     public DbSet<ExpenseDay> ExpenseDays => Set<ExpenseDay>();
+    public DbSet<WeeklyPlan> WeeklyPlans => Set<WeeklyPlan>();
+    public DbSet<WeeklyPlanDay> WeeklyPlanDays => Set<WeeklyPlanDay>();
+    public DbSet<WeeklyPlanCustomer> WeeklyPlanCustomers => Set<WeeklyPlanCustomer>();
+    public DbSet<WeeklyPlanEvent> WeeklyPlanEvents => Set<WeeklyPlanEvent>();
 
     public Task<int> ExecuteSqlAsync(FormattableString sql, CancellationToken cancellationToken = default) =>
         Database.ExecuteSqlInterpolatedAsync(sql, cancellationToken);

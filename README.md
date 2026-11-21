@@ -128,6 +128,27 @@ Latin digits in both languages; money is always formatted as EGP by `formatMoney
 
 Other scripts: `npm run build`, `npm run preview`, `npm run lint`, `npm run format`, `npm run typecheck`.
 
+### Weekly plans
+
+A rep plans each week in **Account > My weekly plan** (also from the Home card): for every working day a
+city, a target number of visits, an optional note and optionally the doctors and pharmacies to visit (their
+own doctor list and the pharmacies of their area, in that city). Days left out are days off. Plans are
+written for the current week and later weeks only; every change is saved on the server at once, and the
+last copy stays readable offline.
+
+**Send to manager** submits the plan to the nearest manager in the rep's reporting line who holds
+`plans:review` with a scope that covers the rep (team, territory or all, as for `expenses:read`); without one
+the plan cannot be sent. The manager approves it (optional note) or returns it with a note from
+**Field work > Weekly plans** (pending list, all plans, a dashboard card with the count). Approved plans are
+locked for the rep until a reviewer reopens them. Each status change is kept in the plan's history, written to
+the activity log and announced in-app (rep and reviewer). Both sides see planned against done per day and for
+the week: completed visits that Egypt day in the planned city or to a planned customer count for the plan;
+the others are shown as visits outside the plan.
+
+Permissions: `plans:read-own` and `plans:write-own` (Rep), `plans:read` and `plans:review` (Supervisor: team,
+Area manager: territory, Sales manager and Admin: all). Weeks are Egypt days and start on Saturday unless
+`Plans__WeekStartsOn` says otherwise (`Sunday`, `Monday`, ...).
+
 ### Deleting, archiving and restoring
 
 Every list can select rows (all rows matching the filters) and every delete goes through one

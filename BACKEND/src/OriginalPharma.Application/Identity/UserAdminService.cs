@@ -253,6 +253,7 @@ public sealed class UserAdminService(
         await AddAsync(db.VisitFeedbackReplies.Where(r => ids.Contains(r.AuthorId)).Select(r => r.AuthorId));
         await AddAsync(db.ExpenseLines.Where(l => ids.Contains(l.UserId)).Select(l => l.UserId));
         await AddAsync(db.ExpenseDays.Where(d => ids.Contains(d.UserId)).Select(d => d.UserId));
+        await AddAsync(db.WeeklyPlans.Where(p => ids.Contains(p.UserId)).Select(p => p.UserId));
         return found;
     }
 

@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { territoriesSetExpenseDefault } from '@/api/generated/endpoints'
-import type { TerritoryDto } from '@/api/generated/model'
 import { FormError } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,8 +19,19 @@ import { handleError, type AppError } from '@/lib/errors'
 import { localizedName } from '@/lib/format'
 import { invalidateApi } from '@/lib/invalidate-api'
 
-/** A city's default daily expense (expenses:settings). Zero: visits there add no expense line. */
-export function CityExpenseDialog({ town, onClose }: { town: TerritoryDto; onClose: () => void }) {
+/** The town as the territory tree and the rep's expense screen both list it. */
+interface TownWithAmount {
+  id: string
+  name: string
+  nameAr?: string | null
+  defaultDailyExpense?: number
+}
+
+/**
+ * A city's default daily expense (expenses:settings, within its scope). Zero: visits there add no
+ * expense line. Used on Areas & towns and on the rep's expenses screen.
+ */
+export function CityExpenseDialog({ town, onClose }: { town: TownWithAmount; onClose: () => void }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [value, setValue] = useState(String(town.defaultDailyExpense ?? 0))
@@ -64,8 +74,15 @@ export function CityExpenseDialog({ town, onClose }: { town: TerritoryDto; onClo
               onChange={(e) => setValue(e.target.value)}
               aria-invalid={amount === null}
               autoFocus
+              data-testid="city-expense-amount"
             />
+            {amount === null && (
+              <p className="text-sm text-destructive" data-testid="city-expense-invalid">
+                {t('expenses.amountInvalid')}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">{t('territories.dailyExpenseHint')}</p>
+            <p className="text-xs text-muted-foreground">{t('expenses.cityAmounts.note')}</p>
           </div>
           <FormError error={error} />
           <DialogFooter>

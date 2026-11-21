@@ -31,6 +31,10 @@ public sealed class LocalCalendar(IOptions<StatsOptions> options, TimeProvider t
 
     public static DateOnly LastOfMonth(DateOnly day) => new(day.Year, day.Month, DateTime.DaysInMonth(day.Year, day.Month));
 
+    /// <summary>The first day of the week <paramref name="day"/> belongs to, for weeks starting on <paramref name="firstDay"/>.</summary>
+    public static DateOnly WeekStart(DateOnly day, DayOfWeek firstDay) =>
+        day.AddDays(-(((int)day.DayOfWeek - (int)firstDay + 7) % 7));
+
     private static TimeZoneInfo Find(string id)
     {
         try

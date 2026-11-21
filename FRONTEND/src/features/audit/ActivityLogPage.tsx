@@ -25,6 +25,7 @@ const ENTITIES = [
   'visit',
   'expense',
   'expense_day',
+  'weekly_plan',
   'device',
 ]
 const ACTIONS: AuditAction[] = [

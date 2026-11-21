@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Crm;
 using OriginalPharma.Application.Identity;
+using OriginalPharma.Application.Lookups;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Infrastructure.Identity;
 
@@ -23,6 +24,24 @@ public sealed class CustomersController(CustomerService customers) : ControllerB
         CancellationToken cancellationToken,
         [FromQuery] bool archived = false) =>
         customers.ListAsync(type, search, archived, cancellationToken);
+
+    /// <summary>Towns where you may add a pharmacy (customers:create-pharmacy within its scope).</summary>
+    [HttpGet("pharmacy-towns")]
+    [HasPermission(Permissions.Customers.CreatePharmacy)]
+    public Task<List<TownDto>> PharmacyTowns(CancellationToken cancellationToken) =>
+        customers.PharmacyTownsAsync(cancellationToken);
+
+    /// <summary>
+    /// Add a pharmacy in a town of your area (customers:create-pharmacy). 409 <c>pharmacy_exists</c> (with
+    /// <c>pharmacyId</c>) when the same name exists in that town; 403 <c>pharmacy_town_out_of_scope</c>
+    /// for a town outside your scope. The location is saved from the first visit.
+    /// </summary>
+    [HttpPost("pharmacies")]
+    [HasPermission(Permissions.Customers.CreatePharmacy)]
+    [ProducesResponseType<CustomerDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public Task<CustomerDto> CreatePharmacy(CreatePharmacyRequest request, CancellationToken cancellationToken) =>
+        customers.CreatePharmacyAsync(request, cancellationToken);
 
     /// <summary>Edit a pharmacy (doctors are edited through /api/doctors).</summary>
     [HttpPut("{id:guid}")]

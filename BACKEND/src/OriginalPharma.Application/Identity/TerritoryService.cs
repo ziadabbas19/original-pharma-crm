@@ -6,6 +6,7 @@ using OriginalPharma.Application.Common.Auditing;
 using OriginalPharma.Application.Common.Bulk;
 using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
+using OriginalPharma.Application.Lookups;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Identity;
 
@@ -80,7 +81,8 @@ public sealed class TerritoryService(
             db.Customers.Count(c => c.TerritoryId == t.Id && c.IsActive && c.ArchivedAt == null),
             t.Children.Count(c => c.ArchivedAt == null),
             db.Customers.Count(c => c.TerritoryId == t.Id) + db.Orders.Count(o => o.TerritoryId == t.Id) +
-            db.Visits.Count(v => v.TerritoryId == t.Id) + db.ExpenseLines.Count(l => l.CityId == t.Id),
+            db.Visits.Count(v => v.TerritoryId == t.Id) + db.ExpenseLines.Count(l => l.CityId == t.Id) +
+            db.WeeklyPlanDays.Count(d => d.CityId == t.Id),
             t.ArchivedAt,
             t.DefaultDailyExpense));
 
@@ -138,13 +140,40 @@ public sealed class TerritoryService(
     }
 
     /// <summary>
-    /// Sets a city's default daily expense (expenses:settings). Zero means visits there add no expense.
+    /// The towns whose default daily expense the caller may set (expenses:settings, within its scope:
+    /// own and team mean the areas of the people concerned, territory the caller's part of the tree),
+    /// with their area and current amount. Archived towns are left out.
+    /// </summary>
+    public async Task<List<TownDto>> ListExpenseDefaultsAsync(CancellationToken cancellationToken = default)
+    {
+        var allowed = await ExpenseSettingsIdsAsync(cancellationToken);
+        var towns = db.Territories.AsNoTracking().Where(t => t.Level == TerritoryLevel.Town && t.ArchivedAt == null);
+        if (allowed is not null)
+        {
+            towns = towns.Where(t => allowed.Contains(t.Id));
+        }
+
+        return await towns
+            .OrderBy(t => t.Parent!.Name).ThenBy(t => t.Name)
+            .Select(t => new TownDto(t.Id, t.Name, t.NameAr, t.ParentId, t.Parent!.Name, t.Parent.NameAr, t.DefaultDailyExpense))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets a city's default daily expense (expenses:settings, inside its scope). Only the amount
+    /// changes; name, code and area need territories:manage. Zero means visits there add no expense.
     /// Lines already created keep their amount.
     /// </summary>
     public async Task<TerritoryDto> SetDefaultExpenseAsync(Guid id, decimal amount, CancellationToken cancellationToken = default)
     {
         var territory = await db.Territories.SingleOrDefaultAsync(t => t.Id == id, cancellationToken)
                         ?? throw new NotFoundException("Territory", id);
+        var allowed = await ExpenseSettingsIdsAsync(cancellationToken);
+        if (allowed is not null && !allowed.Contains(territory.Id))
+        {
+            throw new ForbiddenException("This city is outside your scope.");
+        }
+
         var rounded = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
         if (rounded != territory.DefaultDailyExpense)
         {
@@ -337,6 +366,9 @@ public sealed class TerritoryService(
         Add((await db.ExpenseLines.Where(l => ids.Contains(l.CityId))
             .GroupBy(l => l.CityId).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(cancellationToken))
             .Select(x => (x.Key, x.Count)));
+        Add((await db.WeeklyPlanDays.Where(d => ids.Contains(d.CityId))
+            .GroupBy(d => d.CityId).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(cancellationToken))
+            .Select(x => (x.Key, x.Count)));
         return counts;
     }
 
@@ -358,6 +390,10 @@ public sealed class TerritoryService(
         var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
         return roots.SelectMany(tree.SelfAndDescendants).ToHashSet();
     }
+
+    /// <summary>Nodes whose default daily expense the caller may set; null for all.</summary>
+    private async Task<HashSet<Guid>?> ExpenseSettingsIdsAsync(CancellationToken cancellationToken) =>
+        await VisibleIdsAsync(await scopeResolver.ResolveAsync(Permissions.Expenses.Settings, cancellationToken), cancellationToken);
 
     private async Task<HashSet<Guid>?> ManageableIdsAsync(CancellationToken cancellationToken) =>
         await VisibleIdsAsync(await scopeResolver.ResolveAsync(Permissions.Territories.Manage, cancellationToken), cancellationToken);

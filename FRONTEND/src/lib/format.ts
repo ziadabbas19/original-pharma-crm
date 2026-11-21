@@ -77,6 +77,18 @@ export function formatDayShort(day: string): string {
   }).format(new Date(`${day}T12:00:00Z`))
 }
 
+/** A week from its first day: "6 - 12 Feb 2027" (both ends in the reader's language). */
+export function formatWeekRange(start: string): string {
+  const from = new Date(`${start}T12:00:00Z`)
+  const to = new Date(from.getTime() + 6 * 86_400_000)
+  return new Intl.DateTimeFormat(locale(), {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).formatRange(from, to)
+}
+
 /** A month key (yyyy-MM): "November 2026" / "نوفمبر 2026". */
 export function formatMonth(month: string): string {
   return new Intl.DateTimeFormat(locale(), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(

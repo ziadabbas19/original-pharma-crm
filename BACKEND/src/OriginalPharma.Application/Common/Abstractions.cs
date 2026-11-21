@@ -8,6 +8,7 @@ using OriginalPharma.Domain.Expenses;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Orders;
+using OriginalPharma.Domain.Plans;
 using OriginalPharma.Domain.Tracking;
 using OriginalPharma.Domain.Visits;
 
@@ -43,6 +44,11 @@ public interface IAppDbContext
 
     DbSet<ExpenseLine> ExpenseLines { get; }
     DbSet<ExpenseDay> ExpenseDays { get; }
+
+    DbSet<WeeklyPlan> WeeklyPlans { get; }
+    DbSet<WeeklyPlanDay> WeeklyPlanDays { get; }
+    DbSet<WeeklyPlanCustomer> WeeklyPlanCustomers { get; }
+    DbSet<WeeklyPlanEvent> WeeklyPlanEvents { get; }
 
     DbSet<Visit> Visits { get; }
     DbSet<VisitPhoto> VisitPhotos { get; }

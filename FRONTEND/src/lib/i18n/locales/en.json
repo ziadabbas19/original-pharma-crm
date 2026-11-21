@@ -91,7 +91,8 @@
     "display": "Display and language",
     "management": "Management",
     "managementHint": "The management screens: visits, orders and your team",
-    "expenses": "Expenses"
+    "expenses": "Expenses",
+    "plans": "Weekly plans"
   },
   "admin": {
     "welcome": "Welcome, {{name}}",
@@ -981,7 +982,20 @@
     "expense_city_invalid": "Choose a city from the list.",
     "expense_city_exists": "This day already has a line for this city. Change that line instead.",
     "expense_amount_invalid": "Enter a valid amount.",
-    "invalid-month": "The month is not valid."
+    "invalid-month": "The month is not valid.",
+    "plan_week_past": "This week has ended. Plans are written for this week and later weeks.",
+    "plan_status_invalid": "This plan can no longer be changed in its current state. It was reloaded.",
+    "plan_changed": "The plan was changed meanwhile. It was reloaded; try again.",
+    "plan_day_invalid": "Each day must belong to the week and be planned once.",
+    "plan_city_invalid": "Choose a city from the list.",
+    "plan_customer_invalid": "One of the customers is not on your list any more.",
+    "plan_customer_city": "A customer is not in the city chosen for that day.",
+    "plan_empty": "Plan at least one day before sending the plan.",
+    "plan_no_reviewer": "Nobody in your reporting line can review plans. Ask your administrator to set your manager.",
+    "plan_note_required": "Write a note telling the rep what to change.",
+    "plan_own_review": "You cannot review your own plan.",
+    "pharmacy_exists": "A pharmacy with this name already exists in this town.",
+    "pharmacy_town_out_of_scope": "You can add pharmacies only in the towns of your area."
   },
   "resources": {
     "users": "Users",
@@ -998,7 +1012,8 @@
     "stats": "Statistics",
     "audit": "Activity log",
     "settings": "Settings",
-    "expenses": "Expenses"
+    "expenses": "Expenses",
+    "plans": "Weekly plans"
   },
   "permissionNames": {
     "users": {
@@ -1023,6 +1038,7 @@
       "read": "View doctors and pharmacies",
       "manage": "Edit doctors and pharmacies",
       "create": "Add doctors to own list",
+      "create-pharmacy": "Add pharmacies in own area",
       "assign": "Copy or move doctors between reps",
       "delete": "Delete doctors and pharmacies (archived when used)",
       "restore": "Restore archived doctors and pharmacies"
@@ -1084,6 +1100,12 @@
       "read": "See reps' daily and monthly expenses",
       "manage": "Edit reps' expenses on any day and add manager notes",
       "settings": "Set each city's default daily expense"
+    },
+    "plans": {
+      "read-own": "See own weekly plans",
+      "write-own": "Write and submit own weekly plans",
+      "read": "See reps' weekly plans and their progress",
+      "review": "Approve, return and reopen reps' weekly plans"
     }
   },
   "territories": {
@@ -1149,6 +1171,25 @@
     "radius": "Geofence (m)",
     "locationInvalid": "Enter both latitude and longitude, or leave both empty.",
     "radiusInvalid": "The geofence must be between 20 and 2000 metres."
+  },
+  "pharmacies": {
+    "add": "Add pharmacy",
+    "addHint": "A pharmacy in a town of your area. Check the list first so the same pharmacy is not entered twice.",
+    "name": "Name",
+    "namePlaceholder": "e.g. El Ezaby Pharmacy",
+    "nameOther": "Name in the other language (optional)",
+    "town": "Town",
+    "townRequired": "Choose the town.",
+    "townHint": "Only the towns of your area are listed.",
+    "address": "Address (optional)",
+    "phone": "Phone (optional)",
+    "notes": "Notes (optional)",
+    "locationFromFirstVisit": "No location is needed now: the pharmacy location is saved from the first visit.",
+    "create": "Add pharmacy",
+    "alreadyExists": "A pharmacy with this name already exists in this town.",
+    "openExisting": "Open the pharmacy",
+    "needsConnection": "No connection: adding a pharmacy needs the network, as adding a doctor does.",
+    "emptyHint": "Add the pharmacies of your area to visit them and take orders."
   },
   "flags": {
     "title": "Tracking flags",
@@ -1742,7 +1783,11 @@
       "orderDelivered": "Order {{number}} was delivered",
       "visitFeedback": "{{rep}} wrote feedback on the visit to {{customer}}",
       "visitFeedbackReply": "{{author}} replied about your visit to {{customer}}",
-      "suspiciousLocation": "{{rep}} was flagged for a suspicious location"
+      "suspiciousLocation": "{{rep}} was flagged for a suspicious location",
+      "planSubmitted": "{{rep}} sent the plan for {{week}}",
+      "planApproved": "{{reviewer}} approved your plan for {{week}}",
+      "planReturned": "{{reviewer}} returned your plan for {{week}}",
+      "planReopened": "{{reviewer}} reopened your plan for {{week}}"
     }
   },
   "activity": {
@@ -1778,7 +1823,8 @@
       "visit": "Visit",
       "device": "Device",
       "expense": "Expense line",
-      "expense_day": "Expense day notes"
+      "expense_day": "Expense day notes",
+      "weekly_plan": "Weekly plan"
     }
   },
   "stats": {
@@ -2091,6 +2137,12 @@
     "choose": "Choose a month",
     "current": "This month"
   },
+  "weekPicker": {
+    "previous": "Previous week",
+    "next": "Next week",
+    "choose": "Choose a week",
+    "current": "This week"
+  },
   "expenses": {
     "title": "Expenses",
     "hint": "Reps' daily expenses per city, and the totals of each month.",
@@ -2161,6 +2213,121 @@
     "pickRep": "Choose a rep to see their monthly statement.",
     "pickRepForDay": "Choose a rep to see the day's expenses.",
     "statementOf": "{{name}}, {{month}}",
-    "dashboardTitle": "Expenses this month"
+    "dashboardTitle": "Expenses this month",
+    "cityAmounts": {
+      "title": "Default daily amounts",
+      "hint": "What a first visit in each city adds to the day's expenses.",
+      "note": "A changed amount applies to new automatic lines only. Lines that already exist and days already recorded keep their amounts.",
+      "edit": "Change the amount of {{city}}",
+      "none": "None",
+      "empty": "No cities to set."
+    }
+  },
+  "plans": {
+    "title": "Weekly plans",
+    "hint": "Reps' plans for each week: approve them or return them with a note, and follow planned against done.",
+    "myTitle": "My weekly plan",
+    "menuHint": "Plan each day of the week and send it to your manager",
+    "homeTitle": "This week's plan",
+    "homeNoPlan": "No plan yet for {{week}}",
+    "status": {
+      "draft": "Draft",
+      "submitted": "Waiting for review",
+      "approved": "Approved",
+      "returned": "Returned"
+    },
+    "tabs": {
+      "pending": "Pending",
+      "all": "All"
+    },
+    "filters": {
+      "status": "Status",
+      "anyStatus": "Any status",
+      "rep": "Rep",
+      "anyRep": "All reps",
+      "week": "Week",
+      "weekOf": "Week of {{day}}"
+    },
+    "empty": "No plans match these filters.",
+    "emptyPending": "No plans are waiting for you.",
+    "emptyPendingHint": "Plans your reps send for review show here.",
+    "listSummary_one": "{{days}} day planned, {{visits}} visits",
+    "listSummary_other": "{{days}} days planned, {{visits}} visits",
+    "sentAgo": "Sent {{when}}",
+    "reviewedByAgo": "{{name}}, {{when}}",
+    "pages": "Pages",
+    "pageOf": "Page {{page}} of {{pages}}",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "today": "Today",
+    "dayOff": "Day off",
+    "planDay": "Plan",
+    "editDay": "Change the plan of {{day}}",
+    "planDayTitle": "Plan this day",
+    "editDayTitle": "Change this day",
+    "city": "City",
+    "chooseCity": "Choose a city",
+    "target": "Target visits",
+    "targetLess": "One visit less",
+    "targetMore": "One visit more",
+    "visitsUnit": "visits",
+    "targetInvalid": "Enter a whole number from 0 to {{max}}.",
+    "note": "Note",
+    "customers": "Doctors and pharmacies to visit",
+    "customersChosen_one": "{{value}} chosen",
+    "customersChosen_other": "{{value}} chosen",
+    "chooseCityFirst": "Choose the city first: you can then pick your doctors and pharmacies in it.",
+    "searchCustomers": "Search by name",
+    "noCustomersInCity": "None of your doctors or pharmacies are in this city.",
+    "noCustomerMatch": "No doctor or pharmacy matches this search.",
+    "makeDayOff": "Make it a day off",
+    "targetVisits_one": "Target: {{value}} visit",
+    "targetVisits_other": "Target: {{value}} visits",
+    "doneOfTarget": "{{done}} of {{target}} visits done",
+    "doneOfPlanned": "{{done}} of {{planned}} planned visits done",
+    "unplanned_one": "{{value}} visit outside the plan",
+    "unplanned_other": "{{value}} visits outside the plan",
+    "dayStates": {
+      "met": "Target reached",
+      "short": "Below target",
+      "today": "Under way"
+    },
+    "visited": "Visited",
+    "notVisited": "Not visited",
+    "weekProgress": "Planned against done",
+    "history": "History",
+    "created": "Plan created",
+    "submit": "Send to manager",
+    "resubmit": "Send again",
+    "submitHint": "Plan at least one day to send the plan.",
+    "submitTitle": "Send the plan for {{week}}?",
+    "submitText": "{{name}} will review it. You cannot change it until they answer.",
+    "goesTo": "When ready, the plan goes to {{name}} for review.",
+    "waitingFor": "Sent. Waiting for {{name}} to review it.",
+    "waitingForManager": "Sent. Waiting for your manager to review it.",
+    "noReviewerTitle": "The plan cannot be sent yet",
+    "returnedTitle": "Returned for changes",
+    "returnedBy": "{{name}} returned the plan for changes",
+    "returnedNoNote": "Change the plan and send it again.",
+    "approvedBy": "Approved by {{name}}",
+    "offlineCopy": "No connection: this is the last copy saved on this phone. Changes need a connection.",
+    "noPlanPast": "No plan was written for this week.",
+    "dashboardTitle": "Plans waiting for approval",
+    "dashboardHint": "Weekly plans your reps sent",
+    "dashboardNone": "Nothing waiting",
+    "review": {
+      "approve": "Approve",
+      "return": "Return for changes",
+      "reopen": "Reopen",
+      "approveTitle": "Approve this plan?",
+      "returnTitle": "Return this plan?",
+      "reopenTitle": "Reopen this plan?",
+      "approveText": "{{name}}'s plan for {{week}} is accepted and locked.",
+      "returnText": "{{name}} can change the plan for {{week}} and send it again. Tell them what to change.",
+      "reopenText": "{{name}} can change the approved plan for {{week}} and send it again.",
+      "note": "Note to the rep",
+      "required": "required",
+      "returnPlaceholder": "For example: add a day in Heliopolis and visit Dr. Karim."
+    }
   }
 }
