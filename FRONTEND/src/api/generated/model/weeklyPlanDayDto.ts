@@ -14,4 +14,6 @@ export interface WeeklyPlanDayDto {
   /** @nullable */
   note: string | null
   customers: WeeklyPlanCustomerDto[]
+  /** @nullable */
+  amPlaces?: WeeklyPlanCustomerDto[] | null
 }

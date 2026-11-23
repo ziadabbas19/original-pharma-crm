@@ -5,6 +5,186 @@
     "version": "v1"
   },
   "paths": {
+    "/api/rep-day/today": {
+      "get": {
+        "tags": [
+          "RepDay"
+        ],
+        "operationId": "repDayToday",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rep-day/today/area": {
+      "put": {
+        "tags": [
+          "RepDay"
+        ],
+        "operationId": "repDaySetArea",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRepDayAreaRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRepDayAreaRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRepDayAreaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rep-day/today/doctor-order": {
+      "put": {
+        "tags": [
+          "RepDay"
+        ],
+        "operationId": "repDaySetDoctorOrder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRepVisitOrderRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRepVisitOrderRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRepVisitOrderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rep-day/today/am-places": {
+      "put": {
+        "tags": [
+          "RepDay"
+        ],
+        "operationId": "repDaySetAmPlaces",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRepAmPlacesRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRepAmPlacesRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRepAmPlacesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepTodayDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/visits": {
       "get": {
         "tags": [
@@ -7260,6 +7440,105 @@
         }
       }
     },
+    "/api/customers/hospital-towns": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customersHospitalTowns",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TownDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TownDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TownDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/customers/hospitals": {
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customersCreateHospital",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHospitalRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHospitalRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHospitalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/customers/{id}": {
       "put": {
         "tags": [
@@ -7493,6 +7772,51 @@
             "in": "query",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "Weekday",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/DayOfWeek"
+            }
+          },
+          {
+            "name": "TimeFrom",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "TimeTo",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "CreatedById",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -8585,6 +8909,221 @@
         }
       }
     },
+    "/api/products/{id}/images": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productsAddBrochureImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/{id}/images/{imageId}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productsGetBrochureImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productsRemoveBrochureImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/{id}/images/order": {
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productsReorderBrochureImages",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderProductImagesRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderProductImagesRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderProductImagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/audit": {
       "get": {
         "tags": [
@@ -9256,6 +9795,27 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "landmark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "availability": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/DoctorSlotInput"
+            }
           }
         }
       },
@@ -9323,6 +9883,60 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "CreateHospitalRequest": {
+        "required": [
+          "name",
+          "nameAr",
+          "territoryId"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "territoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "landmark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "phone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "repId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -9696,13 +10310,31 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "landmark": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
       "CustomerType": {
         "enum": [
           "doctor",
-          "pharmacy"
+          "pharmacy",
+          "hospital"
+        ]
+      },
+      "DayOfWeek": {
+        "enum": [
+          "sunday",
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday",
+          "friday",
+          "saturday"
         ]
       },
       "DeliveryStatus": {
@@ -10227,6 +10859,40 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "landmark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdById": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "createdByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "availability": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/DoctorSlotDto"
+            }
           }
         }
       },
@@ -10388,6 +11054,56 @@
           },
           "outsideArea": {
             "type": "boolean"
+          }
+        }
+      },
+      "DoctorSlotDto": {
+        "required": [
+          "weekday",
+          "start",
+          "end"
+        ],
+        "type": "object",
+        "properties": {
+          "weekday": {
+            "$ref": "#/components/schemas/DayOfWeek"
+          },
+          "start": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "place": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DoctorSlotInput": {
+        "required": [
+          "weekday",
+          "start",
+          "end"
+        ],
+        "type": "object",
+        "properties": {
+          "weekday": {
+            "$ref": "#/components/schemas/DayOfWeek"
+          },
+          "start": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "place": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -13083,6 +13799,57 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "indications": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ingredients": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "images": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ProductImageDto"
+            }
+          }
+        }
+      },
+      "ProductImageDto": {
+        "required": [
+          "id",
+          "position",
+          "contentType",
+          "sizeBytes",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "url": {
+            "type": "string"
           }
         }
       },
@@ -13230,6 +13997,96 @@
             ]
           },
           "deviceName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ReorderProductImagesRequest": {
+        "required": [
+          "imageIds"
+        ],
+        "type": "object",
+        "properties": {
+          "imageIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "RepAmPlaceDto": {
+        "required": [
+          "customerId",
+          "name",
+          "nameAr",
+          "townId",
+          "townName",
+          "townNameAr",
+          "position",
+          "plannedTime"
+        ],
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "townId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "townName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "townNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "plannedTime": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RepAmPlaceInput": {
+        "required": [
+          "customerId"
+        ],
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "plannedTime": {
             "type": [
               "null",
               "string"
@@ -13529,6 +14386,61 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RepRankRow"
+            }
+          }
+        }
+      },
+      "RepTodayDto": {
+        "required": [
+          "day",
+          "areaId",
+          "territoryId",
+          "areaChosen",
+          "planCityId",
+          "doctorOrder",
+          "amPlaces"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "areaId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "territoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "areaChosen": {
+            "type": "boolean"
+          },
+          "planCityId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "doctorOrder": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "amPlaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepAmPlaceDto"
             }
           }
         }
@@ -13873,6 +14785,18 @@
               "number"
             ],
             "format": "double"
+          },
+          "indications": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ingredients": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -13955,6 +14879,50 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PermissionOverrideDto"
+            }
+          }
+        }
+      },
+      "SetRepAmPlacesRequest": {
+        "required": [
+          "places"
+        ],
+        "type": "object",
+        "properties": {
+          "places": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepAmPlaceInput"
+            }
+          }
+        }
+      },
+      "SetRepDayAreaRequest": {
+        "required": [
+          "territoryId"
+        ],
+        "type": "object",
+        "properties": {
+          "territoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "SetRepVisitOrderRequest": {
+        "required": [
+          "customerIds"
+        ],
+        "type": "object",
+        "properties": {
+          "customerIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         }
@@ -14659,6 +15627,12 @@
           "isActive": {
             "type": "boolean",
             "default": true
+          },
+          "landmark": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -14713,6 +15687,27 @@
                 "$ref": "#/components/schemas/DoctorLocationInput"
               }
             ]
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "landmark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "availability": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/DoctorSlotInput"
+            }
           }
         }
       },
@@ -16371,6 +17366,15 @@
             "items": {
               "$ref": "#/components/schemas/WeeklyPlanCustomerDto"
             }
+          },
+          "amPlaces": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WeeklyPlanCustomerDto"
+            }
           }
         }
       },
@@ -16401,6 +17405,16 @@
             ]
           },
           "customerIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "amPlaceIds": {
             "type": [
               "null",
               "array"
@@ -16796,6 +17810,9 @@
     }
   ],
   "tags": [
+    {
+      "name": "RepDay"
+    },
     {
       "name": "Visits"
     },

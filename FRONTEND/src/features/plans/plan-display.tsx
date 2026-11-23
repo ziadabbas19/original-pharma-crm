@@ -276,6 +276,30 @@ export function PlanDayCard({
                 })}
               </ul>
             )}
+            {(entry.amPlaces ?? []).length > 0 && (
+              <ul className="grid gap-1 border-t pt-2" data-testid="plan-day-am">
+                {(entry.amPlaces ?? []).map((c) => (
+                  <li key={c.customerId} className="flex items-center gap-2 text-sm">
+                    <Badge variant="outline" className="shrink-0 px-1.5">
+                      {t('visits.amLabel')}
+                    </Badge>
+                    <span className="min-w-0 flex-1 truncate">{localizedName(c.name, c.nameAr)}</span>
+                    {actuals &&
+                      (c.visited ? (
+                        <CheckCircle2Icon
+                          className="size-4 shrink-0 text-green-text"
+                          aria-label={t('plans.visited')}
+                        />
+                      ) : (
+                        <CircleIcon
+                          className="size-4 shrink-0 text-muted-foreground/60"
+                          aria-label={t('plans.notVisited')}
+                        />
+                      ))}
+                  </li>
+                ))}
+              </ul>
+            )}
           </>
         )}
         {!entry && actuals && unplanned > 0 && (

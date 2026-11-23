@@ -17,4 +17,8 @@ export interface SaveProductRequest {
   defaultDiscountPercent?: number | null
   /** @nullable */
   maxDiscountPercent?: number | null
+  /** @nullable */
+  indications?: string | null
+  /** @nullable */
+  ingredients?: string | null
 }

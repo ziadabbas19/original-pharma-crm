@@ -18,9 +18,15 @@ namespace OriginalPharma.Application.Crm;
 /// <param name="OutsideArea">The doctor's town is not inside this rep's area (a warning, never a block).</param>
 public sealed record DoctorRepDto(Guid Id, string FullName, bool OutsideArea);
 
+/// <summary>A weekly slot when the doctor can be visited. Times are Egypt time, "HH:mm".</summary>
+/// <param name="Place">Optional label, such as the clinic name.</param>
+public sealed record DoctorSlotDto(DayOfWeek Weekday, string Start, string End, string? Place = null);
+
 /// <param name="Reps">Reps (visible to the caller) who have the doctor on their list.</param>
 /// <param name="OnMyList">The doctor is on the caller's own list.</param>
 /// <param name="OutsideMyArea">The doctor's town is outside the caller's area.</param>
+/// <param name="CreatedByName">Who added the doctor (null for doctors added before this was kept).</param>
+/// <param name="Availability">Visiting hours, Saturday first (empty: no hours set).</param>
 public sealed record DoctorDto(
     Guid Id,
     string Name,
@@ -46,7 +52,12 @@ public sealed record DoctorDto(
     DateTimeOffset? LocationCapturedAt = null,
     string? LocationCapturedByName = null,
     double? LocationAccuracyMeters = null,
-    Guid? LocationVisitId = null);
+    Guid? LocationVisitId = null,
+    string? Address = null,
+    string? Landmark = null,
+    Guid? CreatedById = null,
+    string? CreatedByName = null,
+    IReadOnlyList<DoctorSlotDto>? Availability = null);
 
 /// <summary>A visit to the doctor as the location history shows it.</summary>
 public sealed record DoctorVisitLocationDto(
@@ -86,6 +97,16 @@ public sealed record DoctorLocationHistoryDto(
 /// <param name="RepId">Only this rep's list (must be in the caller's scope).</param>
 /// <param name="Unassigned">Only doctors that are on nobody's list.</param>
 /// <param name="Archived">Only archived (deleted) doctors.</param>
+/// <param name="Weekday">
+/// Only doctors with a visiting slot on this weekday. With any day or time filter, doctors that match
+/// come first; doctors with no hours set follow them when an area or town filter is used, and are left
+/// out otherwise.
+/// </param>
+/// <param name="TimeFrom">"HH:mm": only slots that end after this time.</param>
+/// <param name="TimeTo">"HH:mm": only slots that start before this time.</param>
+/// <param name="CreatedById">Only doctors added by this user.</param>
+/// <param name="Page">1-based page; without it the list returns up to 1000 rows.</param>
+/// <param name="PageSize">Rows per page (1-100, default 20).</param>
 public sealed record DoctorQuery(
     bool Mine = false,
     Guid? RepId = null,
@@ -95,9 +116,19 @@ public sealed record DoctorQuery(
     string? Search = null,
     bool Unassigned = false,
     bool IncludeInactive = false,
-    bool Archived = false);
+    bool Archived = false,
+    DayOfWeek? Weekday = null,
+    string? TimeFrom = null,
+    string? TimeTo = null,
+    Guid? CreatedById = null,
+    int? Page = null,
+    int? PageSize = null);
+
+/// <summary>A visiting slot as the forms send it: weekday, "HH:mm" start and end, optional place.</summary>
+public sealed record DoctorSlotInput(DayOfWeek Weekday, string Start, string End, string? Place = null);
 
 /// <param name="RepId">List to add the new doctor to. Defaults to the caller; another rep needs customers:assign.</param>
+/// <param name="Availability">Visiting hours (optional): end after start, no overlap on the same weekday.</param>
 public sealed record CreateDoctorRequest(
     string Name,
     string? NameAr,
@@ -105,7 +136,10 @@ public sealed record CreateDoctorRequest(
     Guid SpecialtyId,
     string? Phone = null,
     string? Notes = null,
-    Guid? RepId = null);
+    Guid? RepId = null,
+    string? Address = null,
+    string? Landmark = null,
+    IReadOnlyList<DoctorSlotInput>? Availability = null);
 
 /// <summary>Where the clinic is, for the visit geofence. Leave both coordinates empty to keep no location.</summary>
 public sealed record DoctorLocationInput(double? Lat, double? Lng, int GeofenceRadiusMeters = 150);
@@ -113,6 +147,10 @@ public sealed record DoctorLocationInput(double? Lat, double? Lng, int GeofenceR
 /// <param name="Location">
 /// Null leaves the saved location as it is. Changing it needs customers:manage: a rep must not be able
 /// to move the clinic to wherever they are standing.
+/// </param>
+/// <param name="Availability">
+/// The whole list of visiting slots (replaces the saved ones). Null (apps from before visiting hours)
+/// leaves the slots, the address and the landmark as they are.
 /// </param>
 public sealed record UpdateDoctorRequest(
     string Name,
@@ -122,7 +160,10 @@ public sealed record UpdateDoctorRequest(
     string? Phone = null,
     string? Notes = null,
     bool IsActive = true,
-    DoctorLocationInput? Location = null);
+    DoctorLocationInput? Location = null,
+    string? Address = null,
+    string? Landmark = null,
+    IReadOnlyList<DoctorSlotInput>? Availability = null);
 
 public enum AssignMode
 {
@@ -147,6 +188,91 @@ public static class DoctorErrorCodes
     public const string TownInvalid = "doctor_town_invalid";
     public const string SpecialtyInvalid = "doctor_specialty_invalid";
     public const string NotOnList = "doctor_not_on_list";
+
+    /// <summary>A time is not "HH:mm", or a search range ends before it starts.</summary>
+    public const string TimeInvalid = "doctor_time_invalid";
+
+    /// <summary>A visiting slot ends at or before its start; the response carries <c>index</c>.</summary>
+    public const string SlotEndBeforeStart = "doctor_slot_end_before_start";
+
+    /// <summary>Two visiting slots on the same weekday overlap; the response carries <c>index</c> and <c>otherIndex</c>.</summary>
+    public const string SlotOverlap = "doctor_slot_overlap";
+}
+
+/// <summary>Visiting hours: "HH:mm" times, end after start, no two slots overlapping on the same weekday.</summary>
+public static class DoctorAvailabilityRules
+{
+    public const int MaxSlots = 50;
+
+    /// <summary>Saturday first, as the Egyptian week runs.</summary>
+    public static int WeekOrder(DayOfWeek day) => ((int)day + 1) % 7;
+
+    public static TimeOnly? ParseTime(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return TimeOnly.TryParseExact(value.Trim(), ["HH:mm", "H:mm", "HH:mm:ss"], out var time)
+            ? time
+            : throw new BusinessRuleException(DoctorErrorCodes.TimeInvalid, "Use the time format HH:mm.");
+    }
+
+    public static string Format(TimeOnly time) => time.ToString("HH:mm");
+
+    /// <summary>Checks the slots and turns them into rows for <paramref name="doctorId"/>.</summary>
+    public static List<DoctorAvailability> Build(Guid doctorId, IReadOnlyList<DoctorSlotInput>? slots)
+    {
+        var rows = new List<DoctorAvailability>();
+        if (slots is null)
+        {
+            return rows;
+        }
+
+        for (var i = 0; i < slots.Count; i++)
+        {
+            var slot = slots[i];
+            var start = ParseTime(slot.Start) ?? throw new BusinessRuleException(DoctorErrorCodes.TimeInvalid, "Give the start time.");
+            var end = ParseTime(slot.End) ?? throw new BusinessRuleException(DoctorErrorCodes.TimeInvalid, "Give the end time.");
+            if (end <= start)
+            {
+                throw new BusinessRuleException(DoctorErrorCodes.SlotEndBeforeStart, "A visiting slot must end after it starts.")
+                {
+                    Details = new Dictionary<string, object?> { ["index"] = i },
+                };
+            }
+
+            for (var j = 0; j < rows.Count; j++)
+            {
+                var other = rows[j];
+                if (other.Weekday == slot.Weekday && start < other.EndTime && other.StartTime < end)
+                {
+                    throw new BusinessRuleException(DoctorErrorCodes.SlotOverlap, "Two visiting slots overlap on the same day.")
+                    {
+                        Details = new Dictionary<string, object?> { ["index"] = i, ["otherIndex"] = j },
+                    };
+                }
+            }
+
+            rows.Add(new DoctorAvailability
+            {
+                CustomerId = doctorId,
+                Weekday = slot.Weekday,
+                StartTime = start,
+                EndTime = end,
+                Place = string.IsNullOrWhiteSpace(slot.Place) ? null : slot.Place.Trim(),
+            });
+        }
+
+        return rows;
+    }
+
+    /// <summary>Short text of the slots for the activity log, Saturday first.</summary>
+    public static string[] Summary(IEnumerable<DoctorAvailability> slots) =>
+        slots.OrderBy(a => WeekOrder(a.Weekday)).ThenBy(a => a.StartTime)
+            .Select(a => $"{a.Weekday} {Format(a.StartTime)}-{Format(a.EndTime)}{(a.Place is null ? string.Empty : " " + a.Place)}")
+            .ToArray();
 }
 
 /// <summary>
@@ -163,6 +289,8 @@ public sealed class DoctorService(
     TimeProvider time)
 {
     public const int MaxRows = 1000;
+    public const int DefaultPageSize = 20;
+    public const int MaxPageSize = 100;
     public const int DirectoryRows = 30;
     public const int MaxLocationHistoryVisits = 300;
 
@@ -225,7 +353,44 @@ public sealed class DoctorService(
                 (c.Phone != null && c.Phone.Contains(term)));
         }
 
-        var rows = await Project(doctors.OrderBy(c => c.Name).Take(MaxRows)).ToListAsync(cancellationToken);
+        if (query.CreatedById is { } creatorId)
+        {
+            doctors = doctors.Where(c => c.CreatedById == creatorId);
+        }
+
+        // Day and time: a slot on that weekday overlapping [from, to). Doctors without any slot are kept
+        // (after the others) only when the search is narrowed to an area or town.
+        var from = DoctorAvailabilityRules.ParseTime(query.TimeFrom);
+        var to = DoctorAvailabilityRules.ParseTime(query.TimeTo);
+        if (from is not null && to is not null && to <= from)
+        {
+            throw new BusinessRuleException(DoctorErrorCodes.TimeInvalid, "The end of the time range must be after its start.");
+        }
+
+        var byHours = query.Weekday is not null || from is not null || to is not null;
+        IOrderedQueryable<Customer> ordered;
+        if (byHours)
+        {
+            var weekday = query.Weekday;
+            var withNoHours = query.AreaId is not null || query.TownId is not null;
+            doctors = doctors.Where(c =>
+                c.Availability.Any(a =>
+                    (weekday == null || a.Weekday == weekday) &&
+                    (from == null || a.EndTime > from) &&
+                    (to == null || a.StartTime < to)) ||
+                (withNoHours && !c.Availability.Any()));
+            ordered = doctors.OrderBy(c => !c.Availability.Any()).ThenBy(c => c.Name).ThenBy(c => c.Id);
+        }
+        else
+        {
+            ordered = doctors.OrderBy(c => c.Name).ThenBy(c => c.Id);
+        }
+
+        var page = query.Page is { } number
+            ? ordered.Skip((Math.Max(1, number) - 1) * Math.Clamp(query.PageSize ?? DefaultPageSize, 1, MaxPageSize))
+                .Take(Math.Clamp(query.PageSize ?? DefaultPageSize, 1, MaxPageSize))
+            : ordered.Take(MaxRows);
+        var rows = await Project(page).ToListAsync(cancellationToken);
         return await ToDtosAsync(rows, me, visibleReps, tree, cancellationToken);
     }
 
@@ -349,6 +514,7 @@ public sealed class DoctorService(
             {
                 Phone = null, Notes = null, Lat = null, Lng = null, LocationSource = null, LocationCapturedAt = null,
                 LocationCapturedByName = null, LocationAccuracyMeters = null, LocationVisitId = null,
+                Address = null, Landmark = null, CreatedById = null, CreatedByName = null, Availability = [],
             })
             .ToList();
     }
@@ -389,11 +555,28 @@ public sealed class DoctorService(
             SpecialtyId = request.SpecialtyId,
             Phone = Clean(request.Phone),
             Notes = Clean(request.Notes),
+            Address = Clean(request.Address),
+            Landmark = Clean(request.Landmark),
             CreatedAt = now,
             CreatedById = me,
         };
+        var slots = DoctorAvailabilityRules.Build(doctor.Id, request.Availability);
         db.Customers.Add(doctor);
+        db.DoctorAvailability.AddRange(slots);
         db.RepDoctors.Add(new RepDoctor { UserId = repId, CustomerId = doctor.Id, AssignedAt = now, AssignedById = me });
+        await audit.AddAsync(AuditEntities.Customer, doctor.Id, AuditAction.Created, new
+        {
+            doctor.Type,
+            doctor.Name,
+            doctor.NameAr,
+            doctor.TerritoryId,
+            doctor.SpecialtyId,
+            doctor.Address,
+            doctor.Landmark,
+            availability = DoctorAvailabilityRules.Summary(slots),
+            createdById = me,
+            repId,
+        }, cancellationToken: cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return await GetAsync(doctor.Id, cancellationToken);
     }
@@ -481,10 +664,12 @@ public sealed class DoctorService(
         }
 
         await EnsureTownAndSpecialtyAsync(request.TownId, request.SpecialtyId, cancellationToken);
+        var savedSlots = await db.DoctorAvailability.Where(a => a.CustomerId == id).ToListAsync(cancellationToken);
         var before = new
         {
             doctor.Name, doctor.NameAr, doctor.TerritoryId, doctor.SpecialtyId, doctor.Phone, doctor.Notes, doctor.IsActive,
             Lat = doctor.Location?.Y, Lng = doctor.Location?.X, doctor.GeofenceRadiusMeters,
+            doctor.Address, doctor.Landmark, Availability = string.Join("; ", DoctorAvailabilityRules.Summary(savedSlots)),
         };
         doctor.Name = request.Name.Trim();
         doctor.NameAr = Clean(request.NameAr);
@@ -493,6 +678,13 @@ public sealed class DoctorService(
         doctor.Phone = Clean(request.Phone);
         doctor.Notes = Clean(request.Notes);
         doctor.IsActive = request.IsActive;
+        var slots = savedSlots;
+        if (request.Availability is not null)
+        {
+            doctor.Address = Clean(request.Address);
+            doctor.Landmark = Clean(request.Landmark);
+            slots = DoctorAvailabilityRules.Build(id, request.Availability);
+        }
         if (request.Location is { } location)
         {
             var moved = location.Lat != before.Lat || location.Lng != before.Lng;
@@ -508,7 +700,14 @@ public sealed class DoctorService(
         {
             doctor.Name, doctor.NameAr, doctor.TerritoryId, doctor.SpecialtyId, doctor.Phone, doctor.Notes, doctor.IsActive,
             Lat = doctor.Location?.Y, Lng = doctor.Location?.X, doctor.GeofenceRadiusMeters,
+            doctor.Address, doctor.Landmark, Availability = string.Join("; ", DoctorAvailabilityRules.Summary(slots)),
         };
+        if (before.Availability != after.Availability)
+        {
+            db.DoctorAvailability.RemoveRange(savedSlots);
+            db.DoctorAvailability.AddRange(slots);
+        }
+
         if (!before.Equals(after))
         {
             doctor.UpdatedAt = time.GetUtcNow();
@@ -663,7 +862,11 @@ public sealed class DoctorService(
             c.LocationCapturedAt,
             db.Users.Where(u => u.Id == c.LocationCapturedById).Select(u => u.FullName).FirstOrDefault(),
             c.LocationAccuracyMeters,
-            c.LocationVisitId));
+            c.LocationVisitId,
+            c.Address,
+            c.Landmark,
+            c.CreatedById,
+            db.Users.Where(u => u.Id == c.CreatedById).Select(u => u.FullName).FirstOrDefault()));
 
     private async Task<List<DoctorDto>> ToDtosAsync(
         IReadOnlyList<DoctorRow> rows,
@@ -678,6 +881,11 @@ public sealed class DoctorService(
             .Join(db.Users, a => a.UserId, u => u.Id, (a, u) => new { a.CustomerId, u.Id, u.FullName, u.TerritoryId })
             .ToListAsync(cancellationToken);
         var byDoctor = assignments.ToLookup(a => a.CustomerId);
+        var slots = (await db.DoctorAvailability.AsNoTracking()
+                .Where(a => ids.Contains(a.CustomerId))
+                .ToListAsync(cancellationToken))
+            .OrderBy(a => DoctorAvailabilityRules.WeekOrder(a.Weekday)).ThenBy(a => a.StartTime)
+            .ToLookup(a => a.CustomerId);
         var myTerritory = await db.Users.AsNoTracking().Where(u => u.Id == me).Select(u => u.TerritoryId).SingleOrDefaultAsync(cancellationToken);
 
         return rows
@@ -699,7 +907,15 @@ public sealed class DoctorService(
                 r.Location is null ? null : r.LocationCapturedAt,
                 r.Location is null ? null : r.LocationCapturedByName,
                 r.Location is null ? null : r.LocationAccuracyMeters,
-                r.Location is null ? null : r.LocationVisitId))
+                r.Location is null ? null : r.LocationVisitId,
+                r.Address,
+                r.Landmark,
+                r.CreatedById,
+                r.CreatedByName,
+                slots[r.Id]
+                    .Select(a => new DoctorSlotDto(
+                        a.Weekday, DoctorAvailabilityRules.Format(a.StartTime), DoctorAvailabilityRules.Format(a.EndTime), a.Place))
+                    .ToList()))
             .ToList();
     }
 
@@ -725,7 +941,11 @@ public sealed class DoctorService(
         DateTimeOffset? LocationCapturedAt,
         string? LocationCapturedByName,
         double? LocationAccuracyMeters,
-        Guid? LocationVisitId);
+        Guid? LocationVisitId,
+        string? Address,
+        string? Landmark,
+        Guid? CreatedById,
+        string? CreatedByName);
 }
 
 /// <summary>Records who set a customer's saved location and how.</summary>
@@ -754,6 +974,22 @@ public sealed class CreateDoctorRequestValidator : AbstractValidator<CreateDocto
         RuleFor(x => x.Phone).MaximumLength(Customer.PhoneMaxLength);
         RuleFor(x => x.Notes).MaximumLength(Customer.NotesMaxLength);
         RuleFor(x => x.RepId).NotEqual(Guid.Empty);
+        RuleFor(x => x.Address).MaximumLength(Customer.AddressMaxLength);
+        RuleFor(x => x.Landmark).MaximumLength(Customer.LandmarkMaxLength);
+        RuleFor(x => x.Availability).Must(a => a is null || a.Count <= DoctorAvailabilityRules.MaxSlots)
+            .WithMessage($"At most {DoctorAvailabilityRules.MaxSlots} visiting slots.");
+        RuleForEach(x => x.Availability).SetValidator(new DoctorSlotInputValidator());
+    }
+}
+
+public sealed class DoctorSlotInputValidator : AbstractValidator<DoctorSlotInput>
+{
+    public DoctorSlotInputValidator()
+    {
+        RuleFor(x => x.Weekday).IsInEnum();
+        RuleFor(x => x.Start).NotEmpty().Matches("^([01]?[0-9]|2[0-3]):[0-5][0-9]$").WithMessage("Use the time format HH:mm.");
+        RuleFor(x => x.End).NotEmpty().Matches("^([01]?[0-9]|2[0-3]):[0-5][0-9]$").WithMessage("Use the time format HH:mm.");
+        RuleFor(x => x.Place).MaximumLength(DoctorAvailability.PlaceMaxLength);
     }
 }
 
@@ -767,6 +1003,11 @@ public sealed class UpdateDoctorRequestValidator : AbstractValidator<UpdateDocto
         RuleFor(x => x.SpecialtyId).NotEmpty();
         RuleFor(x => x.Phone).MaximumLength(Customer.PhoneMaxLength);
         RuleFor(x => x.Notes).MaximumLength(Customer.NotesMaxLength);
+        RuleFor(x => x.Address).MaximumLength(Customer.AddressMaxLength);
+        RuleFor(x => x.Landmark).MaximumLength(Customer.LandmarkMaxLength);
+        RuleFor(x => x.Availability).Must(a => a is null || a.Count <= DoctorAvailabilityRules.MaxSlots)
+            .WithMessage($"At most {DoctorAvailabilityRules.MaxSlots} visiting slots.");
+        RuleForEach(x => x.Availability).SetValidator(new DoctorSlotInputValidator());
         When(x => x.Location is not null, () =>
         {
             RuleFor(x => x.Location!.Lat).InclusiveBetween(-90, 90);

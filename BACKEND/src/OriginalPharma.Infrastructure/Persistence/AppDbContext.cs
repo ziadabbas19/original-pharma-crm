@@ -40,9 +40,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Specialty> Specialties => Set<Specialty>();
     public DbSet<RepDoctor> RepDoctors => Set<RepDoctor>();
+    public DbSet<DoctorAvailability> DoctorAvailability => Set<DoctorAvailability>();
+    public DbSet<RepDay> RepDays => Set<RepDay>();
+    public DbSet<RepVisitOrder> RepVisitOrder => Set<RepVisitOrder>();
+    public DbSet<RepAmVisit> RepAmVisits => Set<RepAmVisit>();
 
     public DbSet<ProductLine> ProductLines => Set<ProductLine>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<UserProductLine> UserProductLines => Set<UserProductLine>();
 
     public DbSet<CollectionMethod> CollectionMethods => Set<CollectionMethod>();

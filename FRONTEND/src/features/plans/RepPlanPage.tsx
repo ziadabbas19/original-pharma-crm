@@ -66,7 +66,7 @@ export function RepPlanPage() {
   )
   const plan = query.data
   const { towns } = useDoctorReferenceData()
-  const { doctors, pharmacies } = useRepCustomers()
+  const { doctors, pharmacies, places } = useRepCustomers()
   const [editing, setEditing] = useState<DayKey | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -94,6 +94,21 @@ export function RepPlanPage() {
       })),
     ],
     [doctors, pharmacies],
+  )
+  // AM places of every town of the rep's area: a morning may be in another town than the day's city.
+  const amPlaces = useMemo<PlanCustomerOption[]>(
+    () =>
+      (places ?? [])
+        .filter((p) => p.isActive)
+        .map((p) => ({
+          id: p.id,
+          type: 'hospital' as const,
+          name: p.name,
+          nameAr: p.nameAr,
+          townId: p.territoryId,
+          hint: localizedName(p.territoryName, p.territoryNameAr) || null,
+        })),
+    [places],
   )
 
   const today = plan?.today ?? egyptToday()
@@ -214,6 +229,7 @@ export function RepPlanPage() {
           entry={editingEntry}
           towns={towns.data ?? []}
           customers={customers}
+          amPlaces={amPlaces}
           onClose={() => setEditing(null)}
           onSave={(input) => saveDays(withDay(toInputs(plan), input))}
           onRemove={editingEntry ? () => saveDays(withoutDay(toInputs(plan), editing)) : undefined}

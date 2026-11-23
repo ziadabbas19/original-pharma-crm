@@ -22,7 +22,7 @@ import { TownSelect } from '@/features/doctors/doctor-fields'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
 import { handleError, inlineErrors } from '@/lib/errors'
 
-/** Edit a pharmacy: names, address, town, phone, location and geofence. */
+/** Edit a pharmacy or an AM place: names, address (and a place's landmark), town, phone, location and geofence. */
 export function PharmacyEditDialog({ customer, onClose }: { customer: CustomerDto; onClose: () => void }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -31,6 +31,8 @@ export function PharmacyEditDialog({ customer, onClose }: { customer: CustomerDt
   const [name, setName] = useState(customer.name)
   const [nameAr, setNameAr] = useState(customer.nameAr ?? '')
   const [address, setAddress] = useState(customer.address ?? '')
+  const [landmark, setLandmark] = useState(customer.landmark ?? '')
+  const place = customer.type === 'hospital'
   const [townId, setTownId] = useState(customer.territoryId ?? '')
   const [phone, setPhone] = useState(customer.phone ?? '')
   const [notes, setNotes] = useState(customer.notes ?? '')
@@ -62,6 +64,7 @@ export function PharmacyEditDialog({ customer, onClose }: { customer: CustomerDt
           name: name.trim(),
           nameAr: nameAr.trim() || null,
           address: address.trim() || null,
+          landmark: place ? landmark.trim() || null : null,
           territoryId: townId || null,
           phone: phone.trim() || null,
           notes: notes.trim() || null,
@@ -82,8 +85,10 @@ export function PharmacyEditDialog({ customer, onClose }: { customer: CustomerDt
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{t('customers.editPharmacy')}</DialogTitle>
-          <DialogDescription>{t('customers.editPharmacyHint')}</DialogDescription>
+          <DialogTitle>{place ? t('places.edit') : t('customers.editPharmacy')}</DialogTitle>
+          <DialogDescription>
+            {place ? t('places.editHint') : t('customers.editPharmacyHint')}
+          </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" noValidate onSubmit={(e) => void submit(e)}>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -135,6 +140,17 @@ export function PharmacyEditDialog({ customer, onClose }: { customer: CustomerDt
               onChange={(e) => setAddress(e.target.value)}
             />
           </div>
+          {place && (
+            <div className="grid gap-2">
+              <Label htmlFor="place-edit-landmark">{t('places.landmark')}</Label>
+              <Input
+                id="place-edit-landmark"
+                maxLength={200}
+                value={landmark}
+                onChange={(e) => setLandmark(e.target.value)}
+              />
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="grid gap-2">
               <Label htmlFor="pharmacy-lat">{t('customers.latitude')}</Label>

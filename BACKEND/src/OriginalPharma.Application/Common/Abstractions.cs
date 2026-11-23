@@ -32,9 +32,14 @@ public interface IAppDbContext
     DbSet<Customer> Customers { get; }
     DbSet<Specialty> Specialties { get; }
     DbSet<RepDoctor> RepDoctors { get; }
+    DbSet<DoctorAvailability> DoctorAvailability { get; }
+    DbSet<RepDay> RepDays { get; }
+    DbSet<RepVisitOrder> RepVisitOrder { get; }
+    DbSet<RepAmVisit> RepAmVisits { get; }
 
     DbSet<ProductLine> ProductLines { get; }
     DbSet<Product> Products { get; }
+    DbSet<ProductImage> ProductImages { get; }
     DbSet<UserProductLine> UserProductLines { get; }
 
     DbSet<CollectionMethod> CollectionMethods { get; }

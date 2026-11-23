@@ -98,6 +98,7 @@ public static class DependencyInjection
 
         // Visits
         services.AddScoped<VisitService>();
+        services.AddScoped<RepDayService>();
 
         // Statistics
         services.AddScoped<StatsService>();

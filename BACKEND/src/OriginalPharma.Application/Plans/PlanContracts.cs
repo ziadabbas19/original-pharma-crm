@@ -33,6 +33,9 @@ public static class PlanErrorCodes
     /// <summary>A customer is not on the rep's list (doctors) or in the rep's area (pharmacies).</summary>
     public const string CustomerInvalid = "plan_customer_invalid";
 
+    /// <summary>An AM place is not one the rep can see (any town of their area, or on their list).</summary>
+    public const string AmPlaceInvalid = "plan_am_place_invalid";
+
     /// <summary>A customer is in another city than the one chosen for that day.</summary>
     public const string CustomerCity = "plan_customer_city";
 
@@ -71,6 +74,8 @@ public sealed record WeeklyPlanDayProgressDto(
     int PlannedCustomers,
     int PlannedCustomersVisited);
 
+/// <param name="Customers">Doctors and pharmacies planned in the day's city.</param>
+/// <param name="AmPlaces">Morning (AM) places, which may be in other towns than the day's city.</param>
 public sealed record WeeklyPlanDayDto(
     DateOnly Day,
     Guid CityId,
@@ -78,7 +83,8 @@ public sealed record WeeklyPlanDayDto(
     string? CityNameAr,
     int TargetVisits,
     string? Note,
-    IReadOnlyList<WeeklyPlanCustomerDto> Customers);
+    IReadOnlyList<WeeklyPlanCustomerDto> Customers,
+    IReadOnlyList<WeeklyPlanCustomerDto>? AmPlaces = null);
 
 /// <summary>The whole week: what was planned, what was done and the visits outside the plan.</summary>
 /// <param name="Days">All seven days of the week, planned or not.</param>
@@ -167,12 +173,15 @@ public sealed record WeeklyPlanQuery(
     int Page = 1,
     int PageSize = 20);
 
+/// <param name="CustomerIds">Doctors and pharmacies in the day's city.</param>
+/// <param name="AmPlaceIds">AM places for the morning, in any town of the rep's area (not limited to the city).</param>
 public sealed record WeeklyPlanDayInput(
     DateOnly Day,
     Guid CityId,
     int TargetVisits,
     string? Note = null,
-    IReadOnlyList<Guid>? CustomerIds = null);
+    IReadOnlyList<Guid>? CustomerIds = null,
+    IReadOnlyList<Guid>? AmPlaceIds = null);
 
 /// <summary>The whole week: the days sent replace every day saved before; a day left out is a day off.</summary>
 /// <param name="Week">Any day of the week (it is moved to the first day of its week).</param>
@@ -199,6 +208,8 @@ public sealed class SaveWeeklyPlanRequestValidator : AbstractValidator<SaveWeekl
             day.RuleFor(d => d.Note).MaximumLength(WeeklyPlanDay.NoteMaxLength);
             day.RuleFor(d => d.CustomerIds).Must(c => c is null || c.Count <= WeeklyPlanDay.MaxCustomers)
                 .WithMessage($"At most {WeeklyPlanDay.MaxCustomers} customers a day.");
+            day.RuleFor(d => d.AmPlaceIds).Must(c => c is null || c.Count <= WeeklyPlanDay.MaxAmPlaces)
+                .WithMessage($"At most {WeeklyPlanDay.MaxAmPlaces} AM places a day.");
         });
     }
 }

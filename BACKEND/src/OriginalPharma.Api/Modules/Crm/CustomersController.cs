@@ -8,7 +8,7 @@ using OriginalPharma.Infrastructure.Identity;
 
 namespace OriginalPharma.Api.Modules.Crm;
 
-/// <summary>Doctors and pharmacies: list, pharmacy details, delete (archived when used) and restore.</summary>
+/// <summary>Doctors, pharmacies and AM places: list, pharmacy and place details, delete (archived when used) and restore.</summary>
 [ApiController]
 [Route("api/customers")]
 [Tags("Customers")]
@@ -43,7 +43,26 @@ public sealed class CustomersController(CustomerService customers) : ControllerB
     public Task<CustomerDto> CreatePharmacy(CreatePharmacyRequest request, CancellationToken cancellationToken) =>
         customers.CreatePharmacyAsync(request, cancellationToken);
 
-    /// <summary>Edit a pharmacy (doctors are edited through /api/doctors).</summary>
+    /// <summary>Towns where you may add an AM place (customers:create-pharmacy or customers:manage scope).</summary>
+    [HttpGet("hospital-towns")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public Task<List<TownDto>> HospitalTowns(CancellationToken cancellationToken) =>
+        customers.HospitalTownsAsync(cancellationToken);
+
+    /// <summary>
+    /// Add an AM place, such as a hospital visited in the morning: a rep in a town of their area
+    /// (customers:create-pharmacy), a manager inside their customers:manage scope, optionally on a rep's list
+    /// (customers:assign). 409 <c>hospital_exists</c> (with <c>hospitalId</c>) for the same name in that town;
+    /// 403 <c>hospital_town_out_of_scope</c> for a town outside your scope.
+    /// </summary>
+    [HttpPost("hospitals")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    [ProducesResponseType<CustomerDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public Task<CustomerDto> CreateHospital(CreateHospitalRequest request, CancellationToken cancellationToken) =>
+        customers.CreateHospitalAsync(request, cancellationToken);
+
+    /// <summary>Edit a pharmacy or AM place (doctors are edited through /api/doctors).</summary>
     [HttpPut("{id:guid}")]
     [HasPermission(Permissions.Customers.Manage)]
     public Task<CustomerDto> Update(Guid id, UpdateCustomerRequest request, CancellationToken cancellationToken) =>
@@ -70,7 +89,11 @@ public sealed class CustomersController(CustomerService customers) : ControllerB
 [Tags("Doctors")]
 public sealed class DoctorsController(DoctorService doctors) : ControllerBase
 {
-    /// <summary>Doctors visible to the caller (at most 1000), by name. <c>mine=true</c> is the caller's own list.</summary>
+    /// <summary>
+    /// Doctors visible to the caller (at most 1000, or one page with <c>page</c>), by name. <c>mine=true</c>
+    /// is the caller's own list. With a day or time filter, doctors with a matching visiting slot come first,
+    /// then (only when an area or town is chosen) the doctors with no hours set.
+    /// </summary>
     [HttpGet]
     [HasPermission(Permissions.Customers.Read)]
     public Task<IReadOnlyList<DoctorDto>> List([FromQuery] DoctorQuery query, CancellationToken cancellationToken) =>

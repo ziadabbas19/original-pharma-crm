@@ -2,6 +2,7 @@
  * Original Pharma CRM API v1.
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
+import type { ProductImageDto } from './productImageDto'
 
 export interface ProductDto {
   id: string
@@ -39,4 +40,10 @@ export interface ProductDto {
   usageCount?: number
   /** @nullable */
   archivedAt?: string | null
+  /** @nullable */
+  indications?: string | null
+  /** @nullable */
+  ingredients?: string | null
+  /** @nullable */
+  images?: ProductImageDto[] | null
 }

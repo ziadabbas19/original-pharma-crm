@@ -104,4 +104,42 @@ public sealed class ProductsController(CatalogService catalog) : ControllerBase
     [HasPermission(Permissions.Products.Manage)]
     public Task<ProductDto> RemoveImage(Guid id, CancellationToken cancellationToken) =>
         catalog.RemoveImageAsync(id, cancellationToken);
+
+    /// <summary>
+    /// Add a brochure page (at most five per product). Compress it before upload: JPEG, WebP or PNG,
+    /// at most 1.5 MB. 422 <c>product_images_limit</c>, <c>product_image_too_large</c> or <c>product_image_type</c>.
+    /// </summary>
+    [HttpPost("{id:guid}/images")]
+    [HasPermission(Permissions.Products.Manage)]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(ApiSetup.MaxImageRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = ApiSetup.MaxImageRequestBytes)]
+    public async Task<ProductDto> AddBrochureImage(Guid id, IFormFile file, CancellationToken cancellationToken)
+    {
+        await using var stream = file.OpenReadStream();
+        return await catalog.AddBrochureImageAsync(id, stream, cancellationToken);
+    }
+
+    /// <summary>A brochure page, for anyone who can read the product. Pages never change: a new upload gets a new id.</summary>
+    [HttpGet("{id:guid}/images/{imageId:guid}")]
+    [HasPermission(Permissions.Products.Read)]
+    [ProducesResponseType(typeof(Stream), StatusCodes.Status200OK, "image/jpeg", "image/webp", "image/png")]
+    public async Task<IActionResult> GetBrochureImage(Guid id, Guid imageId, CancellationToken cancellationToken)
+    {
+        var image = await catalog.OpenBrochureImageAsync(id, imageId, cancellationToken);
+        Response.Headers.CacheControl = "private, max-age=31536000, immutable";
+        Response.Headers.XContentTypeOptions = "nosniff";
+        return File(image.Bytes, image.ContentType);
+    }
+
+    [HttpDelete("{id:guid}/images/{imageId:guid}")]
+    [HasPermission(Permissions.Products.Manage)]
+    public Task<ProductDto> RemoveBrochureImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
+        catalog.RemoveBrochureImageAsync(id, imageId, cancellationToken);
+
+    /// <summary>Put the brochure pages in a new order (send every page id once).</summary>
+    [HttpPut("{id:guid}/images/order")]
+    [HasPermission(Permissions.Products.Manage)]
+    public Task<ProductDto> ReorderBrochureImages(Guid id, ReorderProductImagesRequest request, CancellationToken cancellationToken) =>
+        catalog.ReorderBrochureImagesAsync(id, request, cancellationToken);
 }

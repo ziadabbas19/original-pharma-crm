@@ -11,4 +11,6 @@ export interface WeeklyPlanDayInput {
   note?: string | null
   /** @nullable */
   customerIds?: string[] | null
+  /** @nullable */
+  amPlaceIds?: string[] | null
 }

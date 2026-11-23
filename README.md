@@ -149,6 +149,25 @@ Permissions: `plans:read-own` and `plans:write-own` (Rep), `plans:read` and `pla
 Area manager: territory, Sales manager and Admin: all). Weeks are Egypt days and start on Saturday unless
 `Plans__WeekStartsOn` says otherwise (`Sunday`, `Monday`, ...).
 
+### Doctor hours, today's area, AM places and brochures
+
+- **Doctors** have an optional detailed address, landmark and visiting hours (weekday, from, to, optional
+  place; slots on the same day may not overlap). **Search by day and time** on the doctor lists (rep app and
+  dashboard) filters by weekday, time range, area and town on the server, page by page: doctors with a slot
+  overlapping the range come first, then, when an area or town is chosen, the doctors with no hours set.
+  Every role that holds `customers:create` adds doctors (Supervisor, Area manager and Sales manager now have
+  it in their scope); a manager with `customers:assign` picks the rep. The doctor shows who added it.
+- **Start my day** asks for today's town (prefilled from today's weekly plan entry). Home lists the doctors of
+  that town in the rep's own order (drag the handle; saved per rep and Egypt day in `rep_visit_order`).
+- **AM places** (customer type `hospital`) are morning visits to a place such as a hospital, added with the
+  pharmacy rules (`customers:create-pharmacy` in the rep's area, or `customers:manage` in a manager's scope,
+  optionally on a rep's list). Today's AM list sits above the doctor visits on Home, is never filtered by
+  today's town, can be prefilled from the weekly plan, uses the normal visit flow and is counted apart from
+  the doctor target ("AM: x of y done"). Managers find them under **Field work > AM places**.
+- **Products** have optional indications, ingredients and up to five brochure pictures (shrunk on the device
+  before upload, stored in `product_images`, read through `GET /api/products/{id}/images/{imageId}` with
+  `products:read`; the rep app keeps opened pictures in the browser cache for offline use).
+
 ### Deleting, archiving and restoring
 
 Every list can select rows (all rows matching the filters) and every delete goes through one

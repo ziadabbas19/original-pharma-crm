@@ -4,6 +4,7 @@
  */
 import type { ClinicLocationSource } from './clinicLocationSource'
 import type { DoctorRepDto } from './doctorRepDto'
+import type { DoctorSlotDto } from './doctorSlotDto'
 
 export interface DoctorDto {
   id: string
@@ -48,4 +49,14 @@ export interface DoctorDto {
   locationAccuracyMeters?: number | null
   /** @nullable */
   locationVisitId?: string | null
+  /** @nullable */
+  address?: string | null
+  /** @nullable */
+  landmark?: string | null
+  /** @nullable */
+  createdById?: string | null
+  /** @nullable */
+  createdByName?: string | null
+  /** @nullable */
+  availability?: DoctorSlotDto[] | null
 }

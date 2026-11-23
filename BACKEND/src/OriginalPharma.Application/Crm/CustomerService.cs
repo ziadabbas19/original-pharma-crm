@@ -33,11 +33,16 @@ public sealed record CustomerDto(
     string? Phone = null,
     string? Notes = null,
     int UsageCount = 0,
-    DateTimeOffset? ArchivedAt = null);
+    DateTimeOffset? ArchivedAt = null,
+    string? Landmark = null);
 
-/// <summary>Details of a pharmacy (doctors are edited through the doctor endpoints: town and specialty are required there).</summary>
+/// <summary>
+/// Details of a pharmacy or AM place (doctors are edited through the doctor endpoints: town and
+/// specialty are required there).
+/// </summary>
 /// <param name="TerritoryId">The town.</param>
 /// <param name="Lat">Location used for the visit geofence; leave both empty to keep no location.</param>
+/// <param name="Landmark">AM places only (a pharmacy keeps none).</param>
 public sealed record UpdateCustomerRequest(
     string Name,
     string? NameAr,
@@ -48,7 +53,8 @@ public sealed record UpdateCustomerRequest(
     double? Lat = null,
     double? Lng = null,
     int GeofenceRadiusMeters = 150,
-    bool IsActive = true);
+    bool IsActive = true,
+    string? Landmark = null);
 
 /// <summary>A new pharmacy (customers:create-pharmacy). Its location is saved from the first visit, as for doctors.</summary>
 /// <param name="TerritoryId">The town; it must be inside the caller's scope (a rep: their own area).</param>
@@ -60,6 +66,31 @@ public sealed record CreatePharmacyRequest(
     string? Phone = null,
     string? Notes = null);
 
+/// <summary>
+/// A new AM place, such as a hospital visited in the morning (customers:create-pharmacy in the caller's
+/// area, or customers:manage in that scope). Its location is saved from the first visit.
+/// </summary>
+/// <param name="TerritoryId">The town.</param>
+/// <param name="RepId">Put the place on this rep's list as well (customers:assign over that rep).</param>
+public sealed record CreateHospitalRequest(
+    string Name,
+    string? NameAr,
+    Guid TerritoryId,
+    string? Address = null,
+    string? Landmark = null,
+    string? Phone = null,
+    string? Notes = null,
+    Guid? RepId = null);
+
+public static class HospitalErrorCodes
+{
+    /// <summary>A place with the same name already exists in that town; the response carries <c>hospitalId</c>.</summary>
+    public const string Exists = "hospital_exists";
+
+    /// <summary>The town is outside the caller's scope for adding places.</summary>
+    public const string TownOutOfScope = "hospital_town_out_of_scope";
+}
+
 public static class PharmacyErrorCodes
 {
     /// <summary>A pharmacy with the same name already exists in that town; the response carries <c>pharmacyId</c>.</summary>
@@ -70,9 +101,9 @@ public static class PharmacyErrorCodes
 }
 
 /// <summary>
-/// Doctors and pharmacies. Reading follows customers:read by territory; pharmacy details are edited
-/// with customers:manage; deleting needs customers:delete and archives customers that visits or
-/// orders point at (unused ones are removed).
+/// Doctors, pharmacies and AM places (hospitals). Reading follows customers:read by territory;
+/// pharmacy and place details are edited with customers:manage; deleting needs customers:delete and
+/// archives customers that visits or orders point at (unused ones are removed).
 /// </summary>
 public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, IDataScopeResolver scopeResolver, AuditTrail audit, TimeProvider time)
 {
@@ -91,12 +122,16 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
         var query = db.Customers.AsNoTracking().Where(c => archived ? c.ArchivedAt != null : c.ArchivedAt == null);
         if (visible is not null)
         {
-            // A rep works in an area while pharmacies sit in its towns. Doctors stay with the reps' own lists.
+            // A rep works in an area while pharmacies and AM places sit in its towns. Doctors stay with
+            // the reps' own lists; an AM place can also be put on a rep's list outside their area.
             var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
             var withTowns = visible.SelectMany(id => tree.SelfAndDescendants(id)).Distinct().ToArray();
-            query = query.Where(c => c.TerritoryId != null &&
-                                     (visible.Contains(c.TerritoryId.Value) ||
-                                      (c.Type == CustomerType.Pharmacy && withTowns.Contains(c.TerritoryId.Value))));
+            var reps = await db.Users.AsNoTracking().VisibleUserIds(scope).ToListAsync(cancellationToken);
+            query = query.Where(c => (c.TerritoryId != null &&
+                                      (visible.Contains(c.TerritoryId.Value) ||
+                                       ((c.Type == CustomerType.Pharmacy || c.Type == CustomerType.Hospital) &&
+                                        withTowns.Contains(c.TerritoryId.Value)))) ||
+                                     (c.Type == CustomerType.Hospital && c.Reps.Any(a => reps.Contains(a.UserId))));
         }
 
         if (type is not null)
@@ -193,6 +228,126 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
         return (await ProjectAsync(db.Customers.AsNoTracking().Where(c => c.Id == pharmacy.Id), cancellationToken)).Single();
     }
 
+    /// <summary>Towns where the caller may add an AM place, by area then name.</summary>
+    public async Task<List<TownDto>> HospitalTownsAsync(CancellationToken cancellationToken = default)
+    {
+        var allowed = await HospitalTownIdsAsync(cancellationToken);
+        var towns = db.Territories.AsNoTracking().Where(t => t.Level == TerritoryLevel.Town && t.ArchivedAt == null);
+        if (allowed is not null)
+        {
+            towns = towns.Where(t => allowed.Contains(t.Id));
+        }
+
+        return await towns
+            .OrderBy(t => t.Parent!.Name).ThenBy(t => t.Name)
+            .Select(t => new TownDto(t.Id, t.Name, t.NameAr, t.ParentId, t.Parent!.Name, t.Parent.NameAr, t.DefaultDailyExpense))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds an AM place (a hospital visited in the morning) with the pharmacy rules: a rep in a town of
+    /// their area (customers:create-pharmacy), a manager in a town of their customers:manage scope. A
+    /// manager may also put it on a rep's list (customers:assign over that rep), which lets the rep see it
+    /// outside their area. Same name in the same town is refused (409 with the existing id). The location
+    /// comes from the first visit with a good fix.
+    /// </summary>
+    public async Task<CustomerDto> CreateHospitalAsync(CreateHospitalRequest request, CancellationToken cancellationToken = default)
+    {
+        var me = currentUser.RequireUserId();
+        if (!await db.Territories.AnyAsync(t => t.Id == request.TerritoryId && t.Level == TerritoryLevel.Town && t.ArchivedAt == null, cancellationToken))
+        {
+            throw new BusinessRuleException(DoctorErrorCodes.TownInvalid, "Choose a town.");
+        }
+
+        var allowed = await HospitalTownIdsAsync(cancellationToken);
+        if (allowed is not null && !allowed.Contains(request.TerritoryId))
+        {
+            throw new ForbiddenException(HospitalErrorCodes.TownOutOfScope, "You can add places only in the towns of your scope.");
+        }
+
+        if (request.RepId is { } repId)
+        {
+            var rep = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == repId && u.IsActive, cancellationToken)
+                      ?? throw new NotFoundException("User", repId);
+            var assign = await scopeResolver.ResolveAsync(Permissions.Customers.Assign, cancellationToken);
+            if (!assign.Includes(rep.Id, rep.TerritoryId))
+            {
+                throw new ForbiddenException("This rep is outside your scope.");
+            }
+        }
+
+        var name = request.Name.Trim();
+        var lower = name.ToLower();
+        var existing = await db.Customers.AsNoTracking()
+            .Where(c => c.Type == CustomerType.Hospital && c.TerritoryId == request.TerritoryId && c.Name.ToLower() == lower)
+            .Select(c => (Guid?)c.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing is { } existingId)
+        {
+            throw new ConflictException(HospitalErrorCodes.Exists, "A place with this name already exists in this town.")
+            {
+                Details = new Dictionary<string, object?> { ["hospitalId"] = existingId },
+            };
+        }
+
+        var now = time.GetUtcNow();
+        var place = new Customer
+        {
+            Type = CustomerType.Hospital,
+            Name = name,
+            NameAr = Clean(request.NameAr),
+            Address = Clean(request.Address),
+            Landmark = Clean(request.Landmark),
+            TerritoryId = request.TerritoryId,
+            Phone = Clean(request.Phone),
+            Notes = Clean(request.Notes),
+            CreatedAt = now,
+            CreatedById = me,
+        };
+        db.Customers.Add(place);
+        if (request.RepId is { } assignedRep)
+        {
+            db.RepDoctors.Add(new RepDoctor { UserId = assignedRep, CustomerId = place.Id, AssignedAt = now, AssignedById = me });
+        }
+
+        await audit.AddAsync(AuditEntities.Customer, place.Id, AuditAction.Created, new
+        {
+            place.Type,
+            place.Name,
+            place.NameAr,
+            place.Address,
+            place.Landmark,
+            place.TerritoryId,
+            createdById = me,
+            repId = request.RepId,
+        }, cancellationToken: cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return (await ProjectAsync(db.Customers.AsNoTracking().Where(c => c.Id == place.Id), cancellationToken)).Single();
+    }
+
+    /// <summary>
+    /// Towns where the caller may add an AM place: the customers:create-pharmacy scope (a rep: their
+    /// area) together with the customers:manage scope (managers). Null for every town.
+    /// </summary>
+    private async Task<HashSet<Guid>?> HospitalTownIdsAsync(CancellationToken cancellationToken)
+    {
+        var create = await scopeResolver.ResolveAsync(Permissions.Customers.CreatePharmacy, cancellationToken);
+        var manage = await scopeResolver.ResolveAsync(Permissions.Customers.Manage, cancellationToken);
+        if (create.Level == PermissionScope.All || manage.Level == PermissionScope.All)
+        {
+            return null;
+        }
+
+        var roots = new List<Guid>();
+        foreach (var scope in new[] { create, manage }.Where(s => s.Level is not null))
+        {
+            roots.AddRange(await scope.ResolveTerritoryIdsAsync(db, cancellationToken) ?? []);
+        }
+
+        var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
+        return roots.SelectMany(tree.SelfAndDescendants).ToHashSet();
+    }
+
     /// <summary>Towns open to the caller's customers:create-pharmacy scope; null for every town.</summary>
     private async Task<HashSet<Guid>?> PharmacyTownIdsAsync(CancellationToken cancellationToken)
     {
@@ -207,11 +362,11 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
         return roots.SelectMany(tree.SelfAndDescendants).ToHashSet();
     }
 
-    /// <summary>Edit a pharmacy (customers:manage, inside that scope).</summary>
+    /// <summary>Edit a pharmacy or AM place (customers:manage, inside that scope).</summary>
     public async Task<CustomerDto> UpdateAsync(Guid id, UpdateCustomerRequest request, CancellationToken cancellationToken = default)
     {
         var customer = await db.Customers.SingleOrDefaultAsync(c => c.Id == id, cancellationToken) ?? throw new NotFoundException("Customer", id);
-        if (customer.Type != CustomerType.Pharmacy)
+        if (customer.Type == CustomerType.Doctor)
         {
             throw new BusinessRuleException("customer_use_doctor_form", "Doctors are edited from the doctor lists.");
         }
@@ -232,6 +387,11 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
         customer.Name = request.Name.Trim();
         customer.NameAr = Clean(request.NameAr);
         customer.Address = Clean(request.Address);
+        if (customer.Type == CustomerType.Hospital)
+        {
+            customer.Landmark = Clean(request.Landmark);
+        }
+
         customer.TerritoryId = request.TerritoryId;
         customer.Phone = Clean(request.Phone);
         customer.Notes = Clean(request.Notes);
@@ -416,6 +576,7 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
                 c.Notes,
                 Usage = db.Visits.Count(v => v.CustomerId == c.Id) + db.Orders.Count(o => o.CustomerId == c.Id),
                 c.ArchivedAt,
+                c.Landmark,
             })
             .ToListAsync(cancellationToken);
 
@@ -424,18 +585,18 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
             .Select(c => new CustomerDto(
                 c.Id, c.Type, c.Name, c.NameAr, c.Address, c.TerritoryId, c.TerritoryName, c.TerritoryNameAr,
                 c.Location?.Y, c.Location?.X, c.GeofenceRadiusMeters, c.HasQrCode, c.IsActive, c.CreatedAt,
-                c.Phone, c.Notes, c.Usage, c.ArchivedAt))
+                c.Phone, c.Notes, c.Usage, c.ArchivedAt, c.Landmark))
             .ToList();
     }
 
     private static CustomerState Snapshot(Customer c) =>
-        new(c.Name, c.NameAr, c.Address, c.TerritoryId, c.Phone, c.Notes, c.Location?.Y, c.Location?.X, c.GeofenceRadiusMeters, c.IsActive);
+        new(c.Name, c.NameAr, c.Address, c.TerritoryId, c.Phone, c.Notes, c.Location?.Y, c.Location?.X, c.GeofenceRadiusMeters, c.IsActive, c.Landmark);
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private sealed record CustomerState(
         string Name, string? NameAr, string? Address, Guid? TerritoryId, string? Phone, string? Notes,
-        double? Lat, double? Lng, int Radius, bool IsActive);
+        double? Lat, double? Lng, int Radius, bool IsActive, string? Landmark);
 }
 
 /// <summary>The same field rules as the managers' pharmacy form.</summary>
@@ -449,6 +610,21 @@ public sealed class CreatePharmacyRequestValidator : AbstractValidator<CreatePha
         RuleFor(x => x.Phone).MaximumLength(Customer.PhoneMaxLength);
         RuleFor(x => x.Notes).MaximumLength(Customer.NotesMaxLength);
         RuleFor(x => x.TerritoryId).NotEmpty();
+    }
+}
+
+public sealed class CreateHospitalRequestValidator : AbstractValidator<CreateHospitalRequest>
+{
+    public CreateHospitalRequestValidator()
+    {
+        RuleFor(x => x.Name).Must(n => !string.IsNullOrWhiteSpace(n)).WithMessage("Name is required.").MaximumLength(Customer.NameMaxLength);
+        RuleFor(x => x.NameAr).MaximumLength(Customer.NameMaxLength);
+        RuleFor(x => x.Address).MaximumLength(Customer.AddressMaxLength);
+        RuleFor(x => x.Landmark).MaximumLength(Customer.LandmarkMaxLength);
+        RuleFor(x => x.Phone).MaximumLength(Customer.PhoneMaxLength);
+        RuleFor(x => x.Notes).MaximumLength(Customer.NotesMaxLength);
+        RuleFor(x => x.TerritoryId).NotEmpty();
+        RuleFor(x => x.RepId).NotEqual(Guid.Empty);
     }
 }
 
@@ -467,5 +643,6 @@ public sealed class UpdateCustomerRequestValidator : AbstractValidator<UpdateCus
         RuleFor(x => x).Must(x => (x.Lat is null) == (x.Lng is null)).OverridePropertyName("Lat")
             .WithMessage("Give both latitude and longitude, or neither.");
         RuleFor(x => x.GeofenceRadiusMeters).InclusiveBetween(20, 2000);
+        RuleFor(x => x.Landmark).MaximumLength(Customer.LandmarkMaxLength);
     }
 }

@@ -2,16 +2,16 @@
  * Plain helpers of the plan screens (no React), so the unit tests can run them under Node.
  * Runtime imports stay relative.
  */
-import type { WeeklyPlanDayInput, WeeklyPlanDto } from '../../api/generated/model/index.ts'
+import type { CustomerType, WeeklyPlanDayInput, WeeklyPlanDto } from '../../api/generated/model/index.ts'
 import type { DayKey } from '../../lib/egypt-day.ts'
 
 export const PLAN_NOTE_MAX = 500
 export const PLAN_TARGET_MAX = 100
 
-/** A doctor on the rep's list or a pharmacy in the rep's area, with its town. */
+/** A doctor on the rep's list, a pharmacy or an AM place in the rep's area, with its town. */
 export interface PlanCustomerOption {
   id: string
-  type: 'doctor' | 'pharmacy'
+  type: CustomerType
   name: string
   nameAr?: string | null
   townId: string | null
@@ -36,6 +36,7 @@ export function toInputs(plan: Pick<WeeklyPlanDto, 'days'>): WeeklyPlanDayInput[
     targetVisits: d.targetVisits,
     note: d.note,
     customerIds: d.customers.map((c) => c.customerId),
+    amPlaceIds: (d.amPlaces ?? []).map((c) => c.customerId),
   }))
 }
 

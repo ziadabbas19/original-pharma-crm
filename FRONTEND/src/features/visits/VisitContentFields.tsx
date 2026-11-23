@@ -1,4 +1,4 @@
-import { PackagePlusIcon, XIcon } from 'lucide-react'
+import { BookOpenIcon, PackagePlusIcon, XIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ProductDto } from '@/api/generated/model'
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { ProductDetailSheet } from '@/features/catalog/ProductDetailSheet'
 import { productName } from '@/features/orders/order-labels'
 import { ProductPicker, ProductThumb } from '@/features/orders/ProductPicker'
 import { useOrderReferenceData } from '@/features/orders/use-order-data'
@@ -24,6 +25,7 @@ export function VisitContentFields({
   const { t, i18n } = useTranslation()
   const { products, lines } = useOrderReferenceData()
   const [picker, setPicker] = useState(false)
+  const [reading, setReading] = useState<ProductDto | null>(null)
   const quantities = useMemo(
     () => Object.fromEntries(value.products.map((p) => [p.productId, 1])),
     [value.products],
@@ -78,6 +80,25 @@ export function VisitContentFields({
                       {productName(product, i18n.resolvedLanguage)}
                     </span>
                   </span>
+                  {(() => {
+                    const full = products.data?.find((p) => p.id === product.productId)
+                    return full ? (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="size-11"
+                        aria-label={t('catalog.brochure.open', {
+                          name: productName(product, i18n.resolvedLanguage),
+                        })}
+                        title={t('catalog.brochure.title')}
+                        onClick={() => setReading(full)}
+                        data-testid="visit-product-details"
+                      >
+                        <BookOpenIcon />
+                      </Button>
+                    ) : null
+                  })()}
                   <Button
                     type="button"
                     size="icon"
@@ -157,6 +178,7 @@ export function VisitContentFields({
         quantities={quantities}
         onAdd={add}
       />
+      {reading && <ProductDetailSheet key={reading.id} product={reading} onClose={() => setReading(null)} />}
     </div>
   )
 }

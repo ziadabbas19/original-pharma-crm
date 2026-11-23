@@ -8,4 +8,5 @@ export type CustomerType = (typeof CustomerType)[keyof typeof CustomerType]
 export const CustomerType = {
   doctor: 'doctor',
   pharmacy: 'pharmacy',
+  hospital: 'hospital',
 } as const

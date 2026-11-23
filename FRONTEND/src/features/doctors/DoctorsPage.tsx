@@ -2,10 +2,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangleIcon,
   ArrowRightLeftIcon,
+  ClockIcon,
   MapPinCheckIcon,
   MapPinPlusIcon,
   MapPinnedIcon,
   PencilIcon,
+  PlusIcon,
   StethoscopeIcon,
   Trash2Icon,
 } from 'lucide-react'
@@ -35,18 +37,25 @@ import { useDoctorReferenceData } from '@/features/orders/use-order-data'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatNumber, localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
+import { AdminAddDoctorDialog } from './AdminAddDoctorDialog'
 import { AssignDoctorsDialog, type RepOption } from './AssignDoctorsDialog'
 import { SpecialtySelect, TownSelect } from './doctor-fields'
+import { DoctorDetailsSheet } from './DoctorDetailsSheet'
 import { DoctorEditDialog } from './DoctorEditDialog'
+import { DoctorHoursSearch } from './DoctorHoursSearch'
 import { DoctorLocationSheet } from './DoctorLocationSheet'
 
 const column = dataTableColumns<DoctorDto>()
 const doctorId = (d: DoctorDto) => d.id
 
-/** Dashboard doctor lists: who covers which doctor, with filters and assign / transfer. */
+/**
+ * Dashboard doctor lists: who covers which doctor and who added it, with filters, assign / transfer, adding
+ * a doctor for a rep in scope, and the search by visiting day, time and town.
+ */
 export function DoctorsPage() {
   const { t } = useTranslation()
   const canAssign = usePermission(P.customers.assign)
+  const canCreate = usePermission(P.customers.create)
   const canEdit = usePermission(P.customers.manage)
   const canReadUsers = usePermission(P.users.read)
   const canDelete = usePermission(P.customers.delete)
@@ -59,6 +68,10 @@ export function DoctorsPage() {
   const [townId, setTownId] = useState('')
   const [specialtyId, setSpecialtyId] = useState('')
   const [unassigned, setUnassigned] = useState(false)
+  const [creatorId, setCreatorId] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [viewing, setViewing] = useState<DoctorDto | null>(null)
+  const [searchingHours, setSearchingHours] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [editing, setEditing] = useState<DoctorDto | null>(null)
   const [locating, setLocating] = useState<string | null>(null)
@@ -71,6 +84,7 @@ export function DoctorsPage() {
     SpecialtyId: specialtyId || undefined,
     Search: term || undefined,
     Unassigned: unassigned || undefined,
+    CreatedById: creatorId || undefined,
     IncludeInactive: true,
     Archived: archived || undefined,
   }
@@ -103,8 +117,24 @@ export function DoctorsPage() {
     return d ? localizedName(d.name, d.nameAr) : id
   }
 
+  // People to filter "Added by" on: users in scope, or the creators seen on the doctors.
+  const creators = useMemo<RepOption[]>(() => {
+    if (users.data) return users.data.map((u) => ({ id: u.id, name: u.fullName }))
+    const seen = new Map<string, RepOption>()
+    for (const d of doctors.data ?? [])
+      if (d.createdById && d.createdByName)
+        seen.set(d.createdById, { id: d.createdById, name: d.createdByName })
+    return [...seen.values()].toSorted((a, b) => a.name.localeCompare(b.name))
+  }, [users.data, doctors.data])
+
   const isFiltered =
-    search !== '' || repId !== '' || areaId !== '' || townId !== '' || specialtyId !== '' || unassigned
+    search !== '' ||
+    repId !== '' ||
+    areaId !== '' ||
+    townId !== '' ||
+    specialtyId !== '' ||
+    unassigned ||
+    creatorId !== ''
   const clear = () => {
     setSearch('')
     setRepId('')
@@ -112,6 +142,7 @@ export function DoctorsPage() {
     setTownId('')
     setSpecialtyId('')
     setUnassigned(false)
+    setCreatorId('')
   }
 
   const columns = useMemo(
@@ -122,7 +153,14 @@ export function DoctorsPage() {
           header: () => t('doctors.name'),
           cell: ({ row }) => (
             <div>
-              <span className="font-medium">{localizedName(row.original.name, row.original.nameAr)}</span>
+              <button
+                type="button"
+                className="text-start font-medium hover:text-primary hover:underline"
+                onClick={() => setViewing(row.original)}
+                data-testid="doctor-open-details"
+              >
+                {localizedName(row.original.name, row.original.nameAr)}
+              </button>
               {row.original.archivedAt ? (
                 <span className="ms-2">
                   <ArchivedBadge />
@@ -173,6 +211,19 @@ export function DoctorsPage() {
               </span>
             ),
           meta: { className: 'hidden @[60rem]:table-cell' },
+        }),
+        column.accessor((d) => d.createdByName ?? '', {
+          id: 'addedBy',
+          header: () => t('doctors.addedByColumn'),
+          cell: ({ row }) =>
+            row.original.createdByName ? (
+              <span data-testid="doctor-added-by">{row.original.createdByName}</span>
+            ) : (
+              <span className="text-muted-foreground" data-testid="doctor-added-by">
+                {t('doctors.notRecorded')}
+              </span>
+            ),
+          meta: { className: 'hidden @[66rem]:table-cell' },
         }),
         column.accessor((d) => d.reps.length, {
           id: 'reps',
@@ -246,7 +297,24 @@ export function DoctorsPage() {
 
   return (
     <>
-      <PageHeader title={t('doctors.title')} description={t('doctors.hint')} />
+      <PageHeader
+        title={t('doctors.title')}
+        description={t('doctors.hint')}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setSearchingHours(true)} data-testid="open-hours-search">
+              <ClockIcon />
+              {t('doctors.hoursSearch.open')}
+            </Button>
+            {canCreate && (
+              <Button onClick={() => setAdding(true)} data-testid="admin-add-doctor-open">
+                <PlusIcon />
+                {t('doctors.add')}
+              </Button>
+            )}
+          </>
+        }
+      />
       <DataTable
         columns={columns}
         data={doctors.data}
@@ -376,6 +444,29 @@ export function DoctorsPage() {
                 />
               )}
             </FilterField>
+            <FilterField
+              label={t('doctors.addedByColumn')}
+              active={creatorId !== ''}
+              display={creators.find((c) => c.id === creatorId)?.name}
+              onReset={() => setCreatorId('')}
+            >
+              {(id) => (
+                <NativeSelect
+                  id={id}
+                  className="w-44"
+                  value={creatorId}
+                  onChange={(e) => setCreatorId(e.target.value)}
+                  data-testid="doctor-creator-filter"
+                >
+                  <option value="">{t('table.all')}</option>
+                  {creators.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              )}
+            </FilterField>
             <label className="flex h-9 items-center gap-2 self-end text-sm">
               <Checkbox checked={unassigned} onCheckedChange={(v) => setUnassigned(v === true)} />
               {t('doctors.onlyUnassigned')}
@@ -413,6 +504,36 @@ export function DoctorsPage() {
         />
       )}
       {editing && <DoctorEditDialog key={editing.id} doctor={editing} onClose={() => setEditing(null)} />}
+      {viewing && (
+        <DoctorDetailsSheet
+          key={viewing.id}
+          doctor={viewing}
+          onClose={() => setViewing(null)}
+          onEdit={
+            canEdit
+              ? (doctor) => {
+                  setViewing(null)
+                  setEditing(doctor)
+                }
+              : undefined
+          }
+        />
+      )}
+      {adding && (
+        <AdminAddDoctorDialog
+          reps={canAssign ? reps : []}
+          defaultRepId={repId || undefined}
+          onClose={() => setAdding(false)}
+        />
+      )}
+      <DoctorHoursSearch
+        open={searchingHours}
+        onOpenChange={setSearchingHours}
+        onOpenDoctor={(doctor) => {
+          setSearchingHours(false)
+          setViewing(doctor)
+        }}
+      />
       {locating && (
         <DoctorLocationSheet key={locating} doctorId={locating} onClose={() => setLocating(null)} />
       )}

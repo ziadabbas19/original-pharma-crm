@@ -16,7 +16,8 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.ToTable("customers");
         builder.Property(c => c.Name).HasMaxLength(Customer.NameMaxLength).IsRequired();
         builder.Property(c => c.NameAr).HasMaxLength(Customer.NameMaxLength);
-        builder.Property(c => c.Address).HasMaxLength(500);
+        builder.Property(c => c.Address).HasMaxLength(Customer.AddressMaxLength);
+        builder.Property(c => c.Landmark).HasMaxLength(Customer.LandmarkMaxLength);
         builder.Property(c => c.QrCode).HasMaxLength(128);
         builder.Property(c => c.Phone).HasMaxLength(Customer.PhoneMaxLength);
         builder.Property(c => c.Notes).HasMaxLength(Customer.NotesMaxLength);
@@ -24,10 +25,60 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.HasOne(c => c.Specialty).WithMany().HasForeignKey(c => c.SpecialtyId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Territory>().WithMany().HasForeignKey(c => c.TerritoryId).OnDelete(DeleteBehavior.Restrict);
         builder.HasMany(c => c.Reps).WithOne(r => r.Customer).HasForeignKey(r => r.CustomerId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(c => c.Availability).WithOne().HasForeignKey(a => a.CustomerId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(c => c.TerritoryId);
         builder.HasIndex(c => c.SpecialtyId);
         builder.HasIndex(c => new { c.Type, c.Name });
         builder.HasIndex(c => c.Location).HasMethod("gist");
+    }
+}
+
+internal sealed class DoctorAvailabilityConfiguration : IEntityTypeConfiguration<DoctorAvailability>
+{
+    public void Configure(EntityTypeBuilder<DoctorAvailability> builder)
+    {
+        builder.ToTable("doctor_availability", t =>
+            t.HasCheckConstraint("ck_doctor_availability_times", "end_time > start_time"));
+        builder.Property(a => a.Place).HasMaxLength(DoctorAvailability.PlaceMaxLength);
+
+        // The day / time search filters on weekday first.
+        builder.HasIndex(a => new { a.Weekday, a.StartTime });
+        builder.HasIndex(a => a.CustomerId);
+    }
+}
+
+internal sealed class RepDayConfiguration : IEntityTypeConfiguration<RepDay>
+{
+    public void Configure(EntityTypeBuilder<RepDay> builder)
+    {
+        builder.ToTable("rep_days");
+        builder.HasKey(d => new { d.UserId, d.Day });
+        builder.HasOne<User>().WithMany().HasForeignKey(d => d.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        // A town that was chosen for a day is archived, not deleted (like plan cities); null means the whole area.
+        builder.HasOne<Territory>().WithMany().HasForeignKey(d => d.TerritoryId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+internal sealed class RepVisitOrderConfiguration : IEntityTypeConfiguration<RepVisitOrder>
+{
+    public void Configure(EntityTypeBuilder<RepVisitOrder> builder)
+    {
+        builder.ToTable("rep_visit_order");
+        builder.HasKey(o => new { o.UserId, o.Day, o.CustomerId });
+        builder.HasOne<User>().WithMany().HasForeignKey(o => o.UserId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Customer>().WithMany().HasForeignKey(o => o.CustomerId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class RepAmVisitConfiguration : IEntityTypeConfiguration<RepAmVisit>
+{
+    public void Configure(EntityTypeBuilder<RepAmVisit> builder)
+    {
+        builder.ToTable("rep_am_visits");
+        builder.HasKey(a => new { a.UserId, a.Day, a.CustomerId });
+        builder.HasOne<User>().WithMany().HasForeignKey(a => a.UserId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Customer>().WithMany().HasForeignKey(a => a.CustomerId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 

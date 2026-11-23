@@ -2,6 +2,7 @@ import { keepPreviousData, useQueryClient } from '@tanstack/react-query'
 import {
   BuildingIcon,
   ExternalLinkIcon,
+  HospitalIcon,
   Loader2Icon,
   PencilIcon,
   PillIcon,
@@ -101,6 +102,11 @@ export function CustomersPage() {
                 <StethoscopeIcon />
                 {t('customers.types.doctor')}
               </Badge>
+            ) : info.getValue() === 'hospital' ? (
+              <Badge variant="secondary">
+                <HospitalIcon />
+                {t('customers.types.hospital')}
+              </Badge>
             ) : (
               <Badge variant="secondary">
                 <PillIcon />
@@ -186,7 +192,7 @@ export function CustomersPage() {
                         aria-label={t('common.edit')}
                         title={t('common.edit')}
                         onClick={() => {
-                          if (row.original.type === 'pharmacy') setEditingPharmacy(row.original)
+                          if (row.original.type !== 'doctor') setEditingPharmacy(row.original)
                           else
                             void doctorsGet(row.original.id)
                               .then(setEditingDoctor)
@@ -285,6 +291,7 @@ export function CustomersPage() {
                   <option value="">{t('table.all')}</option>
                   <option value="doctor">{t('customers.types.doctor')}</option>
                   <option value="pharmacy">{t('customers.types.pharmacy')}</option>
+                  <option value="hospital">{t('customers.types.hospital')}</option>
                 </NativeSelect>
               )}
             </FilterField>

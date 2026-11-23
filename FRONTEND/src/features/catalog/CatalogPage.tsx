@@ -27,6 +27,7 @@ import { formatMoney, formatNumber, formatPercent, localizedName } from '@/lib/f
 import { P } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import { MoveToLineDialog } from './MoveToLineDialog'
+import { ProductDetailSheet } from './ProductDetailSheet'
 import { ProductDialog } from './ProductDialog'
 import { ProductLineDialog } from './ProductLineDialog'
 
@@ -195,6 +196,7 @@ function ProductsTable({
   const [moving, setMoving] = useState(false)
   const products = useProductsList({ includeInactive: canManage, archived })
   const target = useDeleteTarget()
+  const [viewing, setViewing] = useState<ProductDto | null>(null)
 
   const filtered = useMemo(() => {
     if (!products.data) return undefined
@@ -222,7 +224,14 @@ function ProductsTable({
             <div className="flex items-center gap-3">
               <ProductThumb url={row.original.thumbnailUrl} className="size-10" />
               <div className="min-w-0">
-                <div className="font-medium">{localizedName(row.original.nameEn, row.original.nameAr)}</div>
+                <button
+                  type="button"
+                  className="text-start font-medium hover:text-primary hover:underline"
+                  onClick={() => setViewing(row.original)}
+                  data-testid="product-open-details"
+                >
+                  {localizedName(row.original.nameEn, row.original.nameAr)}
+                </button>
                 <div className="text-xs text-muted-foreground">
                   {row.original.productLineId ? (
                     localizedName(row.original.lineNameEn, row.original.lineNameAr)
@@ -418,6 +427,7 @@ function ProductsTable({
           onClose={target.close}
         />
       )}
+      {viewing && <ProductDetailSheet key={viewing.id} product={viewing} onClose={() => setViewing(null)} />}
     </>
   )
 }

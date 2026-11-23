@@ -19,6 +19,8 @@ const screenshots = process.env.UI_SCREENSHOTS
 const planScreenshots = process.env.UI_PLAN_SCREENSHOTS
 /** Screenshots of the rep's "Add pharmacy" sheet (360 and 430 px, both languages and themes). */
 const pharmacyScreenshots = process.env.UI_PHARMACY_SCREENSHOTS
+/** Screenshots of the doctor hours, AM places and reorder screens (360 and 430 px, both languages and themes). */
+const scheduleScreenshots = process.env.UI_SCHEDULE_SCREENSHOTS
 const en = JSON.parse(readFileSync(new URL('../../src/lib/i18n/locales/en.json', import.meta.url), 'utf8'))
 const ar = JSON.parse(readFileSync(new URL('../../src/lib/i18n/locales/ar.json', import.meta.url), 'utf8'))
 const locales = { ar, en }
@@ -31,6 +33,7 @@ const SCREENS = [
   { path: '/admin/notifications', title: en.nav.notifications, action: en.notifications.markAllRead },
   { path: '/admin/doctors', title: en.nav.doctors },
   { path: '/admin/customers', title: en.nav.customers },
+  { path: '/admin/places', title: en.nav.places, action: en.places.add },
   { path: '/admin/visits', title: en.nav.visits },
   { path: '/admin/expenses', title: en.nav.expenses },
   { path: '/admin/plans', title: en.nav.plans },
@@ -353,6 +356,56 @@ try {
     await closeMore()
   })
 
+  await check('doctors on a phone: hours search, add doctor and details open as bottom sheets', async () => {
+    await page.viewport(390, 844, true)
+    await go('/admin/doctors')
+    await page.click('[data-testid=open-hours-search]')
+    await page.waitFor(`document.querySelector('[data-testid=doctor-hours-search] #hours-weekday')`)
+    const sheet = await page.evaluate(
+      `(() => { const r = document.querySelector('[data-testid=doctor-hours-search]').getBoundingClientRect(); return { left: r.left, right: r.right, bottom: r.bottom } })()`,
+    )
+    assert.ok(
+      sheet.left <= 1 && sheet.right >= 389 && sheet.bottom >= 843,
+      `hours search sheet: ${JSON.stringify(sheet)}`,
+    )
+    await page.evaluate(`(() => {
+      const select = document.querySelector('#hours-weekday')
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'saturday')
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })()`)
+    await page.waitFor(
+      `!document.querySelector('[data-testid=hours-results] [role=status] .animate-spin')`,
+      20000,
+    )
+    await shoot('admin-hours-search-en-light-390', scheduleScreenshots)
+    await page.click('[data-testid=doctor-hours-search] [data-slot=sheet-close]')
+    await page.waitFor(`!document.querySelector('[data-testid=doctor-hours-search]')`)
+
+    await page.click('[data-testid=admin-add-doctor-open]')
+    await page.waitFor(`document.querySelector('[data-testid=admin-add-doctor] #doctor-rep')`)
+    await assertBottomSheet(390)
+    await page.click('[data-testid=doctor-slot-add]')
+    await page.waitFor(`document.querySelectorAll('[data-testid=doctor-slot]').length === 1`)
+    const slotHeights = await page.evaluate(
+      `[...document.querySelectorAll('[data-testid=doctor-slot] input, [data-testid=doctor-slot] select, [data-testid=doctor-slot] button')].map((e) => e.getBoundingClientRect().height)`,
+    )
+    assert.ok(
+      slotHeights.every((h) => h >= 44),
+      `slot controls are 44 px: ${slotHeights}`,
+    )
+    await shoot('admin-add-doctor-en-light-390', scheduleScreenshots)
+    await closeDialog()
+
+    await page.click('[data-testid=doctor-open-details]')
+    await page.waitFor(`document.querySelector('[data-testid=doctor-details] [data-testid=doctor-schedule]')`)
+    await assertBottomSheet(390)
+    assert.ok(
+      await page.evaluate(`Boolean(document.querySelector('[data-testid=doctor-details-added-by]'))`),
+      'added by shown',
+    )
+    await closeDialog()
+  })
+
   await check('a rep signs in to the rep app', async () => {
     await signOutFromMore()
     await signIn(page, baseUrl, 'rep@demo.local', password)
@@ -399,6 +452,92 @@ try {
       await page.evaluate(`window.scrollTo(0, 0)`)
       await shoot(`rep-pharmacies-${combo.language}-${combo.theme}`, pharmacyScreenshots)
     }
+  })
+
+  await check("AM places, today's area and reordering fit 360-430 px in ar/en, light and dark", async () => {
+    const towns = await api('/api/lookups/towns')
+    const newCairo = towns.find((t) => t.name === 'New Cairo')
+    const places = await api('/api/customers?type=hospital')
+    const place =
+      places.find((p) => p.name === 'Phone Check Hospital') ??
+      (await api('/api/customers/hospitals', {
+        method: 'POST',
+        body: { name: 'Phone Check Hospital', territoryId: newCairo.id, landmark: 'Next to the ring road' },
+      }))
+    await api('/api/rep-day/today/am-places', {
+      method: 'PUT',
+      body: { places: [{ customerId: place.id, plannedTime: '09:30' }] },
+    })
+    await api('/api/rep-day/today/area', { method: 'PUT', body: { territoryId: null } })
+
+    for (const combo of COMBOS) {
+      const t = locales[combo.language]
+      await reopenAs('/rep', combo)
+      await page.waitFor(`document.querySelector('[data-testid=home-am-item]')`, 20000)
+      for (const width of WIDTHS) {
+        await page.viewport(width, 844, true)
+        await page.sleep(300)
+        assert.ok((await pageOverflow()) <= 1, `/rep scrolls sideways at ${width}px`)
+        const handles = await page.evaluate(
+          `[...document.querySelectorAll('[data-testid=drag-handle], [data-testid=home-am-remove], [data-testid=home-area]')].map((b) => Math.round(Math.min(b.getBoundingClientRect().height, b.getBoundingClientRect().width)))`,
+        )
+        assert.ok(handles.length >= 3 && handles.every((h) => h >= 44), `touch targets: ${handles}`)
+        assert.ok(
+          (await page.evaluate(`document.querySelector('[data-testid=home-am-progress]').textContent`))
+            .length > 0,
+          'AM progress shown',
+        )
+        await page.evaluate(
+          `document.querySelector('[data-testid=home-am]').scrollIntoView({ block: 'start' })`,
+        )
+        await shoot(`rep-home-am-${combo.language}-${combo.theme}-${width}`, scheduleScreenshots)
+        await page.click('[data-testid=home-area]')
+        await page.waitFor(
+          `document.querySelector('[data-testid=today-area-sheet] [data-testid=today-area-select]')`,
+        )
+        const r = await page.evaluate(
+          `(() => { const r = document.querySelector('[data-testid=today-area-sheet]').getBoundingClientRect(); return { left: r.left, right: r.right, bottom: r.bottom } })()`,
+        )
+        assert.ok(r.left <= 1 && r.right >= width - 1 && r.bottom >= 843, `area sheet at ${width}px`)
+        await shoot(`rep-today-area-${combo.language}-${combo.theme}-${width}`, scheduleScreenshots)
+        await page.click('[data-testid=today-area-sheet] [data-slot=sheet-close]')
+        await page.waitFor(`!document.querySelector('[data-testid=today-area-sheet]')`)
+      }
+      await page.viewport(390, 844, true)
+      await go('/rep/doctors')
+      await page.click('[data-testid=tab-places]')
+      await page.waitFor(`document.querySelector('[data-testid=rep-places]')`, 20000)
+      for (const width of WIDTHS) {
+        await page.viewport(width, 844, true)
+        await page.sleep(300)
+        assert.ok((await pageOverflow()) <= 1, `AM places tab fits ${width}px`)
+        assert.equal(await reachable(t.places.add), 'ok', `add place reachable at ${width}px`)
+        await shoot(`rep-places-${combo.language}-${combo.theme}-${width}`, scheduleScreenshots)
+      }
+      await page.viewport(390, 844, true)
+    }
+
+    // Reorder the upcoming doctors with the keyboard (the same sensor as touch and mouse) and find the
+    // new order saved on the server.
+    await reopenAs('/rep', { language: 'en', theme: 'light' })
+    await page.waitFor(
+      `document.querySelectorAll('[data-testid=home-upcoming-list] > li').length >= 2`,
+      20000,
+    )
+    const before = await page.evaluate(
+      `[...document.querySelectorAll('[data-testid=home-upcoming-list] > li')].map((li) => li.dataset.id)`,
+    )
+    await page.evaluate(
+      `document.querySelector('[data-testid=home-upcoming-list] > li [data-testid=drag-handle]').focus()`,
+    )
+    await page.press('Space')
+    await page.press('ArrowDown')
+    await page.press('Space')
+    await page.waitFor(
+      `document.querySelector('[data-testid=home-upcoming-list] > li')?.dataset.id === ${JSON.stringify(before[1])}`,
+    )
+    const saved = await api('/api/rep-day/today')
+    assert.deepEqual(saved.doctorOrder.slice(0, 2), [before[1], before[0]])
   })
 
   let planId

@@ -16,6 +16,7 @@ import { formatNumber, formatTime, localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { STATUS_BADGE } from './visit-labels'
 import { VisitDetailSheet } from './VisitDetailSheet'
+import { AmBadge } from './AmBadge'
 
 const route = getRouteApi('/admin/visits')
 const PAGE = 50
@@ -109,6 +110,7 @@ export function RepDayVisits() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate font-medium">
+                          <AmBadge type={v.customerType} className="me-1.5" />
                           {localizedName(v.customerName, v.customerNameAr)}
                         </p>
                         <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">

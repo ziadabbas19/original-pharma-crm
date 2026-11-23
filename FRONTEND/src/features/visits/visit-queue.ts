@@ -10,7 +10,7 @@ export interface VisitCustomerRef {
   id: string
   name: string
   nameAr?: string | null
-  type: 'doctor' | 'pharmacy'
+  type: 'doctor' | 'pharmacy' | 'hospital'
 }
 
 interface StepBase {

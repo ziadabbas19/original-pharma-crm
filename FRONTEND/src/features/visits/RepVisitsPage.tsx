@@ -31,6 +31,7 @@ import { CATEGORY_BADGE, STATUS_BADGE } from './visit-labels'
 import { retryVisit, syncVisits, useVisitOutbox, visitSyncState } from './visit-outbox'
 import type { CheckInStep } from './visit-queue'
 import { VisitSyncBadge } from './VisitSyncBadge'
+import { AmBadge } from './AmBadge'
 
 const route = getRouteApi('/rep/visits/')
 
@@ -266,6 +267,7 @@ export function RepVisitsPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate font-medium">
+                            <AmBadge type={v.customerType} className="me-1.5" />
                             {localizedName(v.customerName, v.customerNameAr)}
                           </p>
                           <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">

@@ -7,6 +7,12 @@ public enum CustomerType
 {
     Doctor = 1,
     Pharmacy = 2,
+
+    /// <summary>
+    /// A morning (AM) place such as a hospital: visited for the place, not for the doctors inside it.
+    /// Kept apart from the daily doctor target.
+    /// </summary>
+    Hospital = 3,
 }
 
 /// <summary>Where the saved clinic / pharmacy location came from.</summary>
@@ -20,20 +26,26 @@ public enum ClinicLocationSource
 }
 
 /// <summary>
-/// Doctor or pharmacy a rep visits. Doctors are kept once and linked to the reps that
-/// cover them (<see cref="RepDoctor"/>).
-/// TODO: classification (A/B/C), opening hours, QR sticker printing.
+/// Doctor, pharmacy or AM place (hospital) a rep visits. Doctors are kept once and linked to the reps
+/// that cover them (<see cref="RepDoctor"/>); an AM place can be put on a rep's list the same way.
+/// TODO: classification (A/B/C), QR sticker printing.
 /// </summary>
 public class Customer : Entity, IArchivable
 {
     public const int NameMaxLength = 200;
     public const int PhoneMaxLength = 32;
     public const int NotesMaxLength = 1000;
+    public const int AddressMaxLength = 500;
+    public const int LandmarkMaxLength = 200;
 
     public CustomerType Type { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? NameAr { get; set; }
+    /// <summary>Detailed address (street, building, floor).</summary>
     public string? Address { get; set; }
+
+    /// <summary>A well-known place nearby that helps to find the clinic.</summary>
+    public string? Landmark { get; set; }
 
     /// <summary>Territory node of the customer. For doctors this is their town.</summary>
     public Guid? TerritoryId { get; set; }
@@ -78,4 +90,7 @@ public class Customer : Entity, IArchivable
     public Guid? ArchivedById { get; set; }
 
     public ICollection<RepDoctor> Reps { get; set; } = new List<RepDoctor>();
+
+    /// <summary>When a doctor can be visited (no slots: no hours set).</summary>
+    public ICollection<DoctorAvailability> Availability { get; set; } = new List<DoctorAvailability>();
 }

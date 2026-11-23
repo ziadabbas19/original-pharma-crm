@@ -15,8 +15,9 @@ import { handleError, inlineErrors } from '@/lib/errors'
 import { localizedName } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
+import { slotProblems } from './availability'
 import { DoctorFields, OutsideAreaBadge } from './doctor-fields'
-import { doctorProblems, EMPTY_DOCTOR, type DoctorFormValues } from './doctor-form'
+import { doctorProblems, EMPTY_DOCTOR, toCreateDoctorRequest, type DoctorFormValues } from './doctor-form'
 
 /** Add a doctor to your own list: pick an existing one (avoids duplicates) or create a new one. */
 export function AddDoctorSheet({
@@ -70,20 +71,10 @@ export function AddDoctorSheet({
     setError(null)
     setExistingId(null)
     const problems = doctorProblems(values, t)
-    if (problems.name || problems.townId || problems.specialtyId) return
+    if (problems.name || problems.townId || problems.specialtyId || slotProblems(values.slots).some(Boolean))
+      return
     try {
-      await finish(
-        await create.mutateAsync({
-          data: {
-            name: values.name.trim(),
-            nameAr: values.nameAr.trim() || null,
-            townId: values.townId,
-            specialtyId: values.specialtyId,
-            phone: values.phone.trim() || null,
-            notes: values.notes.trim() || null,
-          },
-        }),
-      )
+      await finish(await create.mutateAsync({ data: toCreateDoctorRequest(values) }))
     } catch (err) {
       const failure = handleError(err, { silent: true, context: 'doctors.add' })
       // The doctor is already known: offer the existing record instead of an error.

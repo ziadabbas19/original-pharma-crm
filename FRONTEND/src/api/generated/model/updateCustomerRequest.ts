@@ -21,4 +21,6 @@ export interface UpdateCustomerRequest {
   lng?: number | null
   geofenceRadiusMeters?: number
   isActive?: boolean
+  /** @nullable */
+  landmark?: string | null
 }

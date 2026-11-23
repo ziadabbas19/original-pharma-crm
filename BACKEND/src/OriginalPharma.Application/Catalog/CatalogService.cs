@@ -31,6 +31,9 @@ public sealed record SaveProductLineRequest(
     decimal? DefaultDiscountPercent = null,
     decimal? MaxDiscountPercent = null);
 
+/// <summary>A brochure page of a product. <paramref name="Url"/> needs a signed-in user who can read the product.</summary>
+public sealed record ProductImageDto(Guid Id, int Position, string ContentType, int SizeBytes, string Url);
+
 /// <param name="ProductLineId">Null for an unassigned product (only catalog and order managers see it).</param>
 /// <param name="Price">Unit price in EGP.</param>
 /// <param name="ImageUrl">Display size (about 1024 px).</param>
@@ -38,6 +41,7 @@ public sealed record SaveProductLineRequest(
 /// <param name="EffectiveDefaultDiscountPercent">The product's default, else the line's default.</param>
 /// <param name="EffectiveMaxDiscountPercent">The lower of the product and line limits (the role cap is applied on top).</param>
 /// <param name="UsageCount">Order lines and visits that mention the product (it is archived instead of deleted).</param>
+/// <param name="Images">Brochure pages in order (at most five).</param>
 public sealed record ProductDto(
     Guid Id,
     Guid? ProductLineId,
@@ -59,7 +63,10 @@ public sealed record ProductDto(
     decimal? EffectiveDefaultDiscountPercent = null,
     decimal? EffectiveMaxDiscountPercent = null,
     int UsageCount = 0,
-    DateTimeOffset? ArchivedAt = null);
+    DateTimeOffset? ArchivedAt = null,
+    string? Indications = null,
+    string? Ingredients = null,
+    IReadOnlyList<ProductImageDto>? Images = null);
 
 /// <param name="ProductLineId">Leave empty to keep the product unassigned.</param>
 public sealed record SaveProductRequest(
@@ -71,7 +78,15 @@ public sealed record SaveProductRequest(
     int StockQuantity,
     bool IsActive = true,
     decimal? DefaultDiscountPercent = null,
-    decimal? MaxDiscountPercent = null);
+    decimal? MaxDiscountPercent = null,
+    string? Indications = null,
+    string? Ingredients = null);
+
+/// <param name="ImageIds">Every brochure page of the product, in the new order.</param>
+public sealed record ReorderProductImagesRequest(IReadOnlyList<Guid> ImageIds);
+
+/// <summary>A stored brochure page, opened for reading.</summary>
+public sealed record ProductImageFile(byte[] Bytes, string ContentType);
 
 /// <param name="ProductLineId">Target line; null takes the products out of their line (unassigned).</param>
 public sealed record MoveProductsRequest(IReadOnlyList<Guid> ProductIds, Guid? ProductLineId);
@@ -94,6 +109,18 @@ public static class CatalogErrorCodes
 
     /// <summary>The default discount is above the product's or the line's maximum.</summary>
     public const string DefaultAboveMax = "discount_default_above_max";
+
+    /// <summary>The product already has the most brochure pages allowed; the response carries <c>max</c>.</summary>
+    public const string ImagesLimit = "product_images_limit";
+
+    /// <summary>The brochure page is larger than allowed after compression; the response carries <c>maxBytes</c>.</summary>
+    public const string ImageTooLarge = "product_image_too_large";
+
+    /// <summary>The file is not a JPEG, WebP or PNG picture.</summary>
+    public const string ImageType = "product_image_type";
+
+    /// <summary>The new order does not name every brochure page of the product exactly once.</summary>
+    public const string ImagesOrder = "product_images_order";
 }
 
 /// <summary>Discount rules shared by the catalog screens and order pricing.</summary>
@@ -348,8 +375,148 @@ public sealed class CatalogService(
         }
 
         var rows = await Project(products.OrderBy(p => p.NameEn), canManage).ToListAsync(cancellationToken);
-        return rows.Select(ToDto).ToList();
+        var images = await ImagesOfAsync(rows.Select(r => r.Id).ToArray(), cancellationToken);
+        return rows.Select(r => ToDto(r, images)).ToList();
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // Brochure pages
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Adds a brochure page (products:manage). The client compresses it first; the server keeps the bytes
+    /// as they arrive after checking the type (JPEG, WebP or PNG), the size and the per-product limit.
+    /// </summary>
+    public async Task<ProductDto> AddBrochureImageAsync(Guid id, Stream content, CancellationToken cancellationToken = default)
+    {
+        var product = await FindProductAsync(id, cancellationToken);
+        var count = await db.ProductImages.CountAsync(i => i.ProductId == id, cancellationToken);
+        if (count >= ProductImage.MaxPerProduct)
+        {
+            throw new BusinessRuleException(CatalogErrorCodes.ImagesLimit, $"A product has at most {ProductImage.MaxPerProduct} brochure pages.")
+            {
+                Details = new Dictionary<string, object?> { ["max"] = ProductImage.MaxPerProduct },
+            };
+        }
+
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while ((read = await content.ReadAsync(chunk, cancellationToken)) > 0)
+        {
+            buffer.Write(chunk, 0, read);
+            if (buffer.Length > ProductImage.MaxBytes)
+            {
+                throw new BusinessRuleException(CatalogErrorCodes.ImageTooLarge, "The picture is too large. Use a smaller one.")
+                {
+                    Details = new Dictionary<string, object?> { ["maxBytes"] = ProductImage.MaxBytes },
+                };
+            }
+        }
+
+        var bytes = buffer.ToArray();
+        var type = SniffImageType(bytes) ?? throw new BusinessRuleException(CatalogErrorCodes.ImageType, "Choose a JPEG, WebP or PNG picture.");
+        var position = count == 0 ? 0 : await db.ProductImages.Where(i => i.ProductId == id).MaxAsync(i => i.Position, cancellationToken) + 1;
+        var image = new ProductImage
+        {
+            ProductId = id,
+            Position = position,
+            ContentType = type,
+            Bytes = bytes,
+            SizeBytes = bytes.Length,
+            CreatedAt = time.GetUtcNow(),
+        };
+        db.ProductImages.Add(image);
+        product.UpdatedAt = time.GetUtcNow();
+        await audit.AddAsync(AuditEntities.Product, id, AuditAction.Updated, new { brochure = "added", imageId = image.Id, sizeBytes = bytes.Length },
+            cancellationToken: cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return await GetProductAsync(id, cancellationToken);
+    }
+
+    public async Task<ProductDto> RemoveBrochureImageAsync(Guid id, Guid imageId, CancellationToken cancellationToken = default)
+    {
+        var product = await FindProductAsync(id, cancellationToken);
+        var images = await db.ProductImages.Where(i => i.ProductId == id).OrderBy(i => i.Position).ToListAsync(cancellationToken);
+        var image = images.SingleOrDefault(i => i.Id == imageId) ?? throw new NotFoundException("Product image", imageId);
+        db.ProductImages.Remove(image);
+        var position = 0;
+        foreach (var other in images.Where(i => i.Id != imageId))
+        {
+            other.Position = position++;
+        }
+
+        product.UpdatedAt = time.GetUtcNow();
+        await audit.AddAsync(AuditEntities.Product, id, AuditAction.Updated, new { brochure = "removed", imageId }, cancellationToken: cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return await GetProductAsync(id, cancellationToken);
+    }
+
+    public async Task<ProductDto> ReorderBrochureImagesAsync(Guid id, ReorderProductImagesRequest request, CancellationToken cancellationToken = default)
+    {
+        var product = await FindProductAsync(id, cancellationToken);
+        var images = await db.ProductImages.Where(i => i.ProductId == id).ToDictionaryAsync(i => i.Id, cancellationToken);
+        if (request.ImageIds.Count != images.Count || request.ImageIds.Distinct().Count() != images.Count || request.ImageIds.Any(i => !images.ContainsKey(i)))
+        {
+            throw new BusinessRuleException(CatalogErrorCodes.ImagesOrder, "Send every brochure page of the product once.");
+        }
+
+        for (var i = 0; i < request.ImageIds.Count; i++)
+        {
+            images[request.ImageIds[i]].Position = i;
+        }
+
+        product.UpdatedAt = time.GetUtcNow();
+        await audit.AddAsync(AuditEntities.Product, id, AuditAction.Updated, new { brochure = "reordered", order = request.ImageIds }, cancellationToken: cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return await GetProductAsync(id, cancellationToken);
+    }
+
+    /// <summary>A brochure page, for anyone who can see the product (products:read and its line).</summary>
+    public async Task<ProductImageFile> OpenBrochureImageAsync(Guid id, Guid imageId, CancellationToken cancellationToken = default)
+    {
+        var userId = currentUser.RequireUserId();
+        var visible = await access.VisibleLineIdsAsync(userId, cancellationToken);
+        if (!await ProductAccess.WhereVisible(db.Products.AsNoTracking().Where(p => p.Id == id), visible).AnyAsync(cancellationToken))
+        {
+            throw new NotFoundException("Product image", imageId);
+        }
+
+        return await db.ProductImages.AsNoTracking()
+                   .Where(i => i.Id == imageId && i.ProductId == id)
+                   .Select(i => new ProductImageFile(i.Bytes, i.ContentType))
+                   .SingleOrDefaultAsync(cancellationToken)
+               ?? throw new NotFoundException("Product image", imageId);
+    }
+
+    /// <summary>The picture type from the first bytes: JPEG, PNG or WebP; null for anything else.</summary>
+    internal static string? SniffImageType(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
+        {
+            return "image/jpeg";
+        }
+
+        if (bytes.Length >= 8 && bytes[..8].SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }))
+        {
+            return "image/png";
+        }
+
+        if (bytes.Length >= 12 && bytes[..4].SequenceEqual("RIFF"u8) && bytes[8..12].SequenceEqual("WEBP"u8))
+        {
+            return "image/webp";
+        }
+
+        return null;
+    }
+
+    private async Task<ILookup<Guid, ProductImageDto>> ImagesOfAsync(Guid[] productIds, CancellationToken cancellationToken) =>
+        (await db.ProductImages.AsNoTracking()
+            .Where(i => productIds.Contains(i.ProductId))
+            .OrderBy(i => i.Position)
+            .Select(i => new { i.Id, i.ProductId, i.Position, i.ContentType, i.SizeBytes })
+            .ToListAsync(cancellationToken))
+        .ToLookup(i => i.ProductId, i => new ProductImageDto(i.Id, i.Position, i.ContentType, i.SizeBytes, $"/api/products/{i.ProductId}/images/{i.Id}"));
 
     public async Task<ProductDto> CreateProductAsync(SaveProductRequest request, CancellationToken cancellationToken = default)
     {
@@ -552,7 +719,7 @@ public sealed class CatalogService(
     private async Task<ProductDto> GetProductAsync(Guid id, CancellationToken cancellationToken)
     {
         var row = await Project(db.Products.AsNoTracking().Where(p => p.Id == id), true).SingleAsync(cancellationToken);
-        return ToDto(row);
+        return ToDto(row, await ImagesOfAsync([id], cancellationToken));
     }
 
     private IQueryable<ProductRow> Project(IQueryable<Product> products, bool withUsage) =>
@@ -574,15 +741,17 @@ public sealed class CatalogService(
             p.ProductLine != null ? p.ProductLine.DefaultDiscountPercent : null,
             p.ProductLine != null ? p.ProductLine.MaxDiscountPercent : null,
             withUsage ? db.OrderLines.Count(l => l.ProductId == p.Id) + db.VisitProducts.Count(v => v.ProductId == p.Id) : 0,
-            p.ArchivedAt));
+            p.ArchivedAt,
+            p.Indications,
+            p.Ingredients));
 
-    private static ProductDto ToDto(ProductRow p) => new(
+    private static ProductDto ToDto(ProductRow p, ILookup<Guid, ProductImageDto> images) => new(
         p.Id, p.ProductLineId, p.LineNameAr, p.LineNameEn, p.NameAr, p.NameEn, p.Description, p.Price, p.StockQuantity,
         ImageService.Url(p.ImageKey), ImageService.Url(p.ImageKey, ImageService.Thumbnail), p.IsActive, p.UpdatedAt,
         p.DefaultDiscountPercent, p.MaxDiscountPercent, p.LineDefaultDiscountPercent, p.LineMaxDiscountPercent,
         DiscountRules.EffectiveDefault(p.DefaultDiscountPercent, p.LineDefaultDiscountPercent),
         DiscountRules.LowestCap(p.MaxDiscountPercent, p.LineMaxDiscountPercent),
-        p.UsageCount, p.ArchivedAt);
+        p.UsageCount, p.ArchivedAt, p.Indications, p.Ingredients, images[p.Id].ToList());
 
     private async Task<Dictionary<Guid, int>> UsageAsync(Guid[] ids, CancellationToken cancellationToken)
     {
@@ -646,13 +815,16 @@ public sealed class CatalogService(
         product.IsActive = request.IsActive;
         product.DefaultDiscountPercent = request.DefaultDiscountPercent;
         product.MaxDiscountPercent = request.MaxDiscountPercent;
+        product.Indications = Clean(request.Indications);
+        product.Ingredients = Clean(request.Ingredients);
     }
 
     private static LineState LineSnapshot(ProductLine l) =>
         new(l.NameAr, l.NameEn, l.Description, l.IsActive, l.DefaultDiscountPercent, l.MaxDiscountPercent);
 
     private static ProductState ProductSnapshot(Product p) =>
-        new(p.ProductLineId, p.NameAr, p.NameEn, p.Description, p.Price, p.StockQuantity, p.IsActive, p.DefaultDiscountPercent, p.MaxDiscountPercent);
+        new(p.ProductLineId, p.NameAr, p.NameEn, p.Description, p.Price, p.StockQuantity, p.IsActive, p.DefaultDiscountPercent, p.MaxDiscountPercent,
+            p.Indications, p.Ingredients);
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
@@ -660,7 +832,7 @@ public sealed class CatalogService(
 
     private sealed record ProductState(
         Guid? ProductLineId, string NameAr, string NameEn, string? Description, decimal Price, int StockQuantity,
-        bool IsActive, decimal? DefaultDiscountPercent, decimal? MaxDiscountPercent);
+        bool IsActive, decimal? DefaultDiscountPercent, decimal? MaxDiscountPercent, string? Indications, string? Ingredients);
 
     private sealed record ProductRow(
         Guid Id,
@@ -680,7 +852,9 @@ public sealed class CatalogService(
         decimal? LineDefaultDiscountPercent,
         decimal? LineMaxDiscountPercent,
         int UsageCount,
-        DateTimeOffset? ArchivedAt);
+        DateTimeOffset? ArchivedAt,
+        string? Indications,
+        string? Ingredients);
 }
 
 internal static class DiscountValidation
@@ -713,6 +887,8 @@ public sealed class SaveProductRequestValidator : AbstractValidator<SaveProductR
         RuleFor(x => x.NameAr).Must(n => !string.IsNullOrWhiteSpace(n)).WithMessage("Name is required.").MaximumLength(Product.NameMaxLength);
         RuleFor(x => x.NameEn).Must(n => !string.IsNullOrWhiteSpace(n)).WithMessage("Name is required.").MaximumLength(Product.NameMaxLength);
         RuleFor(x => x.Description).MaximumLength(Product.DescriptionMaxLength);
+        RuleFor(x => x.Indications).MaximumLength(Product.IndicationsMaxLength);
+        RuleFor(x => x.Ingredients).MaximumLength(Product.IngredientsMaxLength);
         RuleFor(x => x.Price).GreaterThanOrEqualTo(0).LessThan(10_000_000m)
             .Must(p => decimal.Round(p, 2) == p).WithMessage("Price can have at most 2 decimals.");
         RuleFor(x => x.StockQuantity).InclusiveBetween(0, 100_000_000);
@@ -721,6 +897,15 @@ public sealed class SaveProductRequestValidator : AbstractValidator<SaveProductR
         RuleFor(x => x.DefaultDiscountPercent)
             .Must((x, d) => d is null || x.MaxDiscountPercent is null || d <= x.MaxDiscountPercent)
             .WithMessage("The default discount cannot be above the maximum.");
+    }
+}
+
+public sealed class ReorderProductImagesRequestValidator : AbstractValidator<ReorderProductImagesRequest>
+{
+    public ReorderProductImagesRequestValidator()
+    {
+        RuleFor(x => x.ImageIds).NotNull().Must(ids => ids is null || ids.Count <= ProductImage.MaxPerProduct)
+            .WithMessage($"A product has at most {ProductImage.MaxPerProduct} brochure pages.");
     }
 }
 

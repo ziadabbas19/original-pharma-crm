@@ -60,15 +60,18 @@ public static class Permissions
         /// <summary>See doctor lists (own list, team, territory or all) and customers.</summary>
         public const string Read = "customers:read";
 
-        /// <summary>Edit doctor and pharmacy details.</summary>
+        /// <summary>Edit doctor, pharmacy and AM place details; add AM places inside the scope.</summary>
         public const string Manage = "customers:manage";
 
-        /// <summary>Add doctors to your own list (pick an existing doctor or create one) and remove them.</summary>
+        /// <summary>
+        /// Add doctors: a rep to their own list (pick an existing doctor or create one) and remove them;
+        /// a manager with customers:assign may give the new doctor to a rep in that scope.
+        /// </summary>
         public const string Create = "customers:create";
 
         /// <summary>
-        /// Add pharmacies in a town of your territory (own: your area; team, territory, all as usual). It
-        /// gives no right to edit or delete pharmacies (customers:manage, customers:delete).
+        /// Add pharmacies and AM places in a town of your territory (own: your area; team, territory, all as
+        /// usual). It gives no right to edit or delete them (customers:manage, customers:delete).
         /// </summary>
         public const string CreatePharmacy = "customers:create-pharmacy";
 
@@ -235,10 +238,10 @@ public static class Permissions
         new(Territories.Manage, "Manage areas and towns"),
         new(Territories.Delete, "Delete areas and towns (archived when in use)", DerivedFrom: Territories.Manage),
         new(Territories.Restore, "Restore archived areas and towns"),
-        new(Customers.Read, "View doctors and pharmacies"),
-        new(Customers.Manage, "Edit doctors and pharmacies"),
-        new(Customers.Create, "Add doctors to own list"),
-        new(Customers.CreatePharmacy, "Add pharmacies in own area"),
+        new(Customers.Read, "View doctors, pharmacies and AM places"),
+        new(Customers.Manage, "Edit doctors, pharmacies and AM places"),
+        new(Customers.Create, "Add doctors"),
+        new(Customers.CreatePharmacy, "Add pharmacies and AM places in own area"),
         new(Customers.Assign, "Move or copy doctors between reps"),
         new(Customers.Delete, "Delete doctors and pharmacies (archived when used)"),
         new(Customers.Restore, "Restore archived doctors and pharmacies"),
@@ -318,8 +321,8 @@ public static class DefaultRoles
         new(Admin, "مدير النظام", "System admin", "Full access", Role.TopLevel, []),
         new(SalesManager, "مدير المبيعات", "Sales manager", "Sales manager", 10, Grants(PermissionScope.All,
             Permissions.Users.Read, Permissions.Users.ResetPassword, Permissions.Roles.Read, Permissions.Territories.Read,
-            Permissions.Customers.Read, Permissions.Customers.Manage, Permissions.Customers.Assign, Permissions.Visits.Read,
-            Permissions.Tracking.ViewLive, Permissions.Tracking.History, Permissions.Tracking.ReviewFlags,
+            Permissions.Customers.Read, Permissions.Customers.Manage, Permissions.Customers.Assign, Permissions.Customers.Create,
+            Permissions.Visits.Read, Permissions.Tracking.ViewLive, Permissions.Tracking.History, Permissions.Tracking.ReviewFlags,
             Permissions.Tracking.ReviewSuspicious, Permissions.Devices.Read, Permissions.Reports.Read, Permissions.Lookups.Manage,
             Permissions.Products.Read, Permissions.Products.Manage, Permissions.Orders.Read, Permissions.Orders.Manage,
             Permissions.Orders.Deliver, Permissions.Orders.Delete, Permissions.Orders.Restore,
@@ -330,7 +333,8 @@ public static class DefaultRoles
         [
             .. Grants(PermissionScope.Territory,
                 Permissions.Users.Read, Permissions.Users.ResetPassword, Permissions.Territories.Read, Permissions.Customers.Read,
-                Permissions.Customers.Manage, Permissions.Customers.Assign, Permissions.Visits.Read, Permissions.Tracking.ViewLive,
+                Permissions.Customers.Manage, Permissions.Customers.Assign, Permissions.Customers.Create, Permissions.Visits.Read,
+                Permissions.Tracking.ViewLive,
                 Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Tracking.ReviewSuspicious,
                 Permissions.Devices.Read, Permissions.Reports.Read, Permissions.Orders.Read, Permissions.Orders.Manage, Permissions.Orders.Deliver,
                 Permissions.Orders.Delete, Permissions.Orders.Restore, Permissions.Customers.Delete, Permissions.Customers.Restore,
@@ -344,7 +348,7 @@ public static class DefaultRoles
                 Permissions.Users.Read, Permissions.Users.ResetPassword, Permissions.Visits.Read, Permissions.Tracking.ViewLive,
                 Permissions.Tracking.History, Permissions.Tracking.ReviewFlags, Permissions.Tracking.ReviewSuspicious,
                 Permissions.Devices.Read, Permissions.Reports.Read, Permissions.Customers.Read, Permissions.Customers.Assign,
-                Permissions.Orders.Read, Permissions.Orders.Manage, Permissions.Orders.Deliver,
+                Permissions.Customers.Create, Permissions.Orders.Read, Permissions.Orders.Manage, Permissions.Orders.Deliver,
                 Permissions.Stats.Read, Permissions.Stats.Export, Permissions.Expenses.Read, Permissions.Plans.Read,
                 Permissions.Plans.Review),
             .. Grants(PermissionScope.Territory, Permissions.Territories.Read),

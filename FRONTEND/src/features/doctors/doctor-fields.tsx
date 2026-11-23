@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { localizedName } from '@/lib/format'
-import { doctorProblems, type DoctorFormValues } from './doctor-form'
+import { AvailabilityEditor } from './AvailabilityEditor'
+import { DOCTOR_LIMITS, doctorProblems, type DoctorFormValues } from './doctor-form'
 
 /** Town picker grouped by area. */
 export function TownSelect({
@@ -109,7 +110,7 @@ export function OutsideAreaBadge() {
   )
 }
 
-/** Name, town, specialty, phone and clinic notes. */
+/** Name, town, specialty, address, landmark, phone, clinic notes and visiting hours. */
 export function DoctorFields({
   values,
   onChange,
@@ -175,6 +176,26 @@ export function DoctorFields({
         <p className="text-sm text-destructive">{t('doctors.townSpecialtyRequired')}</p>
       )}
       <div className="grid gap-2">
+        <Label htmlFor="doctor-address">{t('doctors.address')}</Label>
+        <Input
+          id="doctor-address"
+          value={values.address}
+          maxLength={DOCTOR_LIMITS.address}
+          placeholder={t('doctors.addressPlaceholder')}
+          onChange={(e) => set({ address: e.target.value })}
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="doctor-landmark">{t('doctors.landmark')}</Label>
+        <Input
+          id="doctor-landmark"
+          value={values.landmark}
+          maxLength={DOCTOR_LIMITS.landmark}
+          placeholder={t('doctors.landmarkPlaceholder')}
+          onChange={(e) => set({ landmark: e.target.value })}
+        />
+      </div>
+      <div className="grid gap-2">
         <Label htmlFor="doctor-phone">{t('doctors.phone')}</Label>
         <Input
           id="doctor-phone"
@@ -197,6 +218,7 @@ export function DoctorFields({
           onChange={(e) => set({ notes: e.target.value })}
         />
       </div>
+      <AvailabilityEditor slots={values.slots} onChange={(slots) => set({ slots })} touched={touched} />
     </div>
   )
 }

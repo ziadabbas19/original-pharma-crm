@@ -92,7 +92,8 @@
     "management": "Management",
     "managementHint": "The management screens: visits, orders and your team",
     "expenses": "Expenses",
-    "plans": "Weekly plans"
+    "plans": "Weekly plans",
+    "places": "AM places"
   },
   "admin": {
     "welcome": "Welcome, {{name}}",
@@ -580,7 +581,9 @@
       "range": "Range",
       "day": "By day"
     },
-    "allReps": "All reps"
+    "allReps": "All reps",
+    "amLabel": "AM",
+    "amHint": "Morning visit to a place such as a hospital"
   },
   "liveMap": {
     "title": "Live map",
@@ -995,7 +998,19 @@
     "plan_note_required": "Write a note telling the rep what to change.",
     "plan_own_review": "You cannot review your own plan.",
     "pharmacy_exists": "A pharmacy with this name already exists in this town.",
-    "pharmacy_town_out_of_scope": "You can add pharmacies only in the towns of your area."
+    "pharmacy_town_out_of_scope": "You can add pharmacies only in the towns of your area.",
+    "doctor_time_invalid": "Use the time format HH:mm, with the end after the start.",
+    "doctor_slot_end_before_start": "A visiting slot must end after it starts.",
+    "doctor_slot_overlap": "Two visiting slots overlap on the same day.",
+    "hospital_exists": "A place with this name already exists in this town.",
+    "hospital_town_out_of_scope": "You can add places only in the towns of your area.",
+    "rep_day_area_invalid": "Choose a town of your area.",
+    "rep_day_place_invalid": "This place is not one of your AM places.",
+    "plan_am_place_invalid": "One of the AM places is not in your area.",
+    "product_images_limit": "A product has at most 5 brochure pictures.",
+    "product_image_too_large": "The picture is too large. Choose a smaller one.",
+    "product_image_type": "Choose a JPEG, WebP or PNG picture.",
+    "product_images_order": "The brochure changed meanwhile. Reload and try again."
   },
   "resources": {
     "users": "Users",
@@ -1035,10 +1050,10 @@
       "restore": "Restore archived areas and towns"
     },
     "customers": {
-      "read": "View doctors and pharmacies",
-      "manage": "Edit doctors and pharmacies",
-      "create": "Add doctors to own list",
-      "create-pharmacy": "Add pharmacies in own area",
+      "read": "View doctors, pharmacies and AM places",
+      "manage": "Edit doctors, pharmacies and AM places",
+      "create": "Add doctors",
+      "create-pharmacy": "Add pharmacies and AM places in own area",
       "assign": "Copy or move doctors between reps",
       "delete": "Delete doctors and pharmacies (archived when used)",
       "restore": "Restore archived doctors and pharmacies"
@@ -1161,7 +1176,8 @@
     "capped": "Showing the first {{formatted}} results. Narrow the search to see the others.",
     "types": {
       "doctor": "Doctor",
-      "pharmacy": "Pharmacy"
+      "pharmacy": "Pharmacy",
+      "hospital": "AM place"
     },
     "deleteConsequence": "Doctors and pharmacies with visits or orders are archived and keep their history; the others are removed with their place on reps' lists.",
     "editPharmacy": "Edit pharmacy",
@@ -1437,7 +1453,26 @@
     "deleteLineConsequence": "Products are never deleted with their line: they stay in the catalog as unassigned, and reps lose the line from their assignments.",
     "deleteProductConsequence": "Products on past orders or visits are archived and those records keep them; unused products are removed with their picture.",
     "removePictureTitle": "Remove this picture?",
-    "removePictureHint": "The product shows a placeholder until a new picture is uploaded."
+    "removePictureHint": "The product shows a placeholder until a new picture is uploaded.",
+    "indications": "Indications",
+    "indicationsPlaceholder": "What the product is used for",
+    "ingredients": "Ingredients",
+    "ingredientsPlaceholder": "Active ingredients and strengths",
+    "brochure": {
+      "title": "Brochure",
+      "hint": "Up to {{max}} pictures. They are made smaller on this device before upload.",
+      "add": "Add picture",
+      "full": "{{max}} pictures already",
+      "remove": "Remove picture",
+      "earlier": "Move earlier",
+      "later": "Move later",
+      "tooLarge": "This picture is too large even after making it smaller. Choose another one.",
+      "unreadable": "This file cannot be read as a picture.",
+      "failed": "The picture could not be loaded.",
+      "page": "{{name}}, picture {{page}} of {{total}}",
+      "goTo": "Picture {{page}}",
+      "open": "Open the details and brochure of {{name}}"
+    }
   },
   "doctors": {
     "title": "Doctor lists",
@@ -1541,6 +1576,59 @@
       "visits": "Visits",
       "noVisits": "No visits in your scope yet.",
       "capped": "Showing the latest 300 visits."
+    },
+    "address": "Detailed address",
+    "addressPlaceholder": "Street, building, floor",
+    "landmark": "Landmark",
+    "landmarkPlaceholder": "A well-known place nearby",
+    "landmarkLine": "Near {{landmark}}",
+    "addedBy": "Added by {{name}}",
+    "addedByColumn": "Added by",
+    "notRecorded": "Not recorded",
+    "weekdays": {
+      "saturday": "Saturday",
+      "sunday": "Sunday",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday"
+    },
+    "hours": {
+      "title": "Visiting hours",
+      "hint": "Optional. Add a slot for each day and time the doctor can be visited.",
+      "none": "No hours set yet.",
+      "noHours": "No hours set",
+      "weekday": "Day",
+      "from": "From",
+      "to": "To",
+      "place": "Place",
+      "placePlaceholder": "Place (optional), for example the clinic name",
+      "add": "Add slot",
+      "remove": "Remove slot",
+      "problems": {
+        "time": "Enter both times.",
+        "endBeforeStart": "The end must be after the start.",
+        "overlap": "This slot overlaps another slot on the same day."
+      }
+    },
+    "hoursSearch": {
+      "open": "Search by day and time",
+      "title": "Search by day and time",
+      "hint": "Choose a day, a time range, an area or a town. Every filter is optional.",
+      "anyDay": "Any day",
+      "rangeInvalid": "The end of the time range must be after its start.",
+      "start": "Choose a day, a time or a town to search.",
+      "noMatchHint": "Try another day or time, or choose an area or town to also see doctors with no hours set.",
+      "matching": "Available",
+      "more": "Show more"
+    },
+    "create": {
+      "hint": "The new doctor goes on the list of the rep you choose. The first visit saves the clinic location.",
+      "rep": "Rep",
+      "ownList": "My own list",
+      "repHint": "Only reps in your scope are listed.",
+      "save": "Add doctor"
     }
   },
   "orders": {
@@ -2118,7 +2206,26 @@
       "all": "All",
       "empty": "No new messages."
     },
-    "noSections": "Your company has not chosen anything to show here."
+    "noSections": "Your company has not chosen anything to show here.",
+    "area": {
+      "title": "Where do you work today?",
+      "hint": "Your upcoming visits show the doctors of this town. You can change it at any time.",
+      "label": "Town",
+      "wholeArea": "Whole area",
+      "fromPlan": "From your weekly plan",
+      "today": "Today: {{name}}",
+      "change": "Change"
+    },
+    "am": {
+      "title": "AM",
+      "short": "AM",
+      "progress": "AM: {{done}} of {{total}} done",
+      "add": "Add AM place",
+      "addTitle": "Add an AM place",
+      "addHint": "All the places of your area, whatever town you work in today.",
+      "remove": "Remove {{name}} from today",
+      "plannedTime": "Planned time"
+    }
   },
   "exports": {
     "saved": "{{name}} saved"
@@ -2328,6 +2435,44 @@
       "note": "Note to the rep",
       "required": "required",
       "returnPlaceholder": "For example: add a day in Heliopolis and visit Dr. Karim."
-    }
+    },
+    "amPlaces": "AM places",
+    "amPlacesHint": "Morning places, in any town of your area (not only this city)."
+  },
+  "reorder": {
+    "handle": "Drag to reorder {{name}}",
+    "instructions": "To pick up an item, press Space or Enter. Use the arrow keys to move it, then press Space or Enter again to drop it, or Escape to cancel.",
+    "picked": "Picked up {{name}} at position {{position}}.",
+    "over": "{{name}} is over position {{position}}.",
+    "outside": "Not over a position.",
+    "dropped": "Dropped {{name}} at position {{position}}.",
+    "cancelled": "Moving was cancelled."
+  },
+  "places": {
+    "title": "AM places",
+    "tab": "AM places",
+    "hint": "Morning places such as hospitals, visited for the place and not for the doctors inside it.",
+    "add": "Add place",
+    "addHint": "A morning place such as a hospital. The first visit saves its location.",
+    "name": "Name",
+    "namePlaceholder": "For example Fevers Hospital",
+    "nameOther": "Name in the other language",
+    "town": "Town",
+    "townRequired": "Choose a town.",
+    "rep": "Rep (optional)",
+    "noRep": "No rep",
+    "repHint": "The place goes on this rep's list, even outside their area.",
+    "address": "Detailed address",
+    "landmark": "Landmark",
+    "phone": "Phone",
+    "notes": "Notes",
+    "locationFromFirstVisit": "No location needed now: the first visit saves it.",
+    "alreadyExists": "A place with this name already exists in this town.",
+    "create": "Add place",
+    "searchPlaceholder": "Search places",
+    "empty": "No AM places yet",
+    "emptyHint": "Add the hospitals and other places you visit in the morning.",
+    "edit": "Edit AM place",
+    "editHint": "Name, town, address, landmark and the saved location."
   }
 }

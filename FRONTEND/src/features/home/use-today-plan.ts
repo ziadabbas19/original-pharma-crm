@@ -5,8 +5,10 @@ import { useActiveVisit } from '@/features/visits/active-visit'
 import { useRepCustomers } from '@/features/visits/use-rep-customers'
 import { readCache, writeCache } from '@/lib/offline-cache'
 import { todayPlan, type TodayPlan } from './today-plan'
+import { townFilterOf, useRepDay } from './use-rep-day'
 
 const DAY_MS = 86_400_000
+const NO_VISITS: VisitListItemDto[] = []
 const TODAY_CACHE = 'today-visits'
 
 function todayRange(): { from: string; to: string; day: string } {
@@ -19,10 +21,8 @@ function todayRange(): { from: string; to: string; day: string } {
   }
 }
 
-/** Today's visits and the doctors still to see, also offline once loaded today. */
-export function useTodayPlan(): TodayPlan {
-  const { customers } = useRepCustomers()
-  const { visit: active } = useActiveVisit()
+/** The rep's own visits of today (shared by the doctor list and the AM list), also offline once loaded today. */
+export function useTodayVisits(): VisitListItemDto[] {
   const range = useMemo(() => todayRange(), [])
   const copy = readCache<{ day: string; visits: VisitListItemDto[] }>(TODAY_CACHE)
   const cached = copy?.data.day === range.day ? copy.data.visits : undefined
@@ -35,14 +35,32 @@ export function useTodayPlan(): TodayPlan {
       writeCache(TODAY_CACHE, { day: range.day, visits: visits.data })
     }
   }, [visits.data, visits.isFetchedAfterMount, range.day])
+  return visits.data ?? NO_VISITS
+}
+
+/**
+ * Today's visits and the doctors still to see: those of today's area, in the rep's order (all of them,
+ * so the whole list can be reordered). Also offline once loaded today.
+ */
+export function useTodayPlan(): TodayPlan {
+  const { customers } = useRepCustomers()
+  const { visit: active } = useActiveVisit()
+  const visits = useTodayVisits()
+  const { day } = useRepDay()
+  const townIds = townFilterOf(day)
+  const townKey = townIds?.join() ?? ''
+  const order = day?.doctorOrder
 
   return useMemo(
     () =>
       todayPlan({
-        visits: visits.data ?? [],
+        visits,
         customers,
         activeCustomerId: active?.customer.id ?? null,
+        townIds: townKey ? townKey.split(',') : null,
+        order,
+        waitingLimit: Infinity,
       }),
-    [visits.data, customers, active?.customer.id],
+    [visits, customers, active?.customer.id, townKey, order],
   )
 }

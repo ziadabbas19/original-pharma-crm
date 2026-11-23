@@ -60,6 +60,7 @@ import { distanceCells, locationBadges, mapLink } from './visit-location'
 import { LocationBadges } from './VisitLocationBadges'
 import { RepDayVisits } from './RepDayVisits'
 import { VisitDetailSheet } from './VisitDetailSheet'
+import { AmBadge } from './AmBadge'
 
 const route = getRouteApi('/admin/visits')
 const column = dataTableColumns<VisitListItemDto>()
@@ -195,7 +196,9 @@ function VisitsRangeView() {
           header: () => t('visits.customer'),
           cell: ({ row, getValue }) => (
             <span className="inline-flex items-center gap-1.5">
-              {row.original.customerType === 'doctor' ? (
+              {row.original.customerType === 'hospital' ? (
+                <AmBadge type="hospital" />
+              ) : row.original.customerType === 'doctor' ? (
                 <StethoscopeIcon
                   className="size-3.5 text-muted-foreground"
                   aria-label={t('customers.types.doctor')}

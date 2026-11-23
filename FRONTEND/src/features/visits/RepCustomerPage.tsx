@@ -1,17 +1,30 @@
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { ArrowLeftIcon, ArrowRightIcon, MapPinCheckIcon, MapPinPlusIcon, PhoneIcon } from 'lucide-react'
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  LandmarkIcon,
+  MapPinCheckIcon,
+  MapPinIcon,
+  MapPinPlusIcon,
+  PhoneIcon,
+  UserRoundPlusIcon,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { EmptyState, LoadingState } from '@/components/states'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { DoctorSchedule } from '@/features/doctors/DoctorSchedule'
 import { localizedName } from '@/lib/format'
 import { StartVisitButton } from './StartVisitButton'
 import { useRepCustomers } from './use-rep-customers'
 
 const route = getRouteApi('/rep/customers/$customerId')
 
-/** A doctor or pharmacy: contact details, whether a location is saved, and "Start visit". */
+/**
+ * A doctor, pharmacy or AM place: address and landmark, contact details, whether a location is saved,
+ * the doctor's visiting hours and who added the doctor, and "Start visit".
+ */
 export function RepCustomerPage() {
   const { t, i18n } = useTranslation()
   const { customerId } = route.useParams()
@@ -46,11 +59,22 @@ export function RepCustomerPage() {
                 {[
                   localizedName(customer.specialtyNameEn, customer.specialtyNameAr),
                   localizedName(customer.townName, customer.townNameAr),
-                  customer.address,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
               </p>
+              {customer.address && (
+                <p className="flex items-start gap-1.5 text-sm" data-testid="customer-address">
+                  <MapPinIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                  {customer.address}
+                </p>
+              )}
+              {customer.landmark && (
+                <p className="flex items-start gap-1.5 text-sm" data-testid="customer-landmark">
+                  <LandmarkIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                  {t('doctors.landmarkLine', { landmark: customer.landmark })}
+                </p>
+              )}
               {customer.lat != null ? (
                 <p className="flex items-center gap-1.5 text-sm" data-testid="customer-has-location">
                   <MapPinCheckIcon className="size-4 text-success" aria-hidden />
@@ -72,6 +96,18 @@ export function RepCustomerPage() {
                     {customer.phone}
                   </a>
                 </Button>
+              )}
+              {customer.type === 'doctor' && (
+                <>
+                  <DoctorSchedule slots={customer.availability} className="border-t pt-3" />
+                  <p
+                    className="flex items-center gap-1.5 text-sm text-muted-foreground"
+                    data-testid="customer-added-by"
+                  >
+                    <UserRoundPlusIcon className="size-4 shrink-0" aria-hidden />
+                    {t('doctors.addedBy', { name: customer.createdByName ?? t('doctors.notRecorded') })}
+                  </p>
+                </>
               )}
             </CardContent>
           </Card>

@@ -22,6 +22,7 @@ import { STATUS_BADGE } from './visit-labels'
 import { VisitContentView } from './VisitContentView'
 import { VisitOrdersList } from './VisitOrdersList'
 import { VisitVerificationCard } from './VisitVerificationCard'
+import { AmBadge } from './AmBadge'
 
 /** A visit on the dashboard: check-in facts, the rep's feedback and products, seen marker and reply. */
 export function VisitDetailSheet({ visitId, onClose }: { visitId: string; onClose: () => void }) {
@@ -63,6 +64,7 @@ export function VisitDetailSheet({ visitId, onClose }: { visitId: string; onClos
       <SheetContent className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
+            {data && <AmBadge type={data.customerType} className="me-1.5" />}
             {data ? localizedName(data.customerName, data.customerNameAr) : t('visits.detail')}
           </SheetTitle>
           <SheetDescription>{data ? data.repName : t('common.loading')}</SheetDescription>

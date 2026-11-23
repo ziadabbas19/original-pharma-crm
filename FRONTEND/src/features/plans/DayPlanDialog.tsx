@@ -1,4 +1,4 @@
-import { BuildingIcon, MinusIcon, PlusIcon, StethoscopeIcon, Trash2Icon } from 'lucide-react'
+import { BuildingIcon, HospitalIcon, MinusIcon, PlusIcon, StethoscopeIcon, Trash2Icon } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TownDto, WeeklyPlanDayDto, WeeklyPlanDayInput } from '@/api/generated/model'
@@ -25,14 +25,16 @@ import { cn } from '@/lib/utils'
 import { parseTarget, PLAN_NOTE_MAX, PLAN_TARGET_MAX, type PlanCustomerOption } from './plan-input'
 
 /**
- * Plans one day: the city, how many visits, a note and (optionally) whom to visit, chosen from the
- * rep's customers in that city. A bottom sheet on phones.
+ * Plans one day: the city, how many visits, a note, (optionally) whom to visit, chosen from the rep's
+ * customers in that city, and the AM places of the morning, which may be in any town of the rep's area.
+ * A bottom sheet on phones.
  */
 export function DayPlanDialog({
   day,
   entry,
   towns,
   customers,
+  amPlaces = [],
   onSave,
   onRemove,
   onClose,
@@ -41,6 +43,8 @@ export function DayPlanDialog({
   entry?: WeeklyPlanDayDto
   towns: TownDto[]
   customers: PlanCustomerOption[]
+  /** AM places the rep can plan (any town). */
+  amPlaces?: PlanCustomerOption[]
   onSave: (input: WeeklyPlanDayInput) => Promise<void>
   /** Makes the day a day off again (only for a planned day). */
   onRemove?: () => Promise<void>
@@ -52,6 +56,8 @@ export function DayPlanDialog({
   const [note, setNote] = useState(entry?.note ?? '')
   const [selected, setSelected] = useState<string[]>(entry?.customers.map((c) => c.customerId) ?? [])
   const [search, setSearch] = useState('')
+  const [amSelected, setAmSelected] = useState<string[]>(entry?.amPlaces?.map((c) => c.customerId) ?? [])
+  const [amSearch, setAmSearch] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<AppError | null>(null)
   const parsedTarget = parseTarget(target)
@@ -93,6 +99,25 @@ export function DayPlanDialog({
       .sort((a, b) => Number(selected.includes(b.id)) - Number(selected.includes(a.id)))
   }, [known, cityId, search, selected])
 
+  // Places already on the day stay listed even if the rep can no longer see them.
+  const amOptions = useMemo(() => {
+    const byId = new Map(amPlaces.map((c) => [c.id, c]))
+    for (const c of entry?.amPlaces ?? []) {
+      if (!byId.has(c.customerId))
+        byId.set(c.customerId, {
+          id: c.customerId,
+          type: c.type,
+          name: c.name,
+          nameAr: c.nameAr,
+          townId: c.townId,
+        })
+    }
+    const term = amSearch.trim().toLowerCase()
+    return [...byId.values()]
+      .filter((c) => !term || c.name.toLowerCase().includes(term) || (c.nameAr ?? '').includes(term))
+      .sort((a, b) => Number(amSelected.includes(b.id)) - Number(amSelected.includes(a.id)))
+  }, [amPlaces, entry, amSearch, amSelected])
+
   const chooseCity = (next: string) => {
     setCityId(next)
     // Customers must be in the day's city.
@@ -129,6 +154,7 @@ export function DayPlanDialog({
           targetVisits: parsedTarget,
           note: note.trim() || null,
           customerIds: selected,
+          amPlaceIds: amSelected,
         }),
       'plans.saveDay',
     )
@@ -286,6 +312,68 @@ export function DayPlanDialog({
               </>
             )}
           </fieldset>
+
+          {(amOptions.length > 0 || amSelected.length > 0) && (
+            <fieldset className="grid gap-2" data-testid="plan-am-places">
+              <legend className="mb-2 text-sm font-medium">
+                {t('plans.amPlaces')} <span className="text-muted-foreground">({t('common.optional')})</span>
+                {amSelected.length > 0 && (
+                  <span className="ms-2 text-xs text-primary">
+                    {t('plans.customersChosen', {
+                      count: amSelected.length,
+                      value: formatNumber(amSelected.length),
+                    })}
+                  </span>
+                )}
+              </legend>
+              <p className="text-xs text-muted-foreground">{t('plans.amPlacesHint')}</p>
+              <SearchInput
+                value={amSearch}
+                onChange={setAmSearch}
+                placeholder={t('places.searchPlaceholder')}
+                className="sm:w-full [&_input]:h-11"
+              />
+              <ul className="grid max-h-56 divide-y overflow-y-auto rounded-control border">
+                {amOptions.map((c) => {
+                  const checked = amSelected.includes(c.id)
+                  const town = towns.find((x) => x.id === c.townId)
+                  return (
+                    <li key={c.id}>
+                      <label
+                        className={cn(
+                          'flex min-h-12 cursor-pointer items-center gap-3 px-3 py-2',
+                          checked && 'bg-primary-soft/50',
+                        )}
+                        data-testid="plan-am-option"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(on) =>
+                            setAmSelected((ids) =>
+                              on === true
+                                ? [...ids.filter((x) => x !== c.id), c.id]
+                                : ids.filter((x) => x !== c.id),
+                            )
+                          }
+                        />
+                        <HospitalIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                        <span className="grid min-w-0 flex-1 leading-tight">
+                          <span className="truncate text-sm font-medium">
+                            {localizedName(c.name, c.nameAr)}
+                          </span>
+                          {town && (
+                            <span className="truncate text-xs text-muted-foreground">
+                              {localizedName(town.name, town.nameAr)}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    </li>
+                  )
+                })}
+              </ul>
+            </fieldset>
+          )}
 
           <FormError error={error} />
           <DialogFooter>

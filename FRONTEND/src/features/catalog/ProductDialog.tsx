@@ -29,6 +29,7 @@ import { ProductThumb } from '@/features/orders/ProductPicker'
 import { IMAGE_ACCEPT, MAX_IMAGE_BYTES } from '@/features/profile/AvatarEditor'
 import { UserFacingError, handleError, inlineErrors } from '@/lib/errors'
 import { formatPercent, localizedName } from '@/lib/format'
+import { BrochureEditor } from './BrochureEditor'
 import { DiscountFields } from './discount-fields'
 import { parsePercent, percentError } from './discount-rules'
 
@@ -57,6 +58,8 @@ export function ProductDialog({
   const [nameAr, setNameAr] = useState(initial?.nameAr ?? '')
   const [nameEn, setNameEn] = useState(initial?.nameEn ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
+  const [indications, setIndications] = useState(initial?.indications ?? '')
+  const [ingredients, setIngredients] = useState(initial?.ingredients ?? '')
   const [price, setPrice] = useState(initial ? String(initial.price) : '')
   const [stock, setStock] = useState(initial ? String(initial.stockQuantity) : '0')
   const [active, setActive] = useState(initial?.isActive ?? true)
@@ -111,6 +114,8 @@ export function ProductDialog({
       nameAr: nameAr.trim(),
       nameEn: nameEn.trim(),
       description: description.trim() || null,
+      indications: indications.trim() || null,
+      ingredients: ingredients.trim() || null,
       price: priceValue,
       stockQuantity: stockValue,
       isActive: active,
@@ -294,6 +299,29 @@ export function ProductDialog({
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="product-indications">{t('catalog.indications')}</Label>
+            <Textarea
+              id="product-indications"
+              rows={3}
+              maxLength={2000}
+              value={indications}
+              placeholder={t('catalog.indicationsPlaceholder')}
+              onChange={(e) => setIndications(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="product-ingredients">{t('catalog.ingredients')}</Label>
+            <Textarea
+              id="product-ingredients"
+              rows={3}
+              maxLength={2000}
+              value={ingredients}
+              placeholder={t('catalog.ingredientsPlaceholder')}
+              onChange={(e) => setIngredients(e.target.value)}
+            />
+          </div>
+          {product && <BrochureEditor product={product} onChange={setProduct} />}
           <Label className="flex items-center gap-2 font-normal">
             <Checkbox checked={active} onCheckedChange={(v) => setActive(v === true)} />
             {t('catalog.active')}

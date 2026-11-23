@@ -24,8 +24,10 @@ import type {
   BulkResult,
   MoveProductsRequest,
   ProductDto,
+  ProductsAddBrochureImageBody,
   ProductsListParams,
   ProductsSetImageBody,
+  ReorderProductImagesRequest,
   SaveProductRequest,
 } from '../../model'
 
@@ -712,4 +714,371 @@ export const useProductsRemoveImage = <TError = unknown, TContext = unknown>(
   TContext
 > => {
   return useMutation(getProductsRemoveImageMutationOptions(options), queryClient)
+}
+export const getProductsAddBrochureImageUrl = (id: string) => {
+  return `/api/products/${id}/images`
+}
+
+export const productsAddBrochureImage = async (
+  id: string,
+  productsAddBrochureImageBody: ProductsAddBrochureImageBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ProductDto> => {
+  const formData = new FormData()
+  if (productsAddBrochureImageBody.file !== undefined) {
+    formData.append(`file`, productsAddBrochureImageBody.file)
+  }
+
+  return apiFetch<ProductDto>(getProductsAddBrochureImageUrl(id), {
+    ...options,
+    method: 'POST',
+    body: formData,
+  })
+}
+
+export const getProductsAddBrochureImageMutationKey = () => ['productsAddBrochureImage'] as const
+
+export const getProductsAddBrochureImageMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof productsAddBrochureImage>>,
+    TError,
+    ProductsAddBrochureImageMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof productsAddBrochureImage>>,
+  TError,
+  ProductsAddBrochureImageMutationVariables,
+  TContext
+> => {
+  const mutationKey = getProductsAddBrochureImageMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof productsAddBrochureImage>>,
+    ProductsAddBrochureImageMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {}
+
+    return productsAddBrochureImage(id, data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type ProductsAddBrochureImageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof productsAddBrochureImage>>
+>
+export type ProductsAddBrochureImageMutationBody = ProductsAddBrochureImageBody
+export type ProductsAddBrochureImageMutationError = unknown
+export type ProductsAddBrochureImageMutationVariables = { id: string; data: ProductsAddBrochureImageBody }
+
+export const useProductsAddBrochureImage = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof productsAddBrochureImage>>,
+      TError,
+      ProductsAddBrochureImageMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof productsAddBrochureImage>>,
+  TError,
+  ProductsAddBrochureImageMutationVariables,
+  TContext
+> => {
+  return useMutation(getProductsAddBrochureImageMutationOptions(options), queryClient)
+}
+export const getProductsGetBrochureImageUrl = (id: string, imageId: string) => {
+  return `/api/products/${id}/images/${imageId}`
+}
+
+export const productsGetBrochureImage = async (
+  id: string,
+  imageId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<Blob> => {
+  return apiFetch<Blob>(getProductsGetBrochureImageUrl(id, imageId), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getProductsGetBrochureImageQueryKey = (id: string, imageId: string) => {
+  return [`/api/products/${id}/images/${imageId}`] as const
+}
+
+export const getProductsGetBrochureImageQueryOptions = <
+  TData = Awaited<ReturnType<typeof productsGetBrochureImage>>,
+  TError = unknown,
+>(
+  id: string,
+  imageId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof productsGetBrochureImage>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getProductsGetBrochureImageQueryKey(id, imageId)
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof productsGetBrochureImage>>> = ({ signal }) =>
+    productsGetBrochureImage(id, imageId, { signal, ...requestOptions })
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: id !== null && id !== undefined && imageId !== null && imageId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof productsGetBrochureImage>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+}
+
+export type ProductsGetBrochureImageQueryResult = NonNullable<
+  Awaited<ReturnType<typeof productsGetBrochureImage>>
+>
+export type ProductsGetBrochureImageQueryError = unknown
+
+export function useProductsGetBrochureImage<
+  TData = Awaited<ReturnType<typeof productsGetBrochureImage>>,
+  TError = unknown,
+>(
+  id: string,
+  imageId: string,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof productsGetBrochureImage>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof productsGetBrochureImage>>,
+          TError,
+          Awaited<ReturnType<typeof productsGetBrochureImage>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProductsGetBrochureImage<
+  TData = Awaited<ReturnType<typeof productsGetBrochureImage>>,
+  TError = unknown,
+>(
+  id: string,
+  imageId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof productsGetBrochureImage>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof productsGetBrochureImage>>,
+          TError,
+          Awaited<ReturnType<typeof productsGetBrochureImage>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProductsGetBrochureImage<
+  TData = Awaited<ReturnType<typeof productsGetBrochureImage>>,
+  TError = unknown,
+>(
+  id: string,
+  imageId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof productsGetBrochureImage>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProductsGetBrochureImage<
+  TData = Awaited<ReturnType<typeof productsGetBrochureImage>>,
+  TError = unknown,
+>(
+  id: string,
+  imageId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof productsGetBrochureImage>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getProductsGetBrochureImageQueryOptions(id, imageId, options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getProductsRemoveBrochureImageUrl = (id: string, imageId: string) => {
+  return `/api/products/${id}/images/${imageId}`
+}
+
+export const productsRemoveBrochureImage = async (
+  id: string,
+  imageId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ProductDto> => {
+  return apiFetch<ProductDto>(getProductsRemoveBrochureImageUrl(id, imageId), {
+    ...options,
+    method: 'DELETE',
+  })
+}
+
+export const getProductsRemoveBrochureImageMutationKey = () => ['productsRemoveBrochureImage'] as const
+
+export const getProductsRemoveBrochureImageMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof productsRemoveBrochureImage>>,
+    TError,
+    ProductsRemoveBrochureImageMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof productsRemoveBrochureImage>>,
+  TError,
+  ProductsRemoveBrochureImageMutationVariables,
+  TContext
+> => {
+  const mutationKey = getProductsRemoveBrochureImageMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof productsRemoveBrochureImage>>,
+    ProductsRemoveBrochureImageMutationVariables
+  > = (props) => {
+    const { id, imageId } = props ?? {}
+
+    return productsRemoveBrochureImage(id, imageId, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type ProductsRemoveBrochureImageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof productsRemoveBrochureImage>>
+>
+
+export type ProductsRemoveBrochureImageMutationError = unknown
+export type ProductsRemoveBrochureImageMutationVariables = { id: string; imageId: string }
+
+export const useProductsRemoveBrochureImage = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof productsRemoveBrochureImage>>,
+      TError,
+      ProductsRemoveBrochureImageMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof productsRemoveBrochureImage>>,
+  TError,
+  ProductsRemoveBrochureImageMutationVariables,
+  TContext
+> => {
+  return useMutation(getProductsRemoveBrochureImageMutationOptions(options), queryClient)
+}
+export const getProductsReorderBrochureImagesUrl = (id: string) => {
+  return `/api/products/${id}/images/order`
+}
+
+export const productsReorderBrochureImages = async (
+  id: string,
+  reorderProductImagesRequest: ReorderProductImagesRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ProductDto> => {
+  return apiFetch<ProductDto>(getProductsReorderBrochureImagesUrl(id), {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(reorderProductImagesRequest),
+  })
+}
+
+export const getProductsReorderBrochureImagesMutationKey = () => ['productsReorderBrochureImages'] as const
+
+export const getProductsReorderBrochureImagesMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof productsReorderBrochureImages>>,
+    TError,
+    ProductsReorderBrochureImagesMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof productsReorderBrochureImages>>,
+  TError,
+  ProductsReorderBrochureImagesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getProductsReorderBrochureImagesMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof productsReorderBrochureImages>>,
+    ProductsReorderBrochureImagesMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {}
+
+    return productsReorderBrochureImages(id, data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type ProductsReorderBrochureImagesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof productsReorderBrochureImages>>
+>
+export type ProductsReorderBrochureImagesMutationBody = ReorderProductImagesRequest
+export type ProductsReorderBrochureImagesMutationError = unknown
+export type ProductsReorderBrochureImagesMutationVariables = { id: string; data: ReorderProductImagesRequest }
+
+export const useProductsReorderBrochureImages = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof productsReorderBrochureImages>>,
+      TError,
+      ProductsReorderBrochureImagesMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof productsReorderBrochureImages>>,
+  TError,
+  ProductsReorderBrochureImagesMutationVariables,
+  TContext
+> => {
+  return useMutation(getProductsReorderBrochureImagesMutationOptions(options), queryClient)
 }

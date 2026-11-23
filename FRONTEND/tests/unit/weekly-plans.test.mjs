@@ -118,7 +118,14 @@ test('the week summary adds the days like the server', () => {
 test('a day edit replaces that day only and keeps the week in order', () => {
   const plan = {
     days: [
-      { day: '2027-02-08', cityId: 'c2', targetVisits: 4, note: null, customers: [] },
+      {
+        day: '2027-02-08',
+        cityId: 'c2',
+        targetVisits: 4,
+        note: null,
+        customers: [],
+        amPlaces: [{ customerId: 'h1' }],
+      },
       {
         day: '2027-02-06',
         cityId: 'c1',
@@ -135,7 +142,10 @@ test('a day edit replaces that day only and keeps the week in order', () => {
     targetVisits: 3,
     note: 'Clinics first',
     customerIds: ['d1', 'p1'],
+    amPlaceIds: [],
   })
+  // Another day's AM places travel with the week, so editing one day never drops them.
+  assert.deepEqual(inputs[0].amPlaceIds, ['h1'])
   const edited = withDay(inputs, { day: '2027-02-07', cityId: 'c1', targetVisits: 6, customerIds: [] })
   assert.deepEqual(
     edited.map((d) => d.day),

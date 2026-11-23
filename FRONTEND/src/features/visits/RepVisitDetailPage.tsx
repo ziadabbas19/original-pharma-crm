@@ -31,6 +31,7 @@ import { VisitContentView } from './VisitContentView'
 import { VisitOrdersList } from './VisitOrdersList'
 import { VisitSyncBadge } from './VisitSyncBadge'
 import { VisitVerificationCard } from './VisitVerificationCard'
+import { AmBadge } from './AmBadge'
 
 const route = getRouteApi('/rep/visits/$visitId')
 
@@ -170,6 +171,7 @@ export function RepVisitDetailPage() {
             <CardContent className="grid gap-1 px-4">
               <div className="flex items-start justify-between gap-2">
                 <h1 className="text-lg font-semibold">
+                  <AmBadge type={data.customerType} className="me-1.5" />
                   {localizedName(data.customerName, data.customerNameAr)}
                 </h1>
                 <Badge variant={STATUS_BADGE[data.status]}>{t(`visits.statuses.${data.status}`)}</Badge>

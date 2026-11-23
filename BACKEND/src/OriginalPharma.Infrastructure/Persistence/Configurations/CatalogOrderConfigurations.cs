@@ -54,11 +54,25 @@ internal sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.NameAr).HasMaxLength(Product.NameMaxLength).IsRequired();
         builder.Property(p => p.NameEn).HasMaxLength(Product.NameMaxLength).IsRequired();
         builder.Property(p => p.Description).HasMaxLength(Product.DescriptionMaxLength);
+        builder.Property(p => p.Indications).HasMaxLength(Product.IndicationsMaxLength);
+        builder.Property(p => p.Ingredients).HasMaxLength(Product.IngredientsMaxLength);
         builder.Property(p => p.Price).HasPrecision(12, 2);
         builder.Property(p => p.DefaultDiscountPercent).HasPrecision(5, 2);
         builder.Property(p => p.MaxDiscountPercent).HasPrecision(5, 2);
         builder.Property(p => p.ImageKey).HasMaxLength(32);
         builder.HasIndex(p => new { p.ProductLineId, p.NameEn });
+    }
+}
+
+internal sealed class ProductImageConfiguration : IEntityTypeConfiguration<ProductImage>
+{
+    public void Configure(EntityTypeBuilder<ProductImage> builder)
+    {
+        builder.ToTable("product_images");
+        builder.Property(i => i.ContentType).HasMaxLength(50).IsRequired();
+        builder.Property(i => i.Bytes).IsRequired();
+        builder.HasOne<Product>().WithMany().HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(i => new { i.ProductId, i.Position });
     }
 }
 

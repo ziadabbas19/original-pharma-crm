@@ -21,6 +21,7 @@ import {
 } from '@/store/slices/authSlice'
 import { permissionsLoaded, serverVersionSeen } from '@/store/slices/permissionsSlice'
 import { stopCollection } from '@/features/tracking/collection'
+import { clearBrochurePages } from '@/features/catalog/brochure-cache'
 
 /**
  * Session handling for both clients:
@@ -183,6 +184,7 @@ async function clearLocalSession(): Promise<void> {
     // ignore
   }
   clearCache()
+  clearBrochurePages()
   store.dispatch(sessionEnded())
   bootstrapping = Promise.resolve()
 }

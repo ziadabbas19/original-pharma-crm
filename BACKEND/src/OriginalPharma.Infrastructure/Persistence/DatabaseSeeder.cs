@@ -79,6 +79,9 @@ internal sealed partial class DatabaseSeeder(
     /// <summary>The key lookups were recorded under while they were part of the demo seed.</summary>
     private const string LegacyLookupsStep = "demo-lookups-v1";
 
+    /// <summary>The step that gave the existing manager roles customers:create (adding doctors).</summary>
+    internal const string DoctorCreateForManagersStep = "doctor-create-for-managers-v1";
+
     private static readonly JsonSerializerOptions AuditJson = new(JsonSerializerDefaults.Web);
 
     private static readonly (string En, string Ar)[] SpecialtySeeds =
@@ -116,6 +119,8 @@ internal sealed partial class DatabaseSeeder(
             await permissionService.BumpVersionAsync(holders, cancellationToken);
         }
 
+        await RunOnceAsync(DoctorCreateForManagersStep, GrantDoctorCreateToManagersAsync, cancellationToken);
+
         if (!await db.SeedHistory.AnyAsync(e => e.Key == LegacyLookupsStep, cancellationToken))
         {
             await RunOnceAsync("lookups-v1", SeedLookupsAsync, cancellationToken);
@@ -140,6 +145,34 @@ internal sealed partial class DatabaseSeeder(
         db.SeedHistory.Add(new SeedHistoryEntry { Key = key, AppliedAt = time.GetUtcNow() });
         await db.SaveChangesAsync(cancellationToken);
         logger.LogInformation("Applied seed step {Step}", key);
+    }
+
+    /// <summary>
+    /// Adding doctors used to be for reps only. In databases from before that, the existing Supervisor,
+    /// AreaManager and SalesManager roles receive customers:create once, with their template's scope;
+    /// a role an admin takes it away from later keeps it removed (the step does not run again).
+    /// </summary>
+    private async Task GrantDoctorCreateToManagersAsync(CancellationToken cancellationToken)
+    {
+        var permissionId = await db.Permissions.Where(p => p.Key == Permissions.Customers.Create).Select(p => p.Id).SingleAsync(cancellationToken);
+        var changed = new List<Guid>();
+        foreach (var template in DefaultRoles.Templates.Where(t => t.Key is DefaultRoles.Supervisor or DefaultRoles.AreaManager or DefaultRoles.SalesManager))
+        {
+            var normalizedKey = Role.NormalizeKey(template.Key);
+            var role = await db.Roles.Include(r => r.Permissions).SingleOrDefaultAsync(r => r.NormalizedName == normalizedKey, cancellationToken);
+            if (role is null || role.Permissions.Any(rp => rp.PermissionId == permissionId))
+            {
+                continue;
+            }
+
+            var scope = template.Grants.First(g => g.Key == Permissions.Customers.Create).Scope;
+            role.Permissions.Add(new RolePermission { PermissionId = permissionId, Scope = scope });
+            changed.Add(role.Id);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        var holders = await db.UserRoles.Where(ur => changed.Contains(ur.RoleId)).Select(ur => ur.UserId).Distinct().ToListAsync(cancellationToken);
+        await permissionService.BumpVersionAsync(holders, cancellationToken);
     }
 
     /// <summary>Doctor specialties and collection methods the forms need from day one.</summary>

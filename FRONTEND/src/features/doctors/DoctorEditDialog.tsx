@@ -23,6 +23,7 @@ import { useDoctorReferenceData } from '@/features/orders/use-order-data'
 import { handleError, inlineErrors } from '@/lib/errors'
 import { formatDateTime, formatDistance } from '@/lib/format'
 import { P } from '@/lib/permissions'
+import { slotProblems, toSlotInputs, toSlotValues } from './availability'
 import { DoctorFields } from './doctor-fields'
 import { doctorProblems, type DoctorFormValues } from './doctor-form'
 
@@ -39,6 +40,9 @@ export function DoctorEditDialog({ doctor, onClose }: { doctor: DoctorDto; onClo
     specialtyId: doctor.specialtyId ?? '',
     phone: doctor.phone ?? '',
     notes: doctor.notes ?? '',
+    address: doctor.address ?? '',
+    landmark: doctor.landmark ?? '',
+    slots: toSlotValues(doctor.availability),
   })
   const canSetLocation = usePermission(P.customers.manage)
   const [lat, setLat] = useState(doctor.lat?.toString() ?? '')
@@ -81,7 +85,14 @@ export function DoctorEditDialog({ doctor, onClose }: { doctor: DoctorDto; onClo
     e.preventDefault()
     setTouched(true)
     const problems = doctorProblems(values, t)
-    if (problems.name || problems.townId || problems.specialtyId || locationInvalid) return
+    if (
+      problems.name ||
+      problems.townId ||
+      problems.specialtyId ||
+      locationInvalid ||
+      slotProblems(values.slots).some(Boolean)
+    )
+      return
     try {
       await update.mutateAsync({
         id: doctor.id,
@@ -92,6 +103,9 @@ export function DoctorEditDialog({ doctor, onClose }: { doctor: DoctorDto; onClo
           specialtyId: values.specialtyId,
           phone: values.phone.trim() || null,
           notes: values.notes.trim() || null,
+          address: values.address.trim() || null,
+          landmark: values.landmark.trim() || null,
+          availability: toSlotInputs(values.slots),
           isActive: active,
           ...(canSetLocation
             ? { location: { lat: latValue, lng: lngValue, geofenceRadiusMeters: radiusValue } }

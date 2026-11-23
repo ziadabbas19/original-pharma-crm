@@ -55,12 +55,17 @@ public class WeeklyPlan : Entity, IScopedEntity
     public bool IsEditable => Status is WeeklyPlanStatus.Draft or WeeklyPlanStatus.Returned;
 }
 
-/// <summary>One planned day: the city the rep works in, how many visits, and optionally whom.</summary>
+/// <summary>
+/// One planned day: the city the rep works in, how many visits, and optionally whom. The AM places of
+/// the morning are kept with the customers (they are told apart by the customer type) and may be in
+/// other towns than the city.
+/// </summary>
 public class WeeklyPlanDay : Entity
 {
     public const int NoteMaxLength = 500;
     public const int MaxTargetVisits = 100;
     public const int MaxCustomers = 100;
+    public const int MaxAmPlaces = 20;
 
     public Guid PlanId { get; set; }
 
@@ -76,7 +81,7 @@ public class WeeklyPlanDay : Entity
     public ICollection<WeeklyPlanCustomer> Customers { get; set; } = new List<WeeklyPlanCustomer>();
 }
 
-/// <summary>A doctor or pharmacy the rep means to visit on a planned day.</summary>
+/// <summary>A doctor, pharmacy or AM place the rep means to visit on a planned day.</summary>
 public class WeeklyPlanCustomer : Entity
 {
     public Guid PlanDayId { get; set; }

@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { usePermission } from '@/features/auth/usePermission'
 import { HomeSection } from '@/features/home/HomeSections'
+import { TodayAreaSheet } from '@/features/home/TodayAreaSheet'
+import { useRepDay } from '@/features/home/use-rep-day'
 import { WeekPlanHomeCard } from '@/features/plans/WeekPlanHomeCard'
 import { useTodayPlan } from '@/features/home/use-today-plan'
 import { useRepHomeConfig } from '@/features/home/use-rep-home'
@@ -110,9 +112,15 @@ export function RepHomePage() {
   )
 }
 
-/** Start or end the working day, from the blue header. */
+/**
+ * Start or end the working day, from the blue header. Starting first asks where the rep works today
+ * (prefilled from the weekly plan); the choice is kept with the day on the server.
+ */
 function DayControl() {
   const { t } = useTranslation()
+  const canVisit = usePermission(P.visits.create)
+  const { setArea } = useRepDay()
+  const [choosing, setChoosing] = useState(false)
   const shift = useAppSelector((s) => s.tracking.shift)
   const ready = useAppSelector((s) => s.tracking.onboarding.completedAt !== null)
   const issues = useAppSelector((s) => s.tracking.healthIssues)
@@ -179,7 +187,8 @@ function DayControl() {
             size="lg"
             className="bg-tile text-primary hover:bg-tile/90"
             disabled={busy !== null || !ready || issues.length > 0}
-            onClick={() => void act('start')}
+            onClick={() => (canVisit ? setChoosing(true) : void act('start'))}
+            data-testid="rep-start-day"
           >
             {busy === 'start' ? <Loader2Icon className="animate-spin" /> : <PlayIcon />}
             {busy === 'start' ? t('rep.starting') : t('rep.startDay')}
@@ -195,6 +204,17 @@ function DayControl() {
         <p className="text-xs opacity-90">{t('rep.pendingPoints', { count: pending })}</p>
       )}
       <FormError error={error} />
+      {canVisit && (
+        <TodayAreaSheet
+          open={choosing}
+          onOpenChange={setChoosing}
+          confirmLabel={t('rep.startDay')}
+          onConfirm={async (territoryId) => {
+            await act('start')
+            await setArea(territoryId)
+          }}
+        />
+      )}
     </div>
   )
 }

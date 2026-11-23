@@ -1,15 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import {
-  BellIcon,
-  CalendarRangeIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  PlayIcon,
-  StethoscopeIcon,
-  TargetIcon,
-  TimerIcon,
-  type LucideIcon,
-} from 'lucide-react'
+import { BellIcon, CalendarRangeIcon, PlayIcon, TargetIcon, TimerIcon, type LucideIcon } from 'lucide-react'
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNotificationsList } from '@/api/generated/endpoints'
@@ -21,12 +11,13 @@ import { usePermission } from '@/features/auth/usePermission'
 import { notificationText } from '@/features/notifications/notification-text'
 import { CheckInSheet } from '@/features/visits/CheckInSheet'
 import { useRepCustomers } from '@/features/visits/use-rep-customers'
-import { formatNumber, formatRelative, formatTime, localizedName } from '@/lib/format'
+import { formatNumber, formatRelative, localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import { useAppSelector } from '@/store'
 import { progressShare, type SectionKey } from '../settings/rep-home-config'
-import type { PlanItem, TodayPlan } from './today-plan'
+import type { TodayPlan } from './today-plan'
+import { UpcomingVisitsSection } from './UpcomingVisitsSection'
 
 /** Renders one configured Home block. */
 export function HomeSection({
@@ -47,7 +38,7 @@ export function HomeSection({
       case 'todayProgress':
         return <TodayProgressCard done={plan.done} target={target} inProgress={plan.inProgress} />
       case 'upcomingVisits':
-        return <UpcomingVisits items={plan.items} />
+        return <UpcomingVisitsSection items={plan.items} />
       case 'startNextVisit':
         return <StartNextVisit plan={plan} />
       case 'weeklySummary':
@@ -123,65 +114,6 @@ function TodayProgressCard({
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-const PILL: Record<PlanItem['kind'], 'default' | 'success' | 'secondary'> = {
-  inProgress: 'default',
-  waiting: 'secondary',
-  done: 'success',
-}
-
-function UpcomingVisits({ items }: { items: PlanItem[] }) {
-  const { t, i18n } = useTranslation()
-  const Chevron = i18n.dir() === 'rtl' ? ChevronLeftIcon : ChevronRightIcon
-  return (
-    <section className="grid gap-2" aria-labelledby="home-upcoming" data-testid="home-upcoming">
-      <h2 id="home-upcoming" className="px-1 text-section font-bold">
-        {t('repHome.sections.upcomingVisits')}
-      </h2>
-      {items.length === 0 ? (
-        <Card className="py-2">
-          <EmptyState icon={StethoscopeIcon} title={t('repHome.upcoming.empty')} className="py-6" />
-        </Card>
-      ) : (
-        <ul className="grid gap-2">
-          {items.map((item, index) => (
-            <li
-              key={`${item.kind}-${item.customerId}-${item.at ?? ''}`}
-              className="animate-fade-up"
-              style={{ '--i': index } as CSSProperties}
-            >
-              <Link
-                to="/rep/customers/$customerId"
-                params={{ customerId: item.customerId }}
-                className="flex items-center gap-3 rounded-card border bg-card p-3 shadow-card transition-colors hover:bg-accent/60 active:scale-[0.99]"
-              >
-                <span
-                  className={cn(
-                    'grid size-12 shrink-0 place-items-center rounded-control text-sm font-bold tabular-nums',
-                    item.kind === 'done'
-                      ? 'bg-success-soft text-success'
-                      : 'bg-primary-soft text-primary-soft-foreground',
-                  )}
-                  dir="ltr"
-                >
-                  {item.at ? formatTime(item.at) : <StethoscopeIcon className="size-5" aria-hidden />}
-                </span>
-                <span className="grid min-w-0 flex-1">
-                  <span className="truncate font-semibold">{localizedName(item.name, item.nameAr)}</span>
-                  <span className="truncate text-sm text-muted-foreground">
-                    {localizedName(item.townName, item.townNameAr) || '—'}
-                  </span>
-                </span>
-                <Badge variant={PILL[item.kind]}>{t(`repHome.status.${item.kind}`)}</Badge>
-                <Chevron className="size-4 shrink-0 text-icon" aria-hidden />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   )
 }
 

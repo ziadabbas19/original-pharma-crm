@@ -455,6 +455,8 @@ public sealed class PlanService(
         var allowed = customerIds.Length == 0
             ? new Dictionary<Guid, Guid?>()
             : await AllowedCustomersAsync(repId, customerIds, current, cancellationToken);
+        var amPlaceIds = inputs.SelectMany(d => d.AmPlaceIds ?? []).Distinct().ToArray();
+        var allowedAm = amPlaceIds.Length == 0 ? [] : await AllowedAmPlacesAsync(repId, amPlaceIds, current, cancellationToken);
 
         var days = new List<WeeklyPlanDay>(inputs.Count);
         foreach (var input in inputs.OrderBy(d => d.Day))
@@ -486,6 +488,19 @@ public sealed class PlanService(
                 }
 
                 day.Customers.Add(new WeeklyPlanCustomer { PlanDayId = day.Id, CustomerId = customerId, SortOrder = sort++ });
+            }
+
+            foreach (var placeId in (input.AmPlaceIds ?? []).Distinct().Where(id => day.Customers.All(c => c.CustomerId != id)))
+            {
+                if (!allowedAm.Contains(placeId))
+                {
+                    throw new BusinessRuleException(PlanErrorCodes.AmPlaceInvalid, "One of the AM places is not in your area.")
+                    {
+                        Details = new Dictionary<string, object?> { ["customerId"] = placeId, ["day"] = input.Day },
+                    };
+                }
+
+                day.Customers.Add(new WeeklyPlanCustomer { PlanDayId = day.Id, CustomerId = placeId, SortOrder = sort++ });
             }
 
             days.Add(day);
@@ -520,6 +535,31 @@ public sealed class PlanService(
             .ToDictionaryAsync(c => c.Id, c => c.TerritoryId, cancellationToken);
     }
 
+    /// <summary>
+    /// AM places the rep may plan for a morning: active places in any town of the rep's area or on the
+    /// rep's list, and places already on the saved plan. The day's city does not limit them.
+    /// </summary>
+    private async Task<HashSet<Guid>> AllowedAmPlacesAsync(Guid repId, Guid[] ids, WeeklyPlan? current, CancellationToken cancellationToken)
+    {
+        var area = await db.Users.AsNoTracking().Where(u => u.Id == repId).Select(u => u.TerritoryId).SingleAsync(cancellationToken);
+        var areaTowns = Array.Empty<Guid>();
+        if (area is { } areaId)
+        {
+            var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
+            areaTowns = tree.SelfAndDescendants(areaId).ToArray();
+        }
+
+        var kept = current?.Days.SelectMany(d => d.Customers).Select(c => c.CustomerId).ToHashSet() ?? [];
+        return (await db.Customers.AsNoTracking()
+                .Where(c => ids.Contains(c.Id) && c.Type == CustomerType.Hospital &&
+                            (kept.Contains(c.Id) ||
+                             (c.IsActive && c.ArchivedAt == null &&
+                              ((c.TerritoryId != null && areaTowns.Contains(c.TerritoryId.Value)) || c.Reps.Any(r => r.UserId == repId)))))
+                .Select(c => c.Id)
+                .ToListAsync(cancellationToken))
+            .ToHashSet();
+    }
+
     private async Task<WeeklyPlanDto> BuildAsync(Guid userId, DateOnly weekStart, WeeklyPlan? plan, Access access, CancellationToken cancellationToken)
     {
         var person = await db.Users.AsNoTracking()
@@ -539,12 +579,27 @@ public sealed class PlanService(
             .Select(c => new { c.Id, c.Type, c.Name, c.NameAr, c.TerritoryId })
             .ToDictionaryAsync(c => c.Id, cancellationToken);
 
-        var visits = await VisitsAsync(userId, weekStart, cancellationToken);
+        // AM visits (morning places) are kept apart from the planned doctor and pharmacy visits.
+        bool IsAm(Guid customerId) => customers.TryGetValue(customerId, out var c) && c.Type == CustomerType.Hospital;
+        var (amVisits, visits) = await VisitsAsync(userId, weekStart, cancellationToken);
         var progress = PlanProgress.Compute(
             weekStart,
-            days.Select(d => new PlannedDay(d.Day, d.CityId, d.TargetVisits, d.Customers.Select(c => c.CustomerId).ToList())).ToList(),
+            days.Select(d => new PlannedDay(d.Day, d.CityId, d.TargetVisits,
+                d.Customers.Where(c => !IsAm(c.CustomerId)).Select(c => c.CustomerId).ToList())).ToList(),
             visits);
-        var visited = visits.GroupBy(v => v.Day).ToDictionary(g => g.Key, g => g.Select(v => v.CustomerId).ToHashSet());
+        var visited = visits.Concat(amVisits).GroupBy(v => v.Day).ToDictionary(g => g.Key, g => g.Select(v => v.CustomerId).ToHashSet());
+
+        List<WeeklyPlanCustomerDto> CustomersOf(WeeklyPlanDay d, bool am) =>
+            d.Customers.OrderBy(c => c.SortOrder)
+                .Where(c => customers.ContainsKey(c.CustomerId) && IsAm(c.CustomerId) == am)
+                .Select(c =>
+                {
+                    var customer = customers[c.CustomerId];
+                    return new WeeklyPlanCustomerDto(
+                        customer.Id, customer.Type, customer.Name, customer.NameAr, customer.TerritoryId,
+                        visited.TryGetValue(d.Day, out var ids) && ids.Contains(customer.Id));
+                })
+                .ToList();
 
         var dayDtos = days.Select(d => new WeeklyPlanDayDto(
                 d.Day,
@@ -553,16 +608,8 @@ public sealed class PlanService(
                 city?.NameAr,
                 d.TargetVisits,
                 d.Note,
-                d.Customers.OrderBy(c => c.SortOrder)
-                    .Where(c => customers.ContainsKey(c.CustomerId))
-                    .Select(c =>
-                    {
-                        var customer = customers[c.CustomerId];
-                        return new WeeklyPlanCustomerDto(
-                            customer.Id, customer.Type, customer.Name, customer.NameAr, customer.TerritoryId,
-                            visited.TryGetValue(d.Day, out var ids) && ids.Contains(customer.Id));
-                    })
-                    .ToList()))
+                CustomersOf(d, am: false),
+                CustomersOf(d, am: true)))
             .ToList();
 
         var history = plan is null
@@ -608,17 +655,22 @@ public sealed class PlanService(
             currentWeek);
     }
 
-    /// <summary>The rep's completed visits of the week, each on its Egypt day, with the customer's town.</summary>
-    private async Task<List<PlanVisit>> VisitsAsync(Guid userId, DateOnly weekStart, CancellationToken cancellationToken)
+    /// <summary>
+    /// The rep's completed visits of the week, each on its Egypt day, with the customer's town: AM visits
+    /// (morning places) apart from the others, which are the ones the plan's target counts.
+    /// </summary>
+    private async Task<(List<PlanVisit> Am, List<PlanVisit> Others)> VisitsAsync(Guid userId, DateOnly weekStart, CancellationToken cancellationToken)
     {
         var start = calendar.StartOf(weekStart);
         var end = calendar.StartOf(weekStart.AddDays(7));
         var rows = await db.Visits.AsNoTracking()
             .Where(v => v.UserId == userId && v.Status == VisitStatus.Completed && v.ArchivedAt == null &&
                         v.CheckInAt >= start && v.CheckInAt < end)
-            .Select(v => new { v.CheckInAt, v.CustomerId, Town = v.Customer!.TerritoryId })
+            .Select(v => new { v.CheckInAt, v.CustomerId, Town = v.Customer!.TerritoryId, Am = v.Customer.Type == CustomerType.Hospital })
             .ToListAsync(cancellationToken);
-        return rows.Select(v => new PlanVisit(calendar.DayOf(v.CheckInAt), v.CustomerId, v.Town)).ToList();
+        return (
+            rows.Where(v => v.Am).Select(v => new PlanVisit(calendar.DayOf(v.CheckInAt), v.CustomerId, v.Town)).ToList(),
+            rows.Where(v => !v.Am).Select(v => new PlanVisit(calendar.DayOf(v.CheckInAt), v.CustomerId, v.Town)).ToList());
     }
 
     private async Task TransitionAsync(

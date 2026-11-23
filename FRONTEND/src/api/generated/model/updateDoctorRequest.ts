@@ -3,6 +3,7 @@
  * Do not edit by hand; re-run `npm run api:generate` after backend API changes.
  */
 import type { DoctorLocationInput } from './doctorLocationInput'
+import type { DoctorSlotInput } from './doctorSlotInput'
 
 export interface UpdateDoctorRequest {
   name: string
@@ -16,4 +17,10 @@ export interface UpdateDoctorRequest {
   notes?: string | null
   isActive?: boolean
   location?: null | DoctorLocationInput
+  /** @nullable */
+  address?: string | null
+  /** @nullable */
+  landmark?: string | null
+  /** @nullable */
+  availability?: DoctorSlotInput[] | null
 }

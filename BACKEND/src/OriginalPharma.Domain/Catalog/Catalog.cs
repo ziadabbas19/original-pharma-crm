@@ -29,6 +29,8 @@ public class Product : Entity, IArchivable
 {
     public const int NameMaxLength = 200;
     public const int DescriptionMaxLength = 2000;
+    public const int IndicationsMaxLength = 2000;
+    public const int IngredientsMaxLength = 2000;
 
     /// <summary>
     /// The line the product belongs to. Null when the product is unassigned (its line was deleted, or it
@@ -40,6 +42,12 @@ public class Product : Entity, IArchivable
     public string NameAr { get; set; } = string.Empty;
     public string NameEn { get; set; } = string.Empty;
     public string? Description { get; set; }
+
+    /// <summary>What the product is used for (free text).</summary>
+    public string? Indications { get; set; }
+
+    /// <summary>Active ingredients and strengths (free text).</summary>
+    public string? Ingredients { get; set; }
 
     /// <summary>Unit price in Egyptian pounds.</summary>
     public decimal Price { get; set; }
@@ -62,6 +70,28 @@ public class Product : Entity, IArchivable
 
     public DateTimeOffset? ArchivedAt { get; set; }
     public Guid? ArchivedById { get; set; }
+}
+
+/// <summary>
+/// A brochure page of a product, stored in the database (compressed on the phone or browser before
+/// upload). At most <see cref="MaxPerProduct"/> per product, shown in <see cref="Position"/> order.
+/// </summary>
+public class ProductImage : Entity
+{
+    public const int MaxPerProduct = 5;
+    public const int MaxBytes = 1_572_864;
+
+    public Guid ProductId { get; set; }
+
+    public int Position { get; set; }
+
+    public string ContentType { get; set; } = string.Empty;
+
+    public byte[] Bytes { get; set; } = [];
+
+    public int SizeBytes { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
 /// <summary>A product line assigned to a user.</summary>

@@ -33,4 +33,6 @@ export interface CustomerDto {
   usageCount?: number
   /** @nullable */
   archivedAt?: string | null
+  /** @nullable */
+  landmark?: string | null
 }

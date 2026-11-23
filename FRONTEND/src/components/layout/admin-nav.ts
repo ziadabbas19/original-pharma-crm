@@ -5,6 +5,7 @@ import {
   CalendarCheckIcon,
   ClipboardListIcon,
   HistoryIcon,
+  HospitalIcon,
   ListChecksIcon,
   PackageIcon,
   ReceiptTextIcon,
@@ -35,6 +36,7 @@ export type AdminPath =
   | '/admin/roles'
   | '/admin/territories'
   | '/admin/customers'
+  | '/admin/places'
   | '/admin/doctors'
   | '/admin/orders'
   | '/admin/products'
@@ -79,6 +81,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
     items: [
       { to: '/admin/doctors', label: 'nav.doctors', icon: StethoscopeIcon, permission: P.customers.read },
       { to: '/admin/customers', label: 'nav.customers', icon: BuildingIcon, permission: P.customers.read },
+      { to: '/admin/places', label: 'nav.places', icon: HospitalIcon, permission: P.customers.read },
       { to: '/admin/visits', label: 'nav.visits', icon: ClipboardListIcon, permission: P.visits.read },
       { to: '/admin/expenses', label: 'nav.expenses', icon: WalletIcon, permission: P.expenses.read },
       { to: '/admin/plans', label: 'nav.plans', icon: CalendarCheckIcon, permission: P.plans.read },

@@ -1,5 +1,14 @@
-import { Link } from '@tanstack/react-router'
-import { PencilIcon, PhoneIcon, PillIcon, PlusIcon, StethoscopeIcon, Trash2Icon } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import {
+  ClockIcon,
+  HospitalIcon,
+  PencilIcon,
+  PhoneIcon,
+  PillIcon,
+  PlusIcon,
+  StethoscopeIcon,
+  Trash2Icon,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { doctorsRemoveManyFromMyList, useDoctorsList } from '@/api/generated/endpoints'
@@ -16,17 +25,20 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { usePermission } from '@/features/auth/usePermission'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
 import { StartVisitButton } from '@/features/visits/StartVisitButton'
-import { fromDoctor, fromPharmacy, usePharmacies } from '@/features/visits/use-rep-customers'
+import { fromDoctor, fromPharmacy, useAmPlaces, usePharmacies } from '@/features/visits/use-rep-customers'
 import { formatNumber, localizedName } from '@/lib/format'
 import { readCache, writeCache } from '@/lib/offline-cache'
 import { P } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import { AddPharmacySheet } from '@/features/customers/AddPharmacySheet'
+import { AddPlaceSheet } from '@/features/customers/AddPlaceSheet'
 import { canAddPharmacy } from '@/features/customers/pharmacy-form'
+import { canAddPlace } from '@/features/home/am-places'
 import { useAppSelector } from '@/store'
 import { AddDoctorSheet } from './AddDoctorSheet'
 import { OutsideAreaBadge, SpecialtySelect, TownSelect } from './doctor-fields'
 import { DoctorEditDialog } from './DoctorEditDialog'
+import { DoctorHoursSearch } from './DoctorHoursSearch'
 
 const doctorId = (d: DoctorDto) => d.id
 
@@ -109,19 +121,104 @@ function RepPharmacies() {
   )
 }
 
-/** The rep's doctors and the pharmacies of their area, each with "Start visit". */
+/** AM places (morning visits such as a hospital) of the rep's area, with "Start visit" and "Add place". */
+function RepPlaces() {
+  const { t } = useTranslation()
+  const places = useAmPlaces()
+  const { towns } = useDoctorReferenceData()
+  const canAdd = useAppSelector((s) => canAddPlace(s.permissions.byKey))
+  const [adding, setAdding] = useState(false)
+  const [search, setSearch] = useState('')
+  const [townId, setTownId] = useState('')
+  const usedTowns = useMemo(() => {
+    const ids = new Set((places.data ?? []).map((p) => p.territoryId))
+    return (towns.data ?? []).filter((town) => ids.has(town.id))
+  }, [places.data, towns.data])
+  const q = search.trim().toLowerCase()
+  const rows = (places.data ?? []).filter(
+    (p) =>
+      (!townId || p.territoryId === townId) &&
+      (!q || p.name.toLowerCase().includes(q) || (p.nameAr ?? '').includes(q)),
+  )
+  const addButton = canAdd && (
+    <Button size="lg" onClick={() => setAdding(true)} data-testid="add-place">
+      <PlusIcon />
+      {t('places.add')}
+    </Button>
+  )
+
+  return (
+    <div className="space-y-4 [&_input]:h-11 [&_select]:h-11">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl font-semibold">
+          {t('places.title')}{' '}
+          {places.data && (
+            <span className="text-base font-normal text-muted-foreground">
+              ({formatNumber(places.data.length)})
+            </span>
+          )}
+        </h1>
+        {(places.data?.length ?? 0) > 0 && addButton}
+      </div>
+      <div className="grid gap-2">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder={t('places.searchPlaceholder')}
+          className="sm:w-full"
+        />
+        <TownSelect towns={usedTowns} value={townId} onChange={setTownId} allLabel={t('doctors.allTowns')} />
+      </div>
+      {places.isLoading ? (
+        <LoadingState rows={4} />
+      ) : places.error && !places.data ? (
+        <ErrorState error={places.error} onRetry={() => void places.refetch()} />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon={HospitalIcon}
+          title={places.data?.length ? t('states.noMatches') : t('places.empty')}
+          description={canAdd && !places.data?.length ? t('places.emptyHint') : undefined}
+          action={places.data?.length ? undefined : addButton || undefined}
+        />
+      ) : (
+        <ul className="space-y-2" data-testid="rep-places">
+          {rows.map((p) => (
+            <li key={p.id}>
+              <Card className="py-3">
+                <CardContent className="grid gap-2 px-4">
+                  <Link to="/rep/customers/$customerId" params={{ customerId: p.id }} className="min-h-11">
+                    <p className="font-medium">{localizedName(p.name, p.nameAr)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {[localizedName(p.territoryName, p.territoryNameAr), p.address, p.landmark]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  </Link>
+                  <StartVisitButton customer={fromPharmacy(p)} className="w-full" />
+                </CardContent>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+      {canAdd && <AddPlaceSheet open={adding} onOpenChange={setAdding} onAdded={() => setSearch('')} />}
+    </div>
+  )
+}
+
+/** The rep's doctors, the pharmacies and the AM places of their area, each with "Start visit". */
 export function RepDoctorsPage() {
   const { t } = useTranslation()
-  const [kind, setKind] = useState<'doctors' | 'pharmacies'>('doctors')
+  const [kind, setKind] = useState<'doctors' | 'pharmacies' | 'places'>('doctors')
 
   return (
     <div className="space-y-4">
       <div
-        className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+        className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1"
         role="tablist"
         aria-label={t('visits.pharmacies.tabs')}
       >
-        {(['doctors', 'pharmacies'] as const).map((value) => (
+        {(['doctors', 'pharmacies', 'places'] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -134,11 +231,11 @@ export function RepDoctorsPage() {
               kind === value && 'bg-background text-foreground shadow-xs',
             )}
           >
-            {t(`visits.pharmacies.${value}`)}
+            {value === 'places' ? t('places.tab') : t(`visits.pharmacies.${value}`)}
           </button>
         ))}
       </div>
-      {kind === 'doctors' ? <RepDoctorList /> : <RepPharmacies />}
+      {kind === 'doctors' ? <RepDoctorList /> : kind === 'pharmacies' ? <RepPharmacies /> : <RepPlaces />}
     </div>
   )
 }
@@ -158,6 +255,8 @@ function RepDoctorList() {
   const [specialtyId, setSpecialtyId] = useState('')
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<DoctorDto | null>(null)
+  const [searchingHours, setSearchingHours] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (doctors.data && doctors.isFetchedAfterMount) writeCache('my-doctors', doctors.data)
@@ -230,6 +329,15 @@ function RepDoctorList() {
             allLabel={t('doctors.allSpecialties')}
           />
         </div>
+        <Button
+          variant="outline"
+          size="lg"
+          onClick={() => setSearchingHours(true)}
+          data-testid="open-hours-search"
+        >
+          <ClockIcon />
+          {t('doctors.hoursSearch.open')}
+        </Button>
       </div>
 
       {doctors.isLoading ? (
@@ -290,6 +398,11 @@ function RepDoctorList() {
                             .filter(Boolean)
                             .join(' · ')}
                         </p>
+                        {(d.address || d.landmark) && (
+                          <p className="text-sm text-muted-foreground">
+                            {[d.address, d.landmark].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
                       </Link>
                       {d.outsideMyArea && <OutsideAreaBadge />}
                     </div>
@@ -343,6 +456,14 @@ function RepDoctorList() {
         <AddDoctorSheet open={adding} onOpenChange={setAdding} onAdded={() => void doctors.refetch()} />
       )}
       {editing && <DoctorEditDialog key={editing.id} doctor={editing} onClose={() => setEditing(null)} />}
+      <DoctorHoursSearch
+        open={searchingHours}
+        onOpenChange={setSearchingHours}
+        mine
+        onOpenDoctor={(doctor) =>
+          void navigate({ to: '/rep/customers/$customerId', params: { customerId: doctor.id } })
+        }
+      />
     </div>
   )
 }

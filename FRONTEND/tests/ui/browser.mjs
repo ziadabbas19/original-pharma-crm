@@ -17,6 +17,16 @@ function chromePath() {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+const KEY_CODES = {
+  Space: 32,
+  Enter: 13,
+  Escape: 27,
+  ArrowUp: 38,
+  ArrowDown: 40,
+  ArrowLeft: 37,
+  ArrowRight: 39,
+}
+
 export async function launch() {
   const profile = mkdtempSync(join(tmpdir(), 'op-ui-'))
   const port = 9300 + Math.floor(Math.random() * 500)
@@ -173,6 +183,13 @@ export async function launch() {
       })()`)
     },
     click: (selector) => evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`),
+    /** Presses a key on the focused element, as the keyboard would (code: 'Space', 'ArrowDown', ...). */
+    async press(code, key = code === 'Space' ? ' ' : code) {
+      for (const type of ['keyDown', 'keyUp']) {
+        await send('Input.dispatchKeyEvent', { type, code, key, windowsVirtualKeyCode: KEY_CODES[code] ?? 0 })
+      }
+      await sleep(150)
+    },
     async screenshot() {
       const { data } = await send('Page.captureScreenshot', { format: 'png' })
       return Buffer.from(data, 'base64')
