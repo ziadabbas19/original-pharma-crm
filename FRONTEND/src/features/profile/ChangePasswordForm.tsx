@@ -1,12 +1,12 @@
-import { CheckCircle2Icon, CheckIcon, DotIcon, EyeIcon, EyeOffIcon, Loader2Icon } from 'lucide-react'
+import { CheckCircle2Icon, CheckIcon, DotIcon, Loader2Icon } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAccountChangePassword } from '@/api/generated/endpoints'
 import { FormError } from '@/components/states'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
 import { handleError, inlineErrors } from '@/lib/errors'
 import { loadMe } from '@/lib/session'
 import { cn } from '@/lib/utils'
@@ -19,7 +19,6 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [show, setShow] = useState(false)
   const [touched, setTouched] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [done, setDone] = useState(false)
@@ -47,14 +46,12 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
     }
   }
 
-  const type = show ? 'text' : 'password'
   return (
     <form className="grid gap-4" noValidate onSubmit={(e) => void submit(e)}>
       <div className="grid gap-2">
         <Label htmlFor="current-password">{t('password.current')}</Label>
-        <Input
+        <PasswordInput
           id="current-password"
-          type={type}
           dir="ltr"
           autoComplete="current-password"
           value={current}
@@ -63,20 +60,9 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
         />
       </div>
       <div className="grid gap-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="new-password">{t('password.new')}</Label>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => setShow((v) => !v)}
-          >
-            {show ? <EyeOffIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
-            {show ? t('password.hide') : t('password.show')}
-          </button>
-        </div>
-        <Input
+        <Label htmlFor="new-password">{t('password.new')}</Label>
+        <PasswordInput
           id="new-password"
-          type={type}
           dir="ltr"
           autoComplete="new-password"
           value={next}
@@ -111,9 +97,8 @@ export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
       </div>
       <div className="grid gap-2">
         <Label htmlFor="confirm-password">{t('password.confirm')}</Label>
-        <Input
+        <PasswordInput
           id="confirm-password"
-          type={type}
           dir="ltr"
           autoComplete="new-password"
           value={confirm}

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
 import { handleError, type AppError } from '@/lib/errors'
 import { login } from '@/lib/session'
 
@@ -96,9 +97,8 @@ export function LoginPage() {
               {(field) => (
                 <div className="grid gap-2">
                   <Label htmlFor={field.name}>{t('auth.password')}</Label>
-                  <Input
+                  <PasswordInput
                     id={field.name}
-                    type="password"
                     dir="ltr"
                     autoComplete="current-password"
                     value={field.state.value}

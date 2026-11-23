@@ -45,8 +45,8 @@ android {
         applicationId "com.originalpharma.crm"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
-        versionName "1.4"
+        versionCode 6
+        versionName "1.5"
         buildConfigField "String[]", "KNOWN_SPOOFING_APPS", javaStringArray(knownApps.spoofing)
         buildConfigField "String[]", "KNOWN_ROOT_APPS", javaStringArray(knownApps.root)
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"

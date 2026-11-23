@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  addHours,
   groupByWeekday,
   matchingSlots,
-  nextSlot,
   rangesOverlap,
   slotMatches,
   slotProblems,
   toMinutes,
   toSlotInputs,
+  weekdayRange,
 } from '../../src/features/doctors/availability.ts'
 import { amProgress, todayPlan } from '../../src/features/home/today-plan.ts'
 import { applyOrder, moveId } from '../../src/features/home/reorder.ts'
@@ -83,8 +84,57 @@ test('the form flags bad times, an end before the start and overlaps on the same
   assert.deepEqual(toSlotInputs([slot('monday', '9:00', '12:00', '  Clinic ')]), [
     { weekday: 'monday', start: '09:00', end: '12:00', place: 'Clinic' },
   ])
-  assert.deepEqual(nextSlot([]), slot('saturday', '17:00', '21:00'))
-  assert.equal(nextSlot([slot('friday', '10:00', '12:00')]).weekday, 'saturday')
+})
+
+test('a day range follows the Egyptian week and may wrap over Friday', () => {
+  assert.deepEqual(weekdayRange('saturday', 'wednesday'), [
+    'saturday',
+    'sunday',
+    'monday',
+    'tuesday',
+    'wednesday',
+  ])
+  assert.deepEqual(weekdayRange('thursday', 'sunday'), ['thursday', 'friday', 'saturday', 'sunday'])
+  assert.deepEqual(weekdayRange('monday', 'monday'), ['monday'])
+  assert.equal(weekdayRange('sunday', 'saturday').length, 7)
+})
+
+test('the same hours are added to every chosen day, Saturday first', () => {
+  const evening = { start: '17:00', end: '21:00', place: 'Clinic' }
+  const existing = [slot('monday', '09:00', '12:00')]
+  const result = addHours(existing, weekdayRange('thursday', 'sunday'), evening)
+  assert.equal(result.problem, null)
+  assert.deepEqual(result.conflicts, [])
+  assert.deepEqual(
+    result.slots.map((s) => `${s.weekday} ${s.start}-${s.end} ${s.place}`),
+    [
+      'saturday 17:00-21:00 Clinic',
+      'sunday 17:00-21:00 Clinic',
+      'monday 09:00-12:00 ',
+      'thursday 17:00-21:00 Clinic',
+      'friday 17:00-21:00 Clinic',
+    ],
+  )
+  // A single day, chosen alone, with its own hours.
+  assert.deepEqual(addHours([], ['tuesday'], { start: '10:00', end: '13:00', place: '' }).slots, [
+    slot('tuesday', '10:00', '13:00'),
+  ])
+  // Days that already have hours afterwards (a touching end is not an overlap).
+  assert.equal(addHours(existing, ['monday'], { start: '12:00', end: '15:00', place: '' }).slots.length, 2)
+})
+
+test('nothing is added when the hours overlap a chosen day or the times are wrong', () => {
+  const existing = [slot('sunday', '18:00', '20:00'), slot('tuesday', '09:00', '10:00')]
+  const evening = { start: '17:00', end: '21:00', place: '' }
+  const clash = addHours(existing, ['saturday', 'tuesday', 'sunday'], evening)
+  assert.equal(clash.problem, 'overlap')
+  assert.deepEqual(clash.conflicts, ['sunday'])
+  assert.deepEqual(clash.slots, existing)
+
+  const backwards = addHours(existing, ['saturday'], { start: '21:00', end: '17:00', place: '' })
+  assert.equal(backwards.problem, 'endBeforeStart')
+  assert.deepEqual(backwards.slots, existing)
+  assert.equal(addHours([], ['saturday'], { start: '', end: '21:00', place: '' }).problem, 'time')
 })
 
 test('drag and drop moves one item to where another one was', () => {

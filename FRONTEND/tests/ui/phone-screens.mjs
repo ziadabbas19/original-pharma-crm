@@ -165,6 +165,95 @@ async function closeMore() {
   await page.waitFor(`!document.querySelector('[data-testid=more-menu]')`)
 }
 
+/** Picks an option of a native select the way React expects. */
+async function choose(selector, value) {
+  await page.evaluate(`(() => {
+    const select = document.querySelector(${JSON.stringify(selector)})
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, ${JSON.stringify(value)})
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  })()`)
+}
+
+/**
+ * The doctor hours editor in the open add-doctor sheet: a range of working days (wrapping over Friday),
+ * the same hours on all of them, an overlap that adds nothing and names the day, one day with its own
+ * hours, then one day changed and one removed from the list. Every control is 44 px high.
+ */
+async function checkHoursEditor(t, width) {
+  const inSheet = (id) => `[data-testid=admin-add-doctor] [data-testid=${id}]`
+  const chip = (day) => `${inSheet('doctor-day-chip')}[data-day=${day}]`
+  const pressed = () =>
+    page.evaluate(
+      `[...document.querySelectorAll('[data-testid=doctor-day-chip][aria-pressed=true]')].map((b) => b.dataset.day)`,
+    )
+  const slotCount = () => page.evaluate(`document.querySelectorAll('[data-testid=doctor-slot]').length`)
+  const setTime = (selector, value) =>
+    page.evaluate(`(() => {
+      const input = document.querySelector(${JSON.stringify(selector)})
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)})
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })()`)
+
+  await choose(inSheet('doctor-day-from'), 'thursday')
+  await choose(inSheet('doctor-day-to'), 'sunday')
+  assert.deepEqual(await pressed(), ['saturday', 'sunday', 'thursday', 'friday'])
+  await choose(inSheet('doctor-day-from'), 'saturday')
+  await choose(inSheet('doctor-day-to'), 'wednesday')
+  assert.deepEqual(await pressed(), ['saturday', 'sunday', 'monday', 'tuesday', 'wednesday'])
+  await setTime(inSheet('doctor-hours-start'), '17:00')
+  await setTime(inSheet('doctor-hours-end'), '21:00')
+  await page.click(inSheet('doctor-slot-add'))
+  await page.waitFor(`document.querySelectorAll('[data-testid=doctor-slot]').length === 5`)
+  assert.deepEqual(await pressed(), [], 'the days are cleared once added')
+
+  await page.click(chip('wednesday'))
+  await page.click(inSheet('doctor-slot-add'))
+  await page.waitFor(`document.querySelector('[data-testid=doctor-slot-add-problem]')`)
+  const problem = await page.evaluate(
+    `document.querySelector('[data-testid=doctor-slot-add-problem]').textContent`,
+  )
+  assert.ok(problem.includes(t.doctors.weekdays.wednesday), problem)
+  assert.equal(await slotCount(), 5, 'nothing added on a conflict')
+
+  await page.click(inSheet('doctor-days-clear'))
+  await page.click(chip('thursday'))
+  await setTime(inSheet('doctor-hours-start'), '18:00')
+  await setTime(inSheet('doctor-hours-end'), '20:00')
+  await page.click(inSheet('doctor-slot-add'))
+  await page.waitFor(`document.querySelectorAll('[data-testid=doctor-slot]').length === 6`)
+
+  await setTime(
+    '[data-testid=doctor-slot-day][data-day=monday] [data-testid=doctor-slot] label:nth-child(2) input',
+    '22:00',
+  )
+  await page.click('[data-testid=doctor-slot-day][data-day=tuesday] [data-testid=doctor-slot-remove]')
+  await page.waitFor(`!document.querySelector('[data-testid=doctor-slot-day][data-day=tuesday]')`)
+  assert.deepEqual(
+    await page.evaluate(
+      `[...document.querySelectorAll('[data-testid=doctor-slot-day]')].map((d) => d.dataset.day + ' ' + [...d.querySelectorAll('input[type=time]')].map((i) => i.value).join('-'))`,
+    ),
+    [
+      'saturday 17:00-21:00',
+      'sunday 17:00-21:00',
+      'monday 17:00-22:00',
+      'wednesday 17:00-21:00',
+      'thursday 18:00-20:00',
+    ],
+  )
+
+  const heights = await page.evaluate(
+    `[...document.querySelectorAll('[data-testid=doctor-availability] :is(input, select, button)')].map((e) => Math.round(e.getBoundingClientRect().height))`,
+  )
+  assert.ok(
+    heights.length > 20 && heights.every((h) => h >= 44),
+    `hours controls are 44 px at ${width}px: ${heights}`,
+  )
+  const sideways = await page.evaluate(
+    `(() => { const s = document.querySelector('[data-testid=admin-add-doctor]'); return s.scrollWidth - s.clientWidth })()`,
+  )
+  assert.ok(sideways <= 1, `add doctor sheet scrolls sideways by ${sideways}px at ${width}px`)
+}
+
 async function signOutFromMore() {
   await openMore()
   await page.click('[data-testid=more-sign-out]')
@@ -172,6 +261,50 @@ async function signOutFromMore() {
 }
 
 try {
+  await check(
+    'sign-in fits 360-430 px in ar/en, light and dark; the eye shows and hides the password',
+    async () => {
+      await page.goto(`${baseUrl}/login`)
+      for (const combo of COMBOS) {
+        const t = locales[combo.language]
+        await page.evaluate(
+          `localStorage.setItem('op.language', '${combo.language}'); localStorage.setItem('op.theme', '${combo.theme}')`,
+        )
+        await page.goto(`${baseUrl}/login`)
+        await page.waitFor(`document.querySelector('[data-testid=login-card] [data-testid=password-toggle]')`)
+        for (const width of WIDTHS) {
+          await page.viewport(width, 844, true)
+          await page.sleep(200)
+          assert.ok((await pageOverflow()) <= 1, `/login scrolls sideways at ${width}px`)
+          const field = () =>
+            page.evaluate(`(() => {
+            const input = document.querySelector('#password')
+            const toggle = document.querySelector('[data-testid=password-toggle]')
+            const i = input.getBoundingClientRect()
+            const b = toggle.getBoundingClientRect()
+            const atEnd = document.dir === 'rtl' ? Math.abs(b.left - i.left) <= 1 : Math.abs(b.right - i.right) <= 1
+            return { type: input.type, value: input.value, label: toggle.getAttribute('aria-label'), height: b.height, width: b.width, atEnd }
+          })()`)
+          await page.fill('#password', 'Not-the-password-1')
+          let state = await field()
+          assert.equal(state.type, 'password')
+          assert.equal(state.label, t.password.show)
+          assert.ok(state.height >= 44 && state.width >= 44, `eye button ${state.width}x${state.height}`)
+          assert.ok(state.atEnd, `eye button at the inline end (${combo.language})`)
+          await page.click('[data-testid=password-toggle]')
+          state = await field()
+          assert.deepEqual(
+            [state.type, state.label, state.value],
+            ['text', t.password.hide, 'Not-the-password-1'],
+          )
+          await page.click('[data-testid=password-toggle]')
+          state = await field()
+          assert.deepEqual([state.type, state.label], ['password', t.password.show])
+        }
+      }
+    },
+  )
+
   await page.viewport(390, 844, true)
   await signIn(page, baseUrl, 'admin@originalpharma.local', password)
 
@@ -384,15 +517,7 @@ try {
     await page.click('[data-testid=admin-add-doctor-open]')
     await page.waitFor(`document.querySelector('[data-testid=admin-add-doctor] #doctor-rep')`)
     await assertBottomSheet(390)
-    await page.click('[data-testid=doctor-slot-add]')
-    await page.waitFor(`document.querySelectorAll('[data-testid=doctor-slot]').length === 1`)
-    const slotHeights = await page.evaluate(
-      `[...document.querySelectorAll('[data-testid=doctor-slot] input, [data-testid=doctor-slot] select, [data-testid=doctor-slot] button')].map((e) => e.getBoundingClientRect().height)`,
-    )
-    assert.ok(
-      slotHeights.every((h) => h >= 44),
-      `slot controls are 44 px: ${slotHeights}`,
-    )
+    await checkHoursEditor(en, 390)
     await shoot('admin-add-doctor-en-light-390', scheduleScreenshots)
     await closeDialog()
 
@@ -404,6 +529,22 @@ try {
       'added by shown',
     )
     await closeDialog()
+  })
+
+  await check('doctor hours: working days at once, 360-430 px in ar/en', async () => {
+    for (const language of ['ar', 'en']) {
+      await reopenAs('/admin/doctors', { language, theme: 'light' })
+      for (const width of WIDTHS) {
+        await page.viewport(width, 844, true)
+        await page.sleep(300)
+        await page.click('[data-testid=admin-add-doctor-open]')
+        await page.waitFor(`document.querySelector('[data-testid=admin-add-doctor] #doctor-rep')`)
+        await assertBottomSheet(width)
+        await checkHoursEditor(locales[language], width)
+        await closeDialog()
+      }
+    }
+    await page.viewport(390, 844, true)
   })
 
   await check('a rep signs in to the rep app', async () => {

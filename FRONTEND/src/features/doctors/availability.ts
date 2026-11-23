@@ -135,10 +135,32 @@ export function toSlotInputs(slots: readonly SlotValue[]): DoctorSlotInput[] {
   }))
 }
 
-/** A new slot for the form: the day after the last one's, or Saturday evening. */
-export function nextSlot(slots: readonly SlotValue[]): SlotValue {
-  const last = slots.at(-1)
-  if (!last) return { weekday: 'saturday', start: '17:00', end: '21:00', place: '' }
-  const day = WEEKDAYS[(WEEKDAYS.indexOf(last.weekday) + 1) % WEEKDAYS.length]
-  return { weekday: day, start: last.start, end: last.end, place: last.place }
+/**
+ * The days from `from` to `to` in the Egyptian week. A range may wrap over Friday into the next
+ * week: Thursday to Sunday is Thursday, Friday, Saturday and Sunday.
+ */
+export function weekdayRange(from: DayOfWeek, to: DayOfWeek): DayOfWeek[] {
+  const start = WEEKDAYS.indexOf(from)
+  const count = ((WEEKDAYS.indexOf(to) - start + WEEKDAYS.length) % WEEKDAYS.length) + 1
+  return Array.from({ length: count }, (_, i) => WEEKDAYS[(start + i) % WEEKDAYS.length])
+}
+
+/**
+ * The same hours (and place) on each chosen day, added to the form's slots, Saturday first. Nothing
+ * is added when the times are wrong or when the hours overlap a slot already on one of the days;
+ * `conflicts` then names those days (the same overlap rule as slotProblems).
+ */
+export function addHours(
+  slots: readonly SlotValue[],
+  days: readonly DayOfWeek[],
+  hours: Omit<SlotValue, 'weekday'>,
+): { slots: SlotValue[]; problem: SlotProblem | null; conflicts: DayOfWeek[] } {
+  const added = WEEKDAYS.filter((day) => days.includes(day)).map((weekday) => ({ ...hours, weekday }))
+  const problems = slotProblems([...slots, ...added]).slice(slots.length)
+  const problem = problems.find((p) => p !== null) ?? null
+  if (problem) {
+    const conflicts = added.filter((_, i) => problems[i] === 'overlap').map((s) => s.weekday)
+    return { slots: [...slots], problem, conflicts }
+  }
+  return { slots: sortSlots([...slots, ...added]), problem: null, conflicts: [] }
 }

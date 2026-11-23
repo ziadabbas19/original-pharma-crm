@@ -20,6 +20,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { PasswordInput } from '@/components/ui/password-input'
 import { useMyRoleLevel, usePermission, usePermissionScope } from '@/features/auth/usePermission'
 import { passwordProblems } from '@/features/profile/password-rules'
 import { LevelBadge, LockedNote } from '@/features/roles/RoleBadges'
@@ -289,12 +290,10 @@ export function CreateUserDialog({
                             id={field.name}
                             errors={[...field.state.meta.errors, ...errors.fieldList('password')]}
                           >
-                            <Input
+                            <PasswordInput
                               id={field.name}
-                              type="text"
                               dir="ltr"
                               autoComplete="new-password"
-                              spellCheck={false}
                               className="font-mono"
                               value={field.state.value}
                               onBlur={field.handleBlur}
