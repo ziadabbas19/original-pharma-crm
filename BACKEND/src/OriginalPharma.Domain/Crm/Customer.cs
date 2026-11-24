@@ -41,6 +41,13 @@ public class Customer : Entity, IArchivable
     public CustomerType Type { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? NameAr { get; set; }
+
+    /// <summary><see cref="Name"/> in search form (<see cref="CustomerNameSearch"/>). Kept in step on every save.</summary>
+    public string NameSearch { get; set; } = string.Empty;
+
+    /// <summary><see cref="NameAr"/> in search form; null when there is no Arabic name.</summary>
+    public string? NameArSearch { get; set; }
+
     /// <summary>Detailed address (street, building, floor).</summary>
     public string? Address { get; set; }
 
@@ -93,4 +100,11 @@ public class Customer : Entity, IArchivable
 
     /// <summary>When a doctor can be visited (no slots: no hours set).</summary>
     public ICollection<DoctorAvailability> Availability { get; set; } = new List<DoctorAvailability>();
+
+    /// <summary>Recomputes the search forms of the names (the database context calls this before saving).</summary>
+    public void RefreshNameSearch()
+    {
+        NameSearch = CustomerNameSearch.Normalize(Name);
+        NameArSearch = string.IsNullOrWhiteSpace(NameAr) ? null : CustomerNameSearch.Normalize(NameAr);
+    }
 }

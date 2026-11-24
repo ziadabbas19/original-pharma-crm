@@ -78,7 +78,7 @@ export function DoctorsPage() {
   const term = useDebouncedValue(search.trim(), 300)
 
   const params = {
-    RepId: repId || undefined,
+    ListOf: repId || undefined,
     AreaId: areaId || undefined,
     TownId: townId || undefined,
     SpecialtyId: specialtyId || undefined,
@@ -298,7 +298,11 @@ export function DoctorsPage() {
   return (
     <>
       <PageHeader
-        title={t('doctors.title')}
+        title={
+          repId
+            ? t('doctors.lists.of', { name: reps.find((r) => r.id === repId)?.name ?? '' })
+            : t('doctors.title')
+        }
         description={t('doctors.hint')}
         actions={
           <>
@@ -315,14 +319,16 @@ export function DoctorsPage() {
           </>
         }
       />
+      {/* While searching, the server's order (closest names first) is kept; otherwise by name. */}
       <DataTable
+        key={term ? 'closest-first' : 'by-name'}
         columns={columns}
         data={doctors.data}
         isLoading={doctors.isLoading}
         error={doctors.error}
         onRetry={() => void doctors.refetch()}
         getRowId={(d) => d.id}
-        initialSorting={[{ id: 'name', desc: false }]}
+        initialSorting={term ? undefined : [{ id: 'name', desc: false }]}
         filtered={isFiltered}
         onClearFilters={clear}
         empty={{ icon: StethoscopeIcon, title: archived ? t('archive.empty') : t('doctors.empty') }}
@@ -372,6 +378,7 @@ export function DoctorsPage() {
                   className="w-44"
                   value={repId}
                   onChange={(e) => setRepId(e.target.value)}
+                  data-testid="doctor-rep-filter"
                 >
                   <option value="">{t('table.all')}</option>
                   {reps.map((r) => (
@@ -529,6 +536,7 @@ export function DoctorsPage() {
       <DoctorHoursSearch
         open={searchingHours}
         onOpenChange={setSearchingHours}
+        listOf={repId || undefined}
         onOpenDoctor={(doctor) => {
           setSearchingHours(false)
           setViewing(doctor)

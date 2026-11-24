@@ -83,6 +83,30 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.HasSequence<long>(Infrastructure.Orders.OrderNumberGenerator.SequenceName);
         builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        RefreshCustomerNameSearch();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        RefreshCustomerNameSearch();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>Every path that adds or renames a customer (forms, imports, seeding) keeps the search names in step.</summary>
+    private void RefreshCustomerNameSearch()
+    {
+        foreach (var entry in ChangeTracker.Entries<Customer>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified)
+            {
+                entry.Entity.RefreshNameSearch();
+            }
+        }
+    }
 }
 
 /// <summary>A seeding step that ran once (demo data). Keeps the seeder from re-adding rows people deleted or renamed.</summary>

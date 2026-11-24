@@ -49,8 +49,11 @@ export function rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd
 }
 
 /**
- * The search rule: a slot matches when it is on the weekday (if one is chosen) and overlaps the
- * time range [from, to) (either end may be left open).
+ * The search rule (the server's DoctorAvailabilityRules.SlotMatches): a slot matches when it is on the
+ * weekday (if one is chosen) and
+ *  - from and to: it overlaps [from, to) (start < to and end > from; touching ends do not match);
+ *  - only from: it includes that minute (start <= from < end);
+ *  - only to: it starts before it.
  */
 export function slotMatches(
   slot: Pick<DoctorSlotDto, 'weekday' | 'start' | 'end'>,
@@ -60,9 +63,12 @@ export function slotMatches(
   const start = toMinutes(slot.start)
   const end = toMinutes(slot.end)
   if (start === null || end === null) return false
-  const from = toMinutes(filter.from) ?? 0
-  const to = toMinutes(filter.to) ?? 24 * 60
-  return rangesOverlap(start, end, from, to)
+  const from = toMinutes(filter.from)
+  const to = toMinutes(filter.to)
+  if (from !== null && to !== null) return rangesOverlap(start, end, from, to)
+  if (from !== null) return start <= from && from < end
+  if (to !== null) return start < to
+  return true
 }
 
 /** The doctor's slots that match the day / time search, Saturday first. */

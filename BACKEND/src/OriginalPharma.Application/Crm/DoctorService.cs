@@ -94,7 +94,16 @@ public sealed record DoctorLocationHistoryDto(
     bool Capped);
 
 /// <param name="Mine">Only the caller's own list (the rep app).</param>
-/// <param name="RepId">Only this rep's list (must be in the caller's scope).</param>
+/// <param name="RepId">Same as <paramref name="ListOf"/> (kept for older clients).</param>
+/// <param name="ListOf">
+/// Only this person's list: the caller's own, or (managers) the list of someone inside the caller's
+/// customers:read scope and below the caller's role level. 403 otherwise, 404 when there is no such user.
+/// </param>
+/// <param name="Search">
+/// Name (Arabic or English, forgiving: hamza forms, ta marbuta, diacritics and a leading title do not
+/// matter) or phone. Closest first: the whole name, then names starting with it, then any word starting
+/// with it, then names containing it.
+/// </param>
 /// <param name="Unassigned">Only doctors that are on nobody's list.</param>
 /// <param name="Archived">Only archived (deleted) doctors.</param>
 /// <param name="Weekday">
@@ -102,8 +111,11 @@ public sealed record DoctorLocationHistoryDto(
 /// come first; doctors with no hours set follow them when an area or town filter is used, and are left
 /// out otherwise.
 /// </param>
-/// <param name="TimeFrom">"HH:mm": only slots that end after this time.</param>
-/// <param name="TimeTo">"HH:mm": only slots that start before this time.</param>
+/// <param name="TimeFrom">
+/// "HH:mm". With <paramref name="TimeTo"/>: slots overlapping [from, to). Alone: slots that include this
+/// minute (start at or before it, end after it).
+/// </param>
+/// <param name="TimeTo">"HH:mm". With <paramref name="TimeFrom"/>: see there. Alone: slots that start before it.</param>
 /// <param name="CreatedById">Only doctors added by this user.</param>
 /// <param name="Page">1-based page; without it the list returns up to 1000 rows.</param>
 /// <param name="PageSize">Rows per page (1-100, default 20).</param>
@@ -122,7 +134,8 @@ public sealed record DoctorQuery(
     string? TimeTo = null,
     Guid? CreatedById = null,
     int? Page = null,
-    int? PageSize = null);
+    int? PageSize = null,
+    Guid? ListOf = null);
 
 /// <summary>A visiting slot as the forms send it: weekday, "HH:mm" start and end, optional place.</summary>
 public sealed record DoctorSlotInput(DayOfWeek Weekday, string Start, string End, string? Place = null);
@@ -221,6 +234,28 @@ public static class DoctorAvailabilityRules
 
     public static string Format(TimeOnly time) => time.ToString("HH:mm");
 
+    /// <summary>
+    /// The day / time search rule, used as SQL by the doctor list (and compiled by the tests). A slot
+    /// matches when it is on <paramref name="weekday"/> (any day when null) and:
+    /// <list type="bullet">
+    /// <item>from and to: it overlaps [from, to): start &lt; to and end &gt; from, so touching ends do not match;</item>
+    /// <item>only from: it includes that minute: start &lt;= from &lt; end;</item>
+    /// <item>only to: it starts before it.</item>
+    /// </list>
+    /// Slots never run past midnight (end after start, 23:59 at the latest), so no wrap-around is needed.
+    /// </summary>
+    public static System.Linq.Expressions.Expression<Func<DoctorAvailability, bool>> SlotMatches(
+        DayOfWeek? weekday,
+        TimeOnly? from,
+        TimeOnly? to) =>
+        (from, to) switch
+        {
+            ({ } f, { } t) => a => (weekday == null || a.Weekday == weekday) && a.StartTime < t && a.EndTime > f,
+            ({ } f, null) => a => (weekday == null || a.Weekday == weekday) && a.StartTime <= f && a.EndTime > f,
+            (null, { } t) => a => (weekday == null || a.Weekday == weekday) && a.StartTime < t,
+            _ => a => weekday == null || a.Weekday == weekday,
+        };
+
     /// <summary>Checks the slots and turns them into rows for <paramref name="doctorId"/>.</summary>
     public static List<DoctorAvailability> Build(Guid doctorId, IReadOnlyList<DoctorSlotInput>? slots)
     {
@@ -301,10 +336,10 @@ public sealed class DoctorService(
         var visibleReps = await VisibleRepIdsAsync(scope, cancellationToken);
         var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
 
-        var repFilter = query.Mine ? me : query.RepId;
-        if (repFilter is { } repId && repId != me && visibleReps is not null && !visibleReps.Contains(repId))
+        var repFilter = query.Mine ? me : query.ListOf ?? query.RepId;
+        if (repFilter is { } repId)
         {
-            throw new ForbiddenException("This rep is outside your scope.");
+            await EnsureCanViewListAsync(me, repId, visibleReps, cancellationToken);
         }
 
         var doctors = db.Customers.AsNoTracking()
@@ -344,13 +379,14 @@ public sealed class DoctorService(
             doctors = doctors.Where(c => c.SpecialtyId == specialtyId);
         }
 
-        if (!string.IsNullOrWhiteSpace(query.Search))
+        var term = CustomerNameSearch.Normalize(query.Search);
+        if (term.Length > 0)
         {
-            var term = query.Search.Trim().ToLower();
+            var phone = query.Search!.Trim();
             doctors = doctors.Where(c =>
-                c.Name.ToLower().Contains(term) ||
-                (c.NameAr != null && c.NameAr.Contains(term)) ||
-                (c.Phone != null && c.Phone.Contains(term)));
+                c.NameSearch.Contains(term) ||
+                (c.NameArSearch != null && c.NameArSearch.Contains(term)) ||
+                (c.Phone != null && c.Phone.Contains(phone)));
         }
 
         if (query.CreatedById is { } creatorId)
@@ -358,8 +394,8 @@ public sealed class DoctorService(
             doctors = doctors.Where(c => c.CreatedById == creatorId);
         }
 
-        // Day and time: a slot on that weekday overlapping [from, to). Doctors without any slot are kept
-        // (after the others) only when the search is narrowed to an area or town.
+        // Day and time (DoctorAvailabilityRules.SlotMatches). Doctors without any slot are kept (after the
+        // others) only when the search is narrowed to an area or town.
         var from = DoctorAvailabilityRules.ParseTime(query.TimeFrom);
         var to = DoctorAvailabilityRules.ParseTime(query.TimeTo);
         if (from is not null && to is not null && to <= from)
@@ -368,23 +404,22 @@ public sealed class DoctorService(
         }
 
         var byHours = query.Weekday is not null || from is not null || to is not null;
-        IOrderedQueryable<Customer> ordered;
         if (byHours)
         {
-            var weekday = query.Weekday;
             var withNoHours = query.AreaId is not null || query.TownId is not null;
-            doctors = doctors.Where(c =>
-                c.Availability.Any(a =>
-                    (weekday == null || a.Weekday == weekday) &&
-                    (from == null || a.EndTime > from) &&
-                    (to == null || a.StartTime < to)) ||
-                (withNoHours && !c.Availability.Any()));
-            ordered = doctors.OrderBy(c => !c.Availability.Any()).ThenBy(c => c.Name).ThenBy(c => c.Id);
+            var matching = db.DoctorAvailability.Where(DoctorAvailabilityRules.SlotMatches(query.Weekday, from, to)).Select(a => a.CustomerId);
+            doctors = doctors.Where(c => matching.Contains(c.Id) || (withNoHours && !c.Availability.Any()));
         }
-        else
+
+        // Doctors with no hours as their own group at the end, then the closest names, then by name.
+        var ordered = byHours ? doctors.OrderBy(c => !c.Availability.Any()) : null;
+        if (term.Length > 0)
         {
-            ordered = doctors.OrderBy(c => c.Name).ThenBy(c => c.Id);
+            var closeness = CustomerSearch.Closeness(term);
+            ordered = ordered is null ? doctors.OrderBy(closeness) : ordered.ThenBy(closeness);
         }
+
+        ordered = (ordered is null ? doctors.OrderBy(c => c.Name) : ordered.ThenBy(c => c.Name)).ThenBy(c => c.Id);
 
         var page = query.Page is { } number
             ? ordered.Skip((Math.Max(1, number) - 1) * Math.Clamp(query.PageSize ?? DefaultPageSize, 1, MaxPageSize))
@@ -489,10 +524,10 @@ public sealed class DoctorService(
     {
         var me = currentUser.RequireUserId();
         var doctors = db.Customers.AsNoTracking().Where(c => c.Type == CustomerType.Doctor && c.IsActive && c.ArchivedAt == null);
-        if (!string.IsNullOrWhiteSpace(search))
+        var term = CustomerNameSearch.Normalize(search);
+        if (term.Length > 0)
         {
-            var term = search.Trim().ToLower();
-            doctors = doctors.Where(c => c.Name.ToLower().Contains(term) || (c.NameAr != null && c.NameAr.Contains(term)));
+            doctors = doctors.Where(c => c.NameSearch.Contains(term) || (c.NameArSearch != null && c.NameArSearch.Contains(term)));
         }
 
         if (townId is not null)
@@ -505,7 +540,8 @@ public sealed class DoctorService(
             doctors = doctors.Where(c => c.SpecialtyId == specialtyId);
         }
 
-        var rows = await Project(doctors.OrderBy(c => c.Name).Take(DirectoryRows)).ToListAsync(cancellationToken);
+        var ordered = term.Length > 0 ? doctors.OrderBy(CustomerSearch.Closeness(term)).ThenBy(c => c.Name) : doctors.OrderBy(c => c.Name);
+        var rows = await Project(ordered.Take(DirectoryRows)).ToListAsync(cancellationToken);
         var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
 
         // Other reps' names are not part of the directory; phone and notes neither.
@@ -802,6 +838,39 @@ public sealed class DoctorService(
             c.Reps.Any(a => repIds.Contains(a.UserId)) ||
             territoryIds.Contains(c.TerritoryId) ||
             (includeUnassigned && !c.Reps.Any()));
+    }
+
+    /// <summary>
+    /// Opening someone else's list: they must be inside the caller's customers:read scope (403) and exist
+    /// (404), and rank below the caller (403), so a rep never opens another rep's list.
+    /// </summary>
+    private async Task EnsureCanViewListAsync(Guid me, Guid repId, HashSet<Guid>? visibleReps, CancellationToken cancellationToken)
+    {
+        if (repId == me)
+        {
+            return;
+        }
+
+        if (visibleReps is not null && !visibleReps.Contains(repId))
+        {
+            throw new ForbiddenException("This rep is outside your scope.");
+        }
+
+        if (!await db.Users.AnyAsync(u => u.Id == repId, cancellationToken))
+        {
+            throw new NotFoundException("User", repId);
+        }
+
+        var levels = await db.UserRoles.AsNoTracking()
+            .Where(ur => ur.UserId == me || ur.UserId == repId)
+            .Join(db.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => new { ur.UserId, r.Level })
+            .ToListAsync(cancellationToken);
+        var myLevel = RoleHierarchyRules.BestLevel(levels.Where(l => l.UserId == me).Select(l => l.Level));
+        var theirLevel = RoleHierarchyRules.BestLevel(levels.Where(l => l.UserId == repId).Select(l => l.Level));
+        if (!RoleHierarchyRules.CanManage(myLevel, theirLevel))
+        {
+            throw new ForbiddenException("You can only open the lists of the people below you.");
+        }
     }
 
     /// <summary>Users visible in the scope, or null when the scope is "all".</summary>

@@ -30,6 +30,12 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.HasIndex(c => c.SpecialtyId);
         builder.HasIndex(c => new { c.Type, c.Name });
         builder.HasIndex(c => c.Location).HasMethod("gist");
+
+        // Search forms of the names: plain text, with text_pattern_ops so "starts with" can use the index.
+        builder.Property(c => c.NameSearch).HasColumnType("text").HasDefaultValue(string.Empty).IsRequired();
+        builder.Property(c => c.NameArSearch).HasColumnType("text");
+        builder.HasIndex(c => c.NameSearch).HasOperators("text_pattern_ops");
+        builder.HasIndex(c => c.NameArSearch).HasOperators("text_pattern_ops");
     }
 }
 

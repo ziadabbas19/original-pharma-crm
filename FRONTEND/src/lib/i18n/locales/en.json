@@ -1625,10 +1625,12 @@
       "hint": "Choose a day, a time range, an area or a town. Every filter is optional.",
       "anyDay": "Any day",
       "rangeInvalid": "The end of the time range must be after its start.",
-      "start": "Choose a day, a time or a town to search.",
+      "start": "Choose a day, a time or a town, or type a name, to search.",
       "noMatchHint": "Try another day or time, or choose an area or town to also see doctors with no hours set.",
       "matching": "Available",
-      "more": "Show more"
+      "more": "Show more",
+      "name": "Name",
+      "namePlaceholder": "Doctor's name"
     },
     "create": {
       "hint": "The new doctor goes on the list of the rep you choose. The first visit saves the clinic location.",
@@ -1636,7 +1638,19 @@
       "ownList": "My own list",
       "repHint": "Only reps in your scope are listed.",
       "save": "Add doctor"
-    }
+    },
+    "lists": {
+      "label": "Which doctors",
+      "mine": "My list",
+      "all": "All doctors",
+      "of": "Doctors of: {{name}}",
+      "allHint": "Every doctor you can see. Add the ones you visit to your list."
+    },
+    "addToMyList": "Add to my list",
+    "removeFromMyList": "Remove from my list",
+    "addedToMyList": "Added to your list",
+    "removedFromMyList": "Removed from your list",
+    "emptyAll": "No doctors to show"
   },
   "orders": {
     "title": "Orders",

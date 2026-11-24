@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { localizedName } from '@/lib/format'
 import { matchingSlots, toMinutes, WEEKDAYS } from './availability'
 import { TownSelect } from './doctor-fields'
@@ -20,6 +21,7 @@ import { SlotText } from './DoctorSchedule'
 const PAGE_SIZE = 20
 
 interface HoursFilter {
+  name: string
   weekday: DayOfWeek | ''
   from: string
   to: string
@@ -27,23 +29,27 @@ interface HoursFilter {
   townId: string
 }
 
-const EMPTY: HoursFilter = { weekday: '', from: '', to: '', areaId: '', townId: '' }
+const EMPTY: HoursFilter = { name: '', weekday: '', from: '', to: '', areaId: '', townId: '' }
 
 /**
- * Find doctors by visiting day, time range, area and town (each optional, any combination), filtered and
- * paged on the server with the same scoping as the lists. With a day or time, doctors with a matching
- * slot come first; doctors with no hours set follow in their own group when an area or town is chosen.
+ * Find doctors by name, visiting day, time range, area and town (each optional, any combination), filtered
+ * and paged on the server with the same scoping as the lists. With a day or time, doctors with a matching
+ * slot come first (the matching slots are shown on the row); doctors with no hours set follow in their own
+ * group when an area or town is chosen.
  */
 export function DoctorHoursSearch({
   open,
   onOpenChange,
   mine,
+  listOf,
   onOpenDoctor,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** Only the caller's own list (the rep app). */
   mine?: boolean
+  /** Only this rep's list (a manager looking at one rep). */
+  listOf?: string
   onOpenDoctor: (doctor: DoctorDto) => void
 }) {
   const { t } = useTranslation()
@@ -52,7 +58,9 @@ export function DoctorHoursSearch({
   const set = (patch: Partial<HoursFilter>) => setFilter((f) => ({ ...f, ...patch }))
   const rangeInvalid =
     filter.from !== '' && filter.to !== '' && (toMinutes(filter.to) ?? 0) <= (toMinutes(filter.from) ?? 0)
+  const name = useDebouncedValue(filter.name.trim(), 300)
   const active =
+    name !== '' ||
     filter.weekday !== '' ||
     filter.from !== '' ||
     filter.to !== '' ||
@@ -65,12 +73,13 @@ export function DoctorHoursSearch({
     for (const town of towns.data ?? []) {
       if (town.areaId) byId.set(town.areaId, localizedName(town.areaName, town.areaNameAr))
     }
-    return [...byId].map(([id, name]) => ({ id, name }))
+    return [...byId].map(([id, label]) => ({ id, name: label }))
   }, [towns.data])
   const areaTowns = (towns.data ?? []).filter((town) => !filter.areaId || town.areaId === filter.areaId)
 
   const params: DoctorsListParams = {
-    ...(mine ? { Mine: true } : {}),
+    ...(mine ? { Mine: true } : listOf ? { ListOf: listOf } : {}),
+    ...(name ? { Search: name } : {}),
     ...(filter.weekday ? { Weekday: filter.weekday } : {}),
     ...(filter.from ? { TimeFrom: filter.from } : {}),
     ...(filter.to ? { TimeTo: filter.to } : {}),
@@ -137,6 +146,18 @@ export function DoctorHoursSearch({
           <SheetTitle>{t('doctors.hoursSearch.title')}</SheetTitle>
           <SheetDescription>{t('doctors.hoursSearch.hint')}</SheetDescription>
           <div className="mt-2 grid grid-cols-2 gap-2 [&_input]:h-11 [&_select]:h-11">
+            <div className="col-span-2 grid gap-1">
+              <Label htmlFor="hours-name" className="text-xs">
+                {t('doctors.hoursSearch.name')}
+              </Label>
+              <Input
+                id="hours-name"
+                type="search"
+                value={filter.name}
+                placeholder={t('doctors.hoursSearch.namePlaceholder')}
+                onChange={(e) => set({ name: e.target.value })}
+              />
+            </div>
             <div className="col-span-2 grid gap-1">
               <Label htmlFor="hours-weekday" className="text-xs">
                 {t('doctors.hours.weekday')}

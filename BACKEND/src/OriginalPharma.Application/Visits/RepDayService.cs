@@ -2,7 +2,9 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Organization;
+using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Crm;
+using OriginalPharma.Application.Identity;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Identity;
 using OriginalPharma.Domain.Plans;
@@ -70,7 +72,8 @@ public sealed class RepDayService(
     ICurrentUser currentUser,
     CustomerService customers,
     LocalCalendar calendar,
-    TimeProvider time)
+    TimeProvider time,
+    IDataScopeResolver scopeResolver)
 {
     public const int MaxOrder = 500;
     public const int MaxAmPlaces = 20;
@@ -108,7 +111,10 @@ public sealed class RepDayService(
         return await BuildAsync(me, tracked, cancellationToken);
     }
 
-    /// <summary>Saves the order of today's upcoming doctors. Ids that are not on the rep's list are left out.</summary>
+    /// <summary>
+    /// Saves the order of today's upcoming doctors. Ids that are not on the rep's list are left out; a rep
+    /// with an empty list plans from the doctors in their customers:read scope instead, so those count.
+    /// </summary>
     public async Task<RepTodayDto> SetDoctorOrderAsync(SetRepVisitOrderRequest request, CancellationToken cancellationToken = default)
     {
         var me = currentUser.RequireUserId();
@@ -119,6 +125,16 @@ public sealed class RepDayService(
                 .Select(a => a.CustomerId)
                 .ToListAsync(cancellationToken))
             .ToHashSet();
+        if (mine.Count == 0 && ids.Length > 0 && !await db.RepDoctors.AnyAsync(a => a.UserId == me, cancellationToken))
+        {
+            var scope = await scopeResolver.ResolveAsync(Permissions.Customers.Read, cancellationToken);
+            var visibleReps = scope.Level == PermissionScope.All
+                ? null
+                : (await db.Users.AsNoTracking().VisibleUserIds(scope).ToListAsync(cancellationToken)).ToHashSet();
+            var candidates = db.Customers.AsNoTracking()
+                .Where(c => ids.Contains(c.Id) && c.Type == CustomerType.Doctor && c.IsActive && c.ArchivedAt == null);
+            mine = (await DoctorService.WhereVisible(candidates, scope, visibleReps).Select(c => c.Id).ToListAsync(cancellationToken)).ToHashSet();
+        }
 
         await db.RepVisitOrder.Where(o => o.UserId == me && o.Day == day.Day).ExecuteDeleteAsync(cancellationToken);
         var position = 0;

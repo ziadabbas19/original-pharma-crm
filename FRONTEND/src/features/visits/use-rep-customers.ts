@@ -102,26 +102,32 @@ export function useAmPlaces(options: { enabled?: boolean } = {}) {
   return places
 }
 
-/** Everyone the rep can start a visit with: their doctor list, the pharmacies and the AM places of their area. */
+/**
+ * Everyone the rep can start a visit with: their doctor list, the pharmacies and the AM places of their
+ * area. A rep whose list is empty plans from all the doctors in their customers:read scope instead.
+ */
 export function useRepCustomers() {
   const copy = readCache<DoctorDto[]>(DOCTORS_KEY)
   const doctors = useDoctorsList(
     { Mine: true },
     { query: { initialData: copy?.data, initialDataUpdatedAt: copy?.savedAt, staleTime: 60_000 } },
   )
+  const emptyList = doctors.data !== undefined && doctors.data.length === 0
+  const inScope = useDoctorsList({}, { query: { enabled: emptyList, staleTime: 60_000 } })
+  const doctorRows = emptyList ? (inScope.data ?? doctors.data) : doctors.data
   const pharmacies = usePharmacies()
   const places = useAmPlaces()
   const customers = useMemo(
     () => [
-      ...(doctors.data ?? []).map(fromDoctor),
+      ...(doctorRows ?? []).map(fromDoctor),
       ...(pharmacies.data ?? []).map(fromPharmacy),
       ...(places.data ?? []).map(fromPharmacy),
     ],
-    [doctors.data, pharmacies.data, places.data],
+    [doctorRows, pharmacies.data, places.data],
   )
   return {
     customers,
-    doctors: doctors.data,
+    doctors: doctorRows,
     pharmacies: pharmacies.data,
     places: places.data,
     isLoading: doctors.isLoading || pharmacies.isLoading,

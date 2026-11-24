@@ -520,6 +520,17 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name_ar");
 
+                    b.Property<string>("NameArSearch")
+                        .HasColumnType("text")
+                        .HasColumnName("name_ar_search");
+
+                    b.Property<string>("NameSearch")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("")
+                        .HasColumnName("name_search");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
@@ -558,6 +569,16 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_customers_location");
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Location"), "gist");
+
+                    b.HasIndex("NameArSearch")
+                        .HasDatabaseName("ix_customers_name_ar_search");
+
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("NameArSearch"), new[] { "text_pattern_ops" });
+
+                    b.HasIndex("NameSearch")
+                        .HasDatabaseName("ix_customers_name_search");
+
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("NameSearch"), new[] { "text_pattern_ops" });
 
                     b.HasIndex("SpecialtyId")
                         .HasDatabaseName("ix_customers_specialty_id");

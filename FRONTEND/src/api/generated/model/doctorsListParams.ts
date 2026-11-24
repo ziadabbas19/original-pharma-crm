@@ -20,4 +20,5 @@ export type DoctorsListParams = {
   CreatedById?: string
   Page?: number
   PageSize?: number
+  ListOf?: string
 }

@@ -139,16 +139,18 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
             query = query.Where(c => c.Type == type);
         }
 
-        if (!string.IsNullOrWhiteSpace(search))
+        var term = CustomerNameSearch.Normalize(search);
+        if (term.Length > 0)
         {
-            var term = search.Trim().ToLower();
+            var address = search!.Trim().ToLower();
             query = query.Where(c =>
-                c.Name.ToLower().Contains(term) ||
-                (c.NameAr != null && c.NameAr.Contains(term)) ||
-                (c.Address != null && c.Address.ToLower().Contains(term)));
+                c.NameSearch.Contains(term) ||
+                (c.NameArSearch != null && c.NameArSearch.Contains(term)) ||
+                (c.Address != null && c.Address.ToLower().Contains(address)));
         }
 
-        return await ProjectAsync(query.OrderBy(c => c.Name).Take(MaxRows), cancellationToken);
+        var ordered = term.Length > 0 ? query.OrderBy(CustomerSearch.Closeness(term)).ThenBy(c => c.Name) : query.OrderBy(c => c.Name);
+        return await ProjectAsync(ordered.Take(MaxRows), cancellationToken);
     }
 
     /// <summary>Towns where the caller may add a pharmacy (customers:create-pharmacy within its scope), by area then name.</summary>

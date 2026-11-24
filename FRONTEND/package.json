@@ -27,6 +27,7 @@
     "test:ui:plans": "node tests/ui/plans-flow.mjs",
     "test:ui:city-amounts": "node tests/ui/city-amounts.mjs",
     "test:ui:pharmacy": "node tests/ui/add-pharmacy.mjs",
+    "test:ui:doctor-lists": "node tests/ui/doctor-lists.mjs",
     "routes:generate": "tsr generate",
     "api:generate": "orval --config orval.config.ts",
     "cap:sync": "npm run build && cap sync android",
