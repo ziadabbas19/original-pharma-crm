@@ -185,6 +185,10 @@ async function clearLocalSession(): Promise<void> {
   }
   clearCache()
   clearBrochurePages()
+  // The previous user's note reminders must not show on this phone any more.
+  void platform()
+    .reminders.clear()
+    .catch(() => {})
   store.dispatch(sessionEnded())
   bootstrapping = Promise.resolve()
 }

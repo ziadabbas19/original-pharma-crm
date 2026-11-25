@@ -198,19 +198,21 @@ function ManagerAlerts() {
         {items.length === 0 ? (
           <p className="py-2 text-sm text-muted-foreground">{t('repHome.alerts.empty')}</p>
         ) : (
-          <ul className="grid divide-y">
+          <ul className="grid grid-cols-1 divide-y">
             {items.map((n) => {
               const text = notificationText(n, t)
               return (
-                <li key={n.id} className="grid gap-0.5 py-2.5">
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold">{text.title}</span>
+                <li key={n.id} className="grid min-w-0 grid-cols-1 gap-0.5 py-2.5">
+                  <span className="flex min-w-0 items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-semibold">{text.title}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {formatRelative(n.createdAt)}
                     </span>
                   </span>
                   {text.body && (
-                    <span className="line-clamp-2 text-sm text-muted-foreground">{text.body}</span>
+                    <span className="line-clamp-2 text-sm break-words text-muted-foreground">
+                      {text.body}
+                    </span>
                   )}
                 </li>
               )

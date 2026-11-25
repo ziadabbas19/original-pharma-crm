@@ -63,6 +63,9 @@ public static class PushMessageTypes
 {
     /// <summary>Tells the device to fetch /api/tracking/config and apply it.</summary>
     public const string TrackingConfigChanged = "tracking-config-changed";
+
+    /// <summary>A note reminder is due (<c>noteId</c>): the app shows it and opens the note when tapped.</summary>
+    public const string NoteReminder = "note-reminder";
 }
 
 /// <summary>Distance travelled per rep, computed in the database (PostGIS).</summary>

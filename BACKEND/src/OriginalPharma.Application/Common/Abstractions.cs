@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Catalog;
 using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Expenses;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Domain.Notes;
 using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Orders;
 using OriginalPharma.Domain.Plans;
@@ -55,6 +57,8 @@ public interface IAppDbContext
     DbSet<WeeklyPlanCustomer> WeeklyPlanCustomers { get; }
     DbSet<WeeklyPlanEvent> WeeklyPlanEvents { get; }
 
+    DbSet<RepNote> RepNotes { get; }
+
     DbSet<Visit> Visits { get; }
     DbSet<VisitPhoto> VisitPhotos { get; }
     DbSet<VisitFeedback> VisitFeedback { get; }
@@ -78,6 +82,15 @@ public interface IAppDbContext
     /// an atomic "insert unless present". Returns the number of rows affected.
     /// </summary>
     Task<int> ExecuteSqlAsync(FormattableString sql, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs one SQL statement that returns rows (values become parameters), such as an
+    /// <c>UPDATE ... RETURNING</c> that claims work atomically. Columns map to <typeparamref name="T"/> in snake_case.
+    /// </summary>
+    Task<IReadOnlyList<T>> QuerySqlAsync<T>(FormattableString sql, CancellationToken cancellationToken = default);
+
+    /// <summary>Starts a transaction for changes that must be saved together with a claim made by SQL.</summary>
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

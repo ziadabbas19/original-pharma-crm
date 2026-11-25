@@ -8,6 +8,8 @@ import { MockLocationNotice } from '@/features/integrity/MockLocationNotice'
 import { useLocationIntegrity } from '@/features/integrity/useLocationIntegrity'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { startExpenseSync } from '@/features/expenses/expense-outbox'
+import { startNoteSync } from '@/features/notes/note-outbox'
+import { useNoteReminders } from '@/features/notes/use-notes'
 import { useOrderOutbox, startOrderSync } from '@/features/orders/order-outbox'
 import { RecheckContext } from '@/features/onboarding/recheck-context'
 import { TrackingHealthBanner } from '@/features/onboarding/TrackingHealthBanner'
@@ -55,10 +57,12 @@ function RepShell({ tracking }: { tracking: { recheck: () => Promise<void>; chec
   const visitsRefused = visitOutbox.failed.length + visitOutbox.failedSteps.length
   const visitsWaiting = visitOutbox.pending.length + visitOutbox.steps.length + visitsRefused
 
-  // Queued orders, visit content and expense changes go out as soon as there is network (and on return to the app).
+  // Queued orders, visit content, expense and note changes go out as soon as there is network (and on return to the app).
   useEffect(() => startOrderSync(), [])
   useEffect(() => startVisitSync(), [])
   useEffect(() => startExpenseSync(), [])
+  useEffect(() => startNoteSync(), [])
+  useNoteReminders('rep')
 
   // Live notifications only while the app is on screen; the socket closes in the background.
   useTrackingHub(useDocumentVisible())

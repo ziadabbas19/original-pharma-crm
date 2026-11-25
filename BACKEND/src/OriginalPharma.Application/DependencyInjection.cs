@@ -12,6 +12,7 @@ using OriginalPharma.Application.Crm;
 using OriginalPharma.Application.Expenses;
 using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Lookups;
+using OriginalPharma.Application.Notes;
 using OriginalPharma.Application.Notifications;
 using OriginalPharma.Application.Orders;
 using OriginalPharma.Application.Plans;
@@ -68,6 +69,10 @@ public static class DependencyInjection
 
         // Weekly plans
         services.AddScoped<PlanService>();
+
+        // Private notes and their reminders
+        services.AddScoped<NoteService>();
+        services.AddScoped<NoteRemindersJob>();
 
         // CRM and lookups
         services.AddScoped<CustomerService>();

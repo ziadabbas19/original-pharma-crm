@@ -4,6 +4,7 @@ import type {
   AppLifecycle,
   DeviceIntegrity,
   DeviceSignalsReader,
+  LocalReminders,
   Platform,
   PushNotifications,
   SecureStorage,
@@ -24,11 +25,32 @@ export function createWebPlatform(): Platform {
     secureStorage: new MemorySecureStorage(),
     offlineDb,
     push: new WebPush(),
+    reminders: new NoLocalReminders(),
     integrity: new NoIntegrity(),
     deviceHealth: new WebDeviceHealthInspector(),
     signals: new WebDeviceSignals(),
     app,
   }
+}
+
+/** Browsers cannot show a reminder while the app is closed: reminders arrive inside the open app only. */
+class NoLocalReminders implements LocalReminders {
+  readonly supported = false
+  async permission() {
+    return 'notRequired' as const
+  }
+  async requestPermission() {
+    return 'notRequired' as const
+  }
+  async exactAllowed() {
+    return null
+  }
+  async openExactAlarmSettings() {}
+  async sync() {}
+  onOpen() {
+    return () => {}
+  }
+  async clear() {}
 }
 
 /** Browsers expose none of these settings; every signal is "unknown". */

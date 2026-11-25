@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import type { NotificationDto } from '@/api/generated/model'
-import { formatWeekRange, localizedName } from '@/lib/format'
+import { formatReminder } from '@/features/notes/note-time'
+import { formatWeekRange, locale, localizedName } from '@/lib/format'
 
 interface NotificationData {
   orderNumber?: string
@@ -19,6 +20,9 @@ interface NotificationData {
   weekStart?: string
   reviewerName?: string
   reopened?: boolean
+  /** Note reminders: the note's title (may be empty) and its reminder time. */
+  title?: string | null
+  remindAt?: string | null
 }
 
 /** Title and body in the reader's language, built from the values stored with the notification. */
@@ -34,6 +38,14 @@ export function notificationText(n: NotificationDto, t: TFunction): { title: str
     customer,
     reviewer: data.reviewerName ?? '',
     week: data.weekStart ? formatWeekRange(data.weekStart) : '',
+  }
+  if (n.type === 'noteReminder') {
+    return {
+      title: t('notifications.types.noteReminder', { title: data.title?.trim() || t('notes.reminder') }),
+      body: [data.excerpt, data.remindAt ? formatReminder(data.remindAt, locale()) : null]
+        .filter(Boolean)
+        .join(' · '),
+    }
   }
   const key = n.type === 'planReturned' && data.reopened ? 'planReopened' : n.type
   const title = t(`notifications.types.${key}`, values)
@@ -64,6 +76,11 @@ export function notificationIsAboutPlan(n: NotificationDto): boolean {
 /** The first day of the plan's week, for the rep's plan screen. */
 export function notificationPlanWeek(n: NotificationDto): string | undefined {
   return (n.data as NotificationData).weekStart
+}
+
+/** A reminder of one of the reader's own notes: the entity is the note. */
+export function notificationIsAboutNote(n: NotificationDto): boolean {
+  return n.type === 'noteReminder'
 }
 
 /** A rep was flagged for a suspicious location: the entity is the rep, the review page is the target. */

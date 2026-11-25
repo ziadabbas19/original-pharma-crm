@@ -18,6 +18,7 @@ import { CapacitorDeviceHealthInspector } from './device-health'
 import { CapacitorDeviceSignalsReader } from './device-signals'
 import { CapacitorFileExporter } from './files'
 import { CapacitorLocationTracker } from './location-tracker'
+import { CapacitorLocalReminders } from './reminders'
 
 /** Native Android implementation. */
 export function createCapacitorPlatform(): Platform {
@@ -33,6 +34,7 @@ export function createCapacitorPlatform(): Platform {
     secureStorage: new AndroidSecureStorage(),
     offlineDb: new SqliteOfflineDb(),
     push,
+    reminders: new CapacitorLocalReminders(),
     integrity: new PlayIntegrity(),
     deviceHealth: new CapacitorDeviceHealthInspector(location, push, signals),
     signals,

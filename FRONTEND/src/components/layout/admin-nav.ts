@@ -16,6 +16,7 @@ import {
   LayoutDashboardIcon,
   MapIcon,
   MapPinnedIcon,
+  NotebookPenIcon,
   ShieldCheckIcon,
   SmartphoneIcon,
   UsersIcon,
@@ -31,6 +32,7 @@ export type AdminPath =
   | '/admin/live-map'
   | '/admin/statistics'
   | '/admin/notifications'
+  | '/admin/notes'
   | '/admin/activity'
   | '/admin/users'
   | '/admin/roles'
@@ -74,6 +76,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
       { to: '/admin/live-map', label: 'nav.liveMap', icon: MapIcon, permission: P.tracking.viewLive },
       { to: '/admin/statistics', label: 'nav.statistics', icon: BarChart3Icon, permission: P.stats.read },
       { to: '/admin/notifications', label: 'nav.notifications', icon: BellIcon },
+      { to: '/admin/notes', label: 'nav.notes', icon: NotebookPenIcon },
     ],
   },
   {

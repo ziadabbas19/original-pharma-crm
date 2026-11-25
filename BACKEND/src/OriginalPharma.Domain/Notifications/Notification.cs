@@ -27,6 +27,9 @@ public enum NotificationType
 
     /// <summary>A reviewer returned (or reopened) the recipient's weekly plan with a note.</summary>
     PlanReturned = 10,
+
+    /// <summary>The reminder of one of the recipient's own notes is due. <see cref="Notification.EntityId"/> is the note.</summary>
+    NoteReminder = 11,
 }
 
 /// <summary>
@@ -42,7 +45,7 @@ public class Notification
 
     public NotificationType Type { get; set; }
 
-    /// <summary>The order, visit, weekly plan or (for suspicious locations) rep the notification is about.</summary>
+    /// <summary>The order, visit, weekly plan, note or (for suspicious locations) rep the notification is about.</summary>
     public Guid? EntityId { get; set; }
 
     /// <summary>JSON object with the values the text needs (order number, reason, names).</summary>

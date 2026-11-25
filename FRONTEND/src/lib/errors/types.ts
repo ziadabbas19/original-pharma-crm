@@ -127,4 +127,6 @@ export interface ToastRequest {
   message: string
   /** Small "reference" line for support (trace id). */
   reference?: string
+  /** One button next to the message (e.g. open the note a reminder is about). */
+  action?: { label: string; onClick: () => void }
 }

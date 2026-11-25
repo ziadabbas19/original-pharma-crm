@@ -16,4 +16,5 @@ export const NotificationType = {
   planSubmitted: 'planSubmitted',
   planApproved: 'planApproved',
   planReturned: 'planReturned',
+  noteReminder: 'noteReminder',
 } as const

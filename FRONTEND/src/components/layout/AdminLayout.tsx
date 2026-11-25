@@ -25,6 +25,8 @@ import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { ProfileDialog } from '@/features/profile/ProfileDialog'
 import { roleName } from '@/features/roles/role-rules'
 import { useLiveTracking } from '@/features/tracking/useLiveTracking'
+import { startNoteSync } from '@/features/notes/note-outbox'
+import { useNoteReminders } from '@/features/notes/use-notes'
 import { useOnline } from '@/hooks/use-online'
 import {
   canUseDashboard,
@@ -65,6 +67,9 @@ export function AdminLayout() {
   const [moreOpen, setMoreOpen] = useState(false)
 
   useLiveTracking()
+  // Private notes: queued changes go out, reminders are scheduled on the phone and shown when they arrive.
+  useEffect(() => startNoteSync(), [])
+  useNoteReminders('admin')
 
   // Grants changed on the server (X-Permissions-Version): refetch everything so lists follow the new scope,
   // and leave the dashboard if it is no longer allowed.

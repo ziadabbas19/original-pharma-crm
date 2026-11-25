@@ -24,6 +24,7 @@ import { invalidateApi } from '@/lib/invalidate-api'
 import { cn } from '@/lib/utils'
 import { localDay } from '@/features/suspicious/suspicious-logic'
 import {
+  notificationIsAboutNote,
   notificationIsAboutOrder,
   notificationIsAboutPlan,
   notificationIsAboutSuspiciousLocation,
@@ -59,7 +60,10 @@ export function NotificationsPage({ app }: { app: 'admin' | 'rep' }) {
       handleError(e, { context: 'notifications.read' })
     }
     if (!n.entityId) return
-    if (notificationIsAboutSuspiciousLocation(n)) {
+    if (notificationIsAboutNote(n)) {
+      if (app === 'rep') await navigate({ to: '/rep/notes', search: { note: n.entityId } })
+      else await navigate({ to: '/admin/notes', search: { note: n.entityId } })
+    } else if (notificationIsAboutSuspiciousLocation(n)) {
       if (app === 'admin') {
         await navigate({
           to: '/admin/suspicious-activity',

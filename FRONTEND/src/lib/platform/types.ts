@@ -130,6 +130,40 @@ export interface PushNotifications {
   onData(handler: (data: Record<string, string>) => void): () => void
 }
 
+/** A note whose reminder the phone may show while the app is closed. */
+export interface ReminderNote {
+  id: string
+  title: string | null
+  body: string
+  remindAt: string | null
+  remindBeforeMinutes: number | null
+  notifyAt: string | null
+  doneAt: string | null
+}
+
+/** Note reminders shown by the phone itself while the app is closed (Android app only). */
+export interface LocalReminders {
+  /** False in browsers: reminders then show only inside the open app. */
+  readonly supported: boolean
+  permission(): Promise<PermissionState>
+  /** Asks once for the notifications permission (Android 13+). */
+  requestPermission(): Promise<PermissionState>
+  /** Exact alarms allowed (Android 12+). Null where it does not apply. */
+  exactAllowed(): Promise<boolean | null>
+  /** Opens the "Alarms and reminders" setting of the app. */
+  openExactAlarmSettings(): Promise<void>
+  /** Schedules the open notes' future reminders and cancels the rest. Never asks for a permission. */
+  sync(
+    notes: readonly ReminderNote[],
+    text: (note: ReminderNote) => { title: string; body: string },
+    channelName: string,
+  ): Promise<void>
+  /** A reminder notification was tapped (also when it started the app). Returns an unsubscribe function. */
+  onOpen(handler: (noteId: string) => void): () => void
+  /** Cancels every scheduled reminder (sign-out). */
+  clear(): Promise<void>
+}
+
 export interface DeviceIntegrity {
   /** Attestation token for the server to verify (Play Integrity on Android). */
   getToken(nonce: string): Promise<string | null>
@@ -208,6 +242,7 @@ export interface Platform {
   secureStorage: SecureStorage
   offlineDb: OfflineDb
   push: PushNotifications
+  reminders: LocalReminders
   integrity: DeviceIntegrity
   deviceHealth: DeviceHealthInspector
   signals: DeviceSignalsReader

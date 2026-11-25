@@ -6,7 +6,8 @@ import {
   getTrackingMonitorGetFlagsQueryKey,
   getTrackingMonitorGetPresenceQueryKey,
 } from '@/api/generated/endpoints'
-import type { LivePositionDto, TrackingFlagDto } from '@/api/generated/model'
+import type { LivePositionDto, NotificationDto, TrackingFlagDto } from '@/api/generated/model'
+import { emitNoteReminder } from '@/features/notes/live-reminders'
 import { API_BASE_URL } from '@/lib/api-client'
 import { invalidateApi } from '@/lib/invalidate-api'
 import { refreshSession } from '@/lib/session'
@@ -67,9 +68,10 @@ export function useTrackingHub(enabled = true): void {
       void queryClient.invalidateQueries({ queryKey: flagsKey })
       void queryClient.invalidateQueries({ queryKey: devicesKey })
     })
-    connection.on('NotificationReceived', () => {
-      // A decision on an order or an answer on a visit: the screens showing them follow at once.
-      void invalidateApi(queryClient, '/api/notifications', '/api/orders', '/api/visits')
+    connection.on('NotificationReceived', (notification?: NotificationDto) => {
+      // A decision on an order, an answer on a visit or a note reminder: the screens showing them follow at once.
+      void invalidateApi(queryClient, '/api/notifications', '/api/orders', '/api/visits', '/api/notes')
+      if (notification?.type === 'noteReminder') emitNoteReminder(notification)
     })
     connection.onreconnecting(() => dispatch(hubConnectionChanged(false)))
     connection.onreconnected(() => {

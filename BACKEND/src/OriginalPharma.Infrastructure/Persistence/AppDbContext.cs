@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Storage;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Catalog;
@@ -8,6 +9,7 @@ using OriginalPharma.Domain.Common;
 using OriginalPharma.Domain.Crm;
 using OriginalPharma.Domain.Expenses;
 using OriginalPharma.Domain.Identity;
+using OriginalPharma.Domain.Notes;
 using OriginalPharma.Domain.Notifications;
 using OriginalPharma.Domain.Orders;
 using OriginalPharma.Domain.Plans;
@@ -32,9 +34,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<WeeklyPlanDay> WeeklyPlanDays => Set<WeeklyPlanDay>();
     public DbSet<WeeklyPlanCustomer> WeeklyPlanCustomers => Set<WeeklyPlanCustomer>();
     public DbSet<WeeklyPlanEvent> WeeklyPlanEvents => Set<WeeklyPlanEvent>();
+    public DbSet<RepNote> RepNotes => Set<RepNote>();
 
     public Task<int> ExecuteSqlAsync(FormattableString sql, CancellationToken cancellationToken = default) =>
         Database.ExecuteSqlInterpolatedAsync(sql, cancellationToken);
+
+    public async Task<IReadOnlyList<T>> QuerySqlAsync<T>(FormattableString sql, CancellationToken cancellationToken = default) =>
+        await Database.SqlQuery<T>(sql).ToListAsync(cancellationToken);
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
+        Database.BeginTransactionAsync(cancellationToken);
     public DbSet<Territory> Territories => Set<Territory>();
 
     public DbSet<Customer> Customers => Set<Customer>();

@@ -11,6 +11,7 @@ import {
   LayoutDashboardIcon,
   LogOutIcon,
   MapPinIcon,
+  NotebookPenIcon,
   ReceiptTextIcon,
   ShieldCheckIcon,
   WrenchIcon,
@@ -146,6 +147,14 @@ export function RepSettingsPage() {
           chevron={Chevron}
           attention={ordersWaiting > 0}
         />
+        <Separator />
+        <MenuLink
+          to="/rep/notes"
+          icon={NotebookPenIcon}
+          title={t('notes.title')}
+          hint={t('notes.menuHint')}
+          chevron={Chevron}
+        />
         {canPlan && (
           <>
             <Separator />
@@ -277,7 +286,14 @@ function MenuLink({
   chevron: Chevron,
   attention = false,
 }: {
-  to: '/rep/onboarding' | '/rep/tracking-health' | '/rep/orders' | '/rep/statistics' | '/rep/plans' | '/admin'
+  to:
+    | '/rep/onboarding'
+    | '/rep/tracking-health'
+    | '/rep/orders'
+    | '/rep/statistics'
+    | '/rep/plans'
+    | '/rep/notes'
+    | '/admin'
   icon: LucideIcon
   title: string
   hint: string

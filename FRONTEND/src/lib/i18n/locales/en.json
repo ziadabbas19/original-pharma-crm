@@ -93,7 +93,8 @@
     "managementHint": "The management screens: visits, orders and your team",
     "expenses": "Expenses",
     "plans": "Weekly plans",
-    "places": "AM places"
+    "places": "AM places",
+    "notes": "Notes"
   },
   "admin": {
     "welcome": "Welcome, {{name}}",
@@ -1896,7 +1897,8 @@
       "planSubmitted": "{{rep}} sent the plan for {{week}}",
       "planApproved": "{{reviewer}} approved your plan for {{week}}",
       "planReturned": "{{reviewer}} returned your plan for {{week}}",
-      "planReopened": "{{reviewer}} reopened your plan for {{week}}"
+      "planReopened": "{{reviewer}} reopened your plan for {{week}}",
+      "noteReminder": "Reminder: {{title}}"
     }
   },
   "activity": {
@@ -2495,5 +2497,77 @@
     "emptyHint": "Add the hospitals and other places you visit in the morning.",
     "edit": "Edit AM place",
     "editHint": "Name, town, address, landmark and the saved location."
+  },
+  "notes": {
+    "title": "Notes",
+    "menuHint": "Private notes and reminders",
+    "new": "New note",
+    "edit": "Edit note",
+    "privateHint": "Only you can see your notes.",
+    "tabs": {
+      "open": "Open",
+      "done": "Done"
+    },
+    "searchPlaceholder": "Search notes",
+    "empty": "No notes yet",
+    "emptyHint": "Write a note and set a reminder so nothing is forgotten.",
+    "emptyDone": "No done notes",
+    "titleLabel": "Title (optional)",
+    "bodyLabel": "Note",
+    "bodyPlaceholder": "What do you want to remember?",
+    "remind": "Remind me",
+    "day": "Day",
+    "time": "Time (Egypt)",
+    "before": "Notify me",
+    "beforeOptions": {
+      "0": "At the time",
+      "5": "5 minutes before",
+      "15": "15 minutes before",
+      "30": "30 minutes before",
+      "60": "1 hour before",
+      "120": "2 hours before",
+      "1440": "1 day before",
+      "custom": "Custom"
+    },
+    "customMinutes": "Minutes before",
+    "customInvalid": "Pick a day and time, and enter whole minutes from 0 to {{max}} (one week).",
+    "needText": "Write a title or some text.",
+    "notifyAt": "You will be notified {{time}}.",
+    "notifyNow": "This time has passed: you will be notified right away.",
+    "save": "Save",
+    "saved": "Note saved",
+    "markDone": "Done",
+    "markedDone": "Marked as done",
+    "reopen": "Reopen",
+    "snooze": "Snooze",
+    "snoozeOptions": {
+      "10m": "10 minutes",
+      "1h": "1 hour",
+      "tomorrow": "Tomorrow morning"
+    },
+    "snoozed": "Reminder moved to {{time}}",
+    "delete": "Delete",
+    "deleteTitle": "Delete this note?",
+    "deleteHint": "The note and its reminder are removed. This cannot be undone.",
+    "waiting_one": "{{count}} change waiting to be sent",
+    "waiting_other": "{{count}} changes waiting to be sent",
+    "notSent": "Not sent yet",
+    "states": {
+      "upcoming": "Upcoming",
+      "due": "Due now",
+      "overdue": "Overdue"
+    },
+    "reminder": "Reminder",
+    "channelName": "Reminders",
+    "permissionDenied": "Notifications are off for this app, so the reminder shows only while the app is open. Turn notifications on in the phone settings to get it when the app is closed.",
+    "openSettings": "Open settings",
+    "exactHint": "Reminders may arrive a few minutes late: the phone does not let this app use exact alarms.",
+    "allowExact": "Allow exact alarms",
+    "liveToast": "Reminder: {{title}}",
+    "home": {
+      "title": "Reminders",
+      "all": "All notes",
+      "empty": "No reminders coming up."
+    }
   }
 }

@@ -230,6 +230,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         services.AddSingleton<ILatestPositionStore, InMemoryLatestPositionStore>();
         services.AddSingleton<ILiveViewRegistry, NoLiveViewRegistry>();
         services.AddSingleton<IIpGeolocationService, NullIpGeolocationService>();
+        services.AddSingleton<IPushNotificationSender, LoggingPushNotificationSender>();
         services.AddScoped<ILocationDistanceQuery, LocationDistanceQuery>();
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

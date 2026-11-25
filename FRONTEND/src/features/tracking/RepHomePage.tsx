@@ -19,6 +19,7 @@ import { usePermission } from '@/features/auth/usePermission'
 import { HomeSection } from '@/features/home/HomeSections'
 import { TodayAreaSheet } from '@/features/home/TodayAreaSheet'
 import { useRepDay } from '@/features/home/use-rep-day'
+import { RemindersHomeCard } from '@/features/notes/RemindersHomeCard'
 import { WeekPlanHomeCard } from '@/features/plans/WeekPlanHomeCard'
 import { useTodayPlan } from '@/features/home/use-today-plan'
 import { useRepHomeConfig } from '@/features/home/use-rep-home'
@@ -85,6 +86,8 @@ export function RepHomePage() {
           />
         ))}
       </div>
+
+      <RemindersHomeCard />
 
       {canPlan && <WeekPlanHomeCard />}
 

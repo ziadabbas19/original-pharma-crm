@@ -126,6 +126,8 @@ internal static class ApiSetup
                 "device-signals-retention", job => job.RunAsync(CancellationToken.None), Cron.Daily(2));
             jobs.AddOrUpdate<OriginalPharma.Application.Tracking.Visibility.OutsideVisitPointsPurgeJob>(
                 "outside-visit-points-purge", job => job.RunAsync(CancellationToken.None), Cron.Hourly(17));
+            jobs.AddOrUpdate<OriginalPharma.Application.Notes.NoteRemindersJob>(
+                "note-reminders", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
         }
         catch (Exception ex)
         {

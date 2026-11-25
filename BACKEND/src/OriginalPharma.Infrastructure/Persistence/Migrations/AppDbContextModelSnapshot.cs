@@ -1488,6 +1488,77 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.ToTable("user_sessions", (string)null);
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Notes.RepNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("body");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_request_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DoneAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("done_at");
+
+                    b.Property<DateTimeOffset?>("NotifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("notified_at");
+
+                    b.Property<DateTimeOffset?>("NotifyAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("notify_at");
+
+                    b.Property<DateTimeOffset?>("RemindAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("remind_at");
+
+                    b.Property<int?>("RemindBeforeMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("remind_before_minutes");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_rep_notes");
+
+                    b.HasIndex("UserId", "ClientRequestId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_rep_notes_user_id_client_request_id");
+
+                    b.HasIndex("UserId", "NotifyAt")
+                        .HasDatabaseName("ix_rep_notes_pending_reminders")
+                        .HasFilter("notified_at IS NULL AND done_at IS NULL");
+
+                    b.ToTable("rep_notes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_rep_notes_remind_before", "remind_before_minutes IS NULL OR remind_before_minutes BETWEEN 0 AND 10080");
+                        });
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Notifications.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3442,6 +3513,16 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_user_sessions_users_user_id");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Notes.RepNote", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_rep_notes_asp_net_users_user_id");
                 });
 
             modelBuilder.Entity("OriginalPharma.Domain.Notifications.Notification", b =>

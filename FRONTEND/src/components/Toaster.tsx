@@ -61,6 +61,19 @@ function ToastItem({ item }: { item: Toast }) {
           </p>
         )}
       </div>
+      {item.action && (
+        <button
+          type="button"
+          onClick={() => {
+            item.action?.onClick()
+            toast.dismiss(item.id)
+          }}
+          className="-my-1 min-h-9 shrink-0 rounded-control px-3 font-semibold underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          data-testid="toast-action"
+        >
+          {item.action.label}
+        </button>
+      )}
       <button
         type="button"
         onClick={() => toast.dismiss(item.id)}
