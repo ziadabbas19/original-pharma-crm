@@ -76,6 +76,7 @@ public static class DependencyInjection
 
         // CRM and lookups
         services.AddScoped<CustomerService>();
+        services.AddScoped<SimilarCustomerFinder>();
         services.AddScoped<DoctorService>();
         services.AddScoped<LookupService>();
 

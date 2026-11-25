@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { Loader2Icon, MapPinPlusIcon } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -7,7 +8,7 @@ import {
   useCustomersCreateHospital,
   useCustomersHospitalTowns,
 } from '@/api/generated/endpoints'
-import type { CustomerDto } from '@/api/generated/model'
+import type { CustomerDto, SimilarCustomerDto } from '@/api/generated/model'
 import { FormError } from '@/components/states'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,9 @@ import { TownSelect } from '@/features/doctors/doctor-fields'
 import { handleError, inlineErrors } from '@/lib/errors'
 import { writeCache } from '@/lib/offline-cache'
 import { PHARMACY_LIMITS } from './pharmacy-form'
+import { duplicateCandidates } from './similar-customers'
+import { OpenCandidateButton, SimilarCustomersNotice } from './SimilarCustomersNotice'
+import { useSimilarCustomers } from './use-similar-customers'
 
 interface PlaceValues {
   name: string
@@ -47,18 +51,22 @@ const LANDMARK_MAX = 200
 /**
  * Add an AM place (a hospital visited in the morning) with the pharmacy rules: a rep in a town of their
  * area, a manager inside their scope, optionally on a rep's list. No location now: the first visit saves it.
+ * Look-alike places of the town are shown while typing.
  */
 export function AddPlaceSheet({
   open,
   onOpenChange,
   onAdded,
   reps,
+  onOpenExisting,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAdded?: (place: CustomerDto) => void
   /** Reps the manager may put the place on (omit in the rep app). */
   reps?: { id: string; name: string }[]
+  /** "Open" on a look-alike place (management screens); the rep app opens the place's page. */
+  onOpenExisting?: (place: SimilarCustomerDto & { id: string }) => void
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -72,18 +80,32 @@ export function AddPlaceSheet({
   const form = { ...values, townId: values.townId || onlyTown }
   const missingName = form.name.trim() === ''
   const missingTown = form.townId === ''
-  const set = (patch: Partial<PlaceValues>) => setValues((v) => ({ ...v, ...patch }))
+  const [conflict, setConflict] = useState<SimilarCustomerDto[] | null>(null)
+  const live = useSimilarCustomers({
+    type: 'hospital',
+    name: form.name || form.nameAr,
+    townId: form.townId,
+    phone: form.phone,
+    enabled: open,
+  })
+  const candidates = conflict ?? live
+  const set = (patch: Partial<PlaceValues>) => {
+    setConflict(null)
+    setValues((v) => ({ ...v, ...patch }))
+  }
 
   const close = () => {
     setValues(EMPTY)
     setTouched(false)
     setError(null)
     setExists(false)
+    setConflict(null)
     onOpenChange(false)
   }
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
+  /** Saves the place; `confirmed` after "Add anyway" next to look-alike places. */
+  const submit = async (e?: FormEvent, confirmed = false) => {
+    e?.preventDefault()
     setTouched(true)
     setError(null)
     setExists(false)
@@ -100,6 +122,7 @@ export function AddPlaceSheet({
           phone: optional(form.phone),
           notes: optional(form.notes),
           repId: form.repId || null,
+          duplicateConfirmed: confirmed,
         },
       })
       const listed = queryClient.getQueryData<CustomerDto[]>(getCustomersListQueryKey({ type: 'hospital' }))
@@ -113,7 +136,9 @@ export function AddPlaceSheet({
       close()
     } catch (err) {
       const failure = handleError(err, { silent: true, context: 'places.add' })
-      if (failure.code === 'hospital_exists') setExists(true)
+      const similar = duplicateCandidates(failure)
+      if (similar) setConflict(similar)
+      else if (failure.code === 'hospital_exists') setExists(true)
       else setError(failure)
     }
   }
@@ -165,6 +190,27 @@ export function AddPlaceSheet({
                 <p className="text-sm text-destructive">{t('places.townRequired')}</p>
               )}
             </div>
+            <SimilarCustomersNotice
+              candidates={candidates}
+              adding={create.isPending}
+              onAddAnyway={() => void submit(undefined, true)}
+              action={(c) =>
+                onOpenExisting ? (
+                  <OpenCandidateButton
+                    onClick={() => {
+                      onOpenExisting(c)
+                      close()
+                    }}
+                  />
+                ) : (
+                  <OpenCandidateButton>
+                    <Link to="/rep/customers/$customerId" params={{ customerId: c.id }} onClick={close}>
+                      {t('similar.open')}
+                    </Link>
+                  </OpenCandidateButton>
+                )
+              }
+            />
             {reps && reps.length > 0 && (
               <div className="grid gap-2">
                 <Label htmlFor="place-rep">{t('places.rep')}</Label>

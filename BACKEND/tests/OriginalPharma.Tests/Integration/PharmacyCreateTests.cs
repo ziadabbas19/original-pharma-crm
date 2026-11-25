@@ -82,7 +82,11 @@ public sealed class PharmacyCreateTests(PostgresFixture postgres)
         Assert.Equal(DoctorErrorCodes.TownInvalid, (await Assert.ThrowsAsync<BusinessRuleException>(() => Create(p.Rep, "Area Pharmacy", area))).Code);
 
         var first = await Create(p.Rep, "Nour Pharmacy", nasr);
-        var duplicate = await Assert.ThrowsAsync<ConflictException>(() => Create(p.RepEast, "  nour PHARMACY ", nasr));
+        // The same name: first the duplicate warning, then (added anyway) still refused.
+        var suspected = await Assert.ThrowsAsync<ConflictException>(() => Create(p.RepEast, "  nour PHARMACY ", nasr));
+        Assert.Equal(DuplicateErrorCodes.Suspected, suspected.Code);
+        var duplicate = await Assert.ThrowsAsync<ConflictException>(() => db.As<CustomerService, CustomerDto>(p.RepEast, s =>
+            s.CreatePharmacyAsync(new CreatePharmacyRequest("  nour PHARMACY ", null, nasr, DuplicateConfirmed: true), Ct)));
         Assert.Equal(PharmacyErrorCodes.Exists, duplicate.Code);
         Assert.Equal(first.Id, duplicate.Details!["pharmacyId"]);
         // The same name in another town is another pharmacy.

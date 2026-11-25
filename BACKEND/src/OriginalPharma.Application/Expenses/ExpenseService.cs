@@ -13,9 +13,9 @@ namespace OriginalPharma.Application.Expenses;
 
 /// <summary>
 /// Daily expenses per city. The first visit of a rep in a city on a day creates that city's line with
-/// its default amount (once: a removed or changed line is left as it is). Reps change their own lines
-/// and notes for days inside the editable window; managers with expenses:manage change any past day of
-/// the reps in their scope. Month totals are always summed from the current lines of the month's days.
+/// the rep's amount for it (their own, else the city's default; once: a removed or changed line is left
+/// as it is). Reps change their own lines and notes for days inside the editable window; managers with
+/// expenses:manage change any past day of the reps in their scope. Month totals are always summed from the current lines of the month's days.
 /// Every change is written to the activity log with the values before and after.
 /// </summary>
 public sealed class ExpenseService(
@@ -48,8 +48,9 @@ public sealed class ExpenseService(
 
     /// <summary>
     /// Called for every visit check-in: creates the line of the visit's city for the rep's day unless
-    /// the day already has one for that city (or had one that the rep removed). Cities with no default
-    /// amount, and visits without a city, create nothing. Never fails the check-in.
+    /// the day already has one for that city (or had one that the rep removed). The amount is the rep's own
+    /// for the city, else the city's default; zero, and visits without a city, create nothing. Never fails
+    /// the check-in.
     /// </summary>
     public async Task EnsureAutoLineAsync(Guid userId, Guid? repTerritoryId, DateTimeOffset at, Guid? cityId, CancellationToken cancellationToken = default)
     {
@@ -60,9 +61,11 @@ public sealed class ExpenseService(
 
         try
         {
+            // The rep's own amount for the town, else the town's default.
             var amount = await db.Territories.AsNoTracking()
                 .Where(t => t.Id == city && t.ArchivedAt == null)
-                .Select(t => (decimal?)t.DefaultDailyExpense)
+                .Select(t => db.RepTownExpenseDefaults.Where(d => d.UserId == userId && d.TerritoryId == t.Id).Select(d => (decimal?)d.Amount).FirstOrDefault()
+                             ?? (decimal?)t.DefaultDailyExpense)
                 .SingleOrDefaultAsync(cancellationToken);
             if (amount is not > 0)
             {

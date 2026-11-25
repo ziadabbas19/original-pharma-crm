@@ -27,7 +27,8 @@
     "note": "Note",
     "optional": "optional",
     "send": "Send",
-    "seeAll": "See all"
+    "seeAll": "See all",
+    "listSeparator": ", "
   },
   "status": {
     "done": "Done",
@@ -1011,7 +1012,8 @@
     "product_images_limit": "A product has at most 5 brochure pictures.",
     "product_image_too_large": "The picture is too large. Choose a smaller one.",
     "product_image_type": "Choose a JPEG, WebP or PNG picture.",
-    "product_images_order": "The brochure changed meanwhile. Reload and try again."
+    "product_images_order": "The brochure changed meanwhile. Reload and try again.",
+    "duplicate_suspected": "Similar ones already exist in this area. Check them before adding a new one."
   },
   "resources": {
     "users": "Users",
@@ -1651,7 +1653,9 @@
     "removeFromMyList": "Remove from my list",
     "addedToMyList": "Added to your list",
     "removedFromMyList": "Removed from your list",
-    "emptyAll": "No doctors to show"
+    "emptyAll": "No doctors to show",
+    "inListsOf": "In lists of",
+    "inListsOfLine": "In lists of: {{names}}"
   },
   "orders": {
     "title": "Orders",
@@ -2345,12 +2349,19 @@
     "statementOf": "{{name}}, {{month}}",
     "dashboardTitle": "Expenses this month",
     "cityAmounts": {
-      "title": "Default daily amounts",
-      "hint": "What a first visit in each city adds to the day's expenses.",
+      "title": "My daily amounts",
+      "hint": "What a first visit in each town adds to your day's expenses. Your amounts are yours only.",
       "note": "A changed amount applies to new automatic lines only. Lines that already exist and days already recorded keep their amounts.",
-      "edit": "Change the amount of {{city}}",
+      "edit": "Change my amount for {{city}}",
       "none": "None",
-      "empty": "No cities to set."
+      "empty": "No cities to set.",
+      "myTitle": "My amount for this town",
+      "myLabel": "My daily amount (EGP)",
+      "myHint": "Only your own amount changes. Other reps keep theirs. Zero: your visits here add no expense.",
+      "fallback": "Default amount for this town: {{amount}}",
+      "useDefault": "Use the default amount",
+      "own": "My amount",
+      "default": "Default amount"
     }
   },
   "plans": {
@@ -2569,5 +2580,17 @@
       "all": "All notes",
       "empty": "No reminders coming up."
     }
+  },
+  "similar": {
+    "title": "Similar ones already exist in this area",
+    "hint": "Check that it is not one of these before adding a new one.",
+    "same": "Same name",
+    "inactive": "Inactive",
+    "limited": "Outside your area: details are hidden.",
+    "sameDoctor": "This is the same doctor - add to my list",
+    "sameDoctorForRep": "This is the same doctor - add to the rep's list",
+    "addedToRepList": "Added to the rep's list",
+    "open": "Open",
+    "addAnyway": "Add anyway"
   }
 }

@@ -22,4 +22,5 @@ export interface CreateDoctorRequest {
   landmark?: string | null
   /** @nullable */
   availability?: DoctorSlotInput[] | null
+  duplicateConfirmed?: boolean
 }

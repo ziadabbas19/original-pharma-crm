@@ -58,13 +58,18 @@ public sealed record UpdateCustomerRequest(
 
 /// <summary>A new pharmacy (customers:create-pharmacy). Its location is saved from the first visit, as for doctors.</summary>
 /// <param name="TerritoryId">The town; it must be inside the caller's scope (a rep: their own area).</param>
+/// <param name="DuplicateConfirmed">
+/// The person saw the similar pharmacies of the town and adds this one anyway. Without it, similar ones
+/// make the request fail with 409 <c>duplicate_suspected</c> and the candidates.
+/// </param>
 public sealed record CreatePharmacyRequest(
     string Name,
     string? NameAr,
     Guid TerritoryId,
     string? Address = null,
     string? Phone = null,
-    string? Notes = null);
+    string? Notes = null,
+    bool DuplicateConfirmed = false);
 
 /// <summary>
 /// A new AM place, such as a hospital visited in the morning (customers:create-pharmacy in the caller's
@@ -72,6 +77,10 @@ public sealed record CreatePharmacyRequest(
 /// </summary>
 /// <param name="TerritoryId">The town.</param>
 /// <param name="RepId">Put the place on this rep's list as well (customers:assign over that rep).</param>
+/// <param name="DuplicateConfirmed">
+/// The person saw the similar places of the town and adds this one anyway. Without it, similar ones make
+/// the request fail with 409 <c>duplicate_suspected</c> and the candidates.
+/// </param>
 public sealed record CreateHospitalRequest(
     string Name,
     string? NameAr,
@@ -80,7 +89,8 @@ public sealed record CreateHospitalRequest(
     string? Landmark = null,
     string? Phone = null,
     string? Notes = null,
-    Guid? RepId = null);
+    Guid? RepId = null,
+    bool DuplicateConfirmed = false);
 
 public static class HospitalErrorCodes
 {
@@ -105,7 +115,13 @@ public static class PharmacyErrorCodes
 /// pharmacy and place details are edited with customers:manage; deleting needs customers:delete and
 /// archives customers that visits or orders point at (unused ones are removed).
 /// </summary>
-public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, IDataScopeResolver scopeResolver, AuditTrail audit, TimeProvider time)
+public sealed class CustomerService(
+    IAppDbContext db,
+    ICurrentUser currentUser,
+    IDataScopeResolver scopeResolver,
+    AuditTrail audit,
+    TimeProvider time,
+    SimilarCustomerFinder similar)
 {
     /// <summary>Upper bound for one list response until the list gets server paging.</summary>
     public const int MaxRows = 1000;
@@ -117,22 +133,8 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
         CancellationToken cancellationToken = default)
     {
         var scope = await scopeResolver.ResolveAsync(Permissions.Customers.Read, cancellationToken);
-        var visible = await scope.ResolveTerritoryIdsAsync(db, cancellationToken);
-
-        var query = db.Customers.AsNoTracking().Where(c => archived ? c.ArchivedAt != null : c.ArchivedAt == null);
-        if (visible is not null)
-        {
-            // A rep works in an area while pharmacies and AM places sit in its towns. Doctors stay with
-            // the reps' own lists; an AM place can also be put on a rep's list outside their area.
-            var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
-            var withTowns = visible.SelectMany(id => tree.SelfAndDescendants(id)).Distinct().ToArray();
-            var reps = await db.Users.AsNoTracking().VisibleUserIds(scope).ToListAsync(cancellationToken);
-            query = query.Where(c => (c.TerritoryId != null &&
-                                      (visible.Contains(c.TerritoryId.Value) ||
-                                       ((c.Type == CustomerType.Pharmacy || c.Type == CustomerType.Hospital) &&
-                                        withTowns.Contains(c.TerritoryId.Value)))) ||
-                                     (c.Type == CustomerType.Hospital && c.Reps.Any(a => reps.Contains(a.UserId))));
-        }
+        var query = await WhereReadableAsync(
+            db, db.Customers.AsNoTracking().Where(c => archived ? c.ArchivedAt != null : c.ArchivedAt == null), scope, cancellationToken);
 
         if (type is not null)
         {
@@ -151,6 +153,33 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
 
         var ordered = term.Length > 0 ? query.OrderBy(CustomerSearch.Closeness(term)).ThenBy(c => c.Name) : query.OrderBy(c => c.Name);
         return await ProjectAsync(ordered.Take(MaxRows), cancellationToken);
+    }
+
+    /// <summary>
+    /// Customers inside a customers:read scope, as the customer list reads them: in the scope's
+    /// territories, pharmacies and AM places also in the towns under them (a rep works in an area while
+    /// pharmacies sit in its towns), and AM places on the list of someone in the scope.
+    /// </summary>
+    internal static async Task<IQueryable<Customer>> WhereReadableAsync(
+        IAppDbContext db,
+        IQueryable<Customer> query,
+        DataScope scope,
+        CancellationToken cancellationToken)
+    {
+        var visible = await scope.ResolveTerritoryIdsAsync(db, cancellationToken);
+        if (visible is null)
+        {
+            return query;
+        }
+
+        var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
+        var withTowns = visible.SelectMany(id => tree.SelfAndDescendants(id)).Distinct().ToArray();
+        var reps = await db.Users.AsNoTracking().VisibleUserIds(scope).ToListAsync(cancellationToken);
+        return query.Where(c => (c.TerritoryId != null &&
+                                 (visible.Contains(c.TerritoryId.Value) ||
+                                  ((c.Type == CustomerType.Pharmacy || c.Type == CustomerType.Hospital) &&
+                                   withTowns.Contains(c.TerritoryId.Value)))) ||
+                                (c.Type == CustomerType.Hospital && c.Reps.Any(a => reps.Contains(a.UserId))));
     }
 
     /// <summary>Towns where the caller may add a pharmacy (customers:create-pharmacy within its scope), by area then name.</summary>
@@ -172,7 +201,9 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
     /// <summary>
     /// Adds a pharmacy in a town of the caller's scope (customers:create-pharmacy). Pharmacies belong to
     /// reps through their area, so a rep's new pharmacy is on their list at once; there is no other
-    /// rep to give it to. Same name in the same town is refused like a doctor (409 with the existing id).
+    /// rep to give it to. Similar pharmacies in the town make it fail with 409 <c>duplicate_suspected</c>
+    /// unless <see cref="CreatePharmacyRequest.DuplicateConfirmed"/>; the exact same name in the same town
+    /// is always refused (409 <c>pharmacy_exists</c> with the existing id).
     /// The location comes from the first visit with a good fix.
     /// </summary>
     public async Task<CustomerDto> CreatePharmacyAsync(CreatePharmacyRequest request, CancellationToken cancellationToken = default)
@@ -188,6 +219,9 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
         {
             throw new ForbiddenException(PharmacyErrorCodes.TownOutOfScope, "You can add pharmacies only in the towns of your area.");
         }
+
+        await similar.EnsureNoDuplicateAsync(
+            CustomerType.Pharmacy, request.TerritoryId, [request.Name, request.NameAr], request.Phone, request.DuplicateConfirmed, cancellationToken);
 
         var name = request.Name.Trim();
         var lower = name.ToLower();
@@ -250,8 +284,10 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
     /// Adds an AM place (a hospital visited in the morning) with the pharmacy rules: a rep in a town of
     /// their area (customers:create-pharmacy), a manager in a town of their customers:manage scope. A
     /// manager may also put it on a rep's list (customers:assign over that rep), which lets the rep see it
-    /// outside their area. Same name in the same town is refused (409 with the existing id). The location
-    /// comes from the first visit with a good fix.
+    /// outside their area. Similar places in the town make it fail with 409 <c>duplicate_suspected</c>
+    /// unless <see cref="CreateHospitalRequest.DuplicateConfirmed"/>; the exact same name in the same town
+    /// is always refused (409 <c>hospital_exists</c> with the existing id). The location comes from the
+    /// first visit with a good fix.
     /// </summary>
     public async Task<CustomerDto> CreateHospitalAsync(CreateHospitalRequest request, CancellationToken cancellationToken = default)
     {
@@ -277,6 +313,9 @@ public sealed class CustomerService(IAppDbContext db, ICurrentUser currentUser, 
                 throw new ForbiddenException("This rep is outside your scope.");
             }
         }
+
+        await similar.EnsureNoDuplicateAsync(
+            CustomerType.Hospital, request.TerritoryId, [request.Name, request.NameAr], request.Phone, request.DuplicateConfirmed, cancellationToken);
 
         var name = request.Name.Trim();
         var lower = name.ToLower();

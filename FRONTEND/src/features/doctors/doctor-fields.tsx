@@ -1,5 +1,5 @@
 import { AlertTriangleIcon } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LookupDto, TownDto } from '@/api/generated/model'
 import { Badge } from '@/components/ui/badge'
@@ -117,12 +117,15 @@ export function DoctorFields({
   towns,
   specialties,
   touched,
+  afterTown,
 }: {
   values: DoctorFormValues
   onChange: (values: DoctorFormValues) => void
   towns: TownDto[]
   specialties: LookupDto[]
   touched: boolean
+  /** Shown right under the name and town (the add forms' "similar ones already exist" warning). */
+  afterTown?: ReactNode
 }) {
   const { t } = useTranslation()
   const problems = doctorProblems(values, t)
@@ -175,6 +178,7 @@ export function DoctorFields({
       {touched && (problems.townId || problems.specialtyId) && (
         <p className="text-sm text-destructive">{t('doctors.townSpecialtyRequired')}</p>
       )}
+      {afterTown}
       <div className="grid gap-2">
         <Label htmlFor="doctor-address">{t('doctors.address')}</Label>
         <Input

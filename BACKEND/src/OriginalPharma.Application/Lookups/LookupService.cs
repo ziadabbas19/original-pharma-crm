@@ -23,8 +23,22 @@ public sealed record LookupDto(
     DateTimeOffset? ArchivedAt = null);
 
 /// <summary>A town with the area it belongs to (for doctor forms and filters).</summary>
-/// <param name="DefaultDailyExpense">The city's default daily expense (EGP), suggested when a rep adds an expense line for it.</param>
-public sealed record TownDto(Guid Id, string Name, string? NameAr, Guid? AreaId, string? AreaName, string? AreaNameAr, decimal DefaultDailyExpense = 0);
+/// <param name="DefaultDailyExpense">
+/// The daily expense (EGP) that applies to the caller in this town: their own amount when they set one,
+/// otherwise the town's default. Suggested when a rep adds an expense line for it.
+/// </param>
+/// <param name="IsOwn">The amount is the caller's own (expense-defaults only).</param>
+/// <param name="FallbackAmount">The town's default, used when the caller has no own amount (expense-defaults only).</param>
+public sealed record TownDto(
+    Guid Id,
+    string Name,
+    string? NameAr,
+    Guid? AreaId,
+    string? AreaName,
+    string? AreaNameAr,
+    decimal DefaultDailyExpense = 0,
+    bool IsOwn = false,
+    decimal? FallbackAmount = null);
 
 public sealed record SaveLookupRequest(string NameAr, string NameEn, bool IsActive = true, int SortOrder = 0);
 
@@ -39,15 +53,23 @@ public static class LookupErrorCodes
 /// that doctors or orders still use archives it (hidden from pickers, old records keep the name);
 /// an unused entry is removed for real.
 /// </summary>
-public sealed class LookupService(IAppDbContext db, AuditTrail audit, TimeProvider time)
+public sealed class LookupService(IAppDbContext db, ICurrentUser currentUser, AuditTrail audit, TimeProvider time)
 {
-    /// <summary>All towns that are not archived, by area then name. Town names are not sensitive; everyone signed in can read them.</summary>
-    public Task<List<TownDto>> ListTownsAsync(CancellationToken cancellationToken = default) =>
-        db.Territories.AsNoTracking()
+    /// <summary>
+    /// All towns that are not archived, by area then name, with the daily expense that applies to the
+    /// caller (their own amount, else the town's). Town names are not sensitive; everyone signed in can read them.
+    /// </summary>
+    public Task<List<TownDto>> ListTownsAsync(CancellationToken cancellationToken = default)
+    {
+        var me = currentUser.UserId;
+        return db.Territories.AsNoTracking()
             .Where(t => t.Level == Domain.Identity.TerritoryLevel.Town && t.ArchivedAt == null)
             .OrderBy(t => t.Parent!.Name).ThenBy(t => t.Name)
-            .Select(t => new TownDto(t.Id, t.Name, t.NameAr, t.ParentId, t.Parent!.Name, t.Parent.NameAr, t.DefaultDailyExpense))
+            .Select(t => new TownDto(t.Id, t.Name, t.NameAr, t.ParentId, t.Parent!.Name, t.Parent.NameAr,
+                db.RepTownExpenseDefaults.Where(d => d.UserId == me && d.TerritoryId == t.Id).Select(d => (decimal?)d.Amount).FirstOrDefault()
+                ?? t.DefaultDailyExpense, false, null))
             .ToListAsync(cancellationToken);
+    }
 
     /// <param name="includeInactive">Also entries switched off (for the management screen).</param>
     /// <param name="archived">Only archived entries (true), or only entries that are not archived (default).</param>

@@ -22,11 +22,18 @@ public sealed record DoctorRepDto(Guid Id, string FullName, bool OutsideArea);
 /// <param name="Place">Optional label, such as the clinic name.</param>
 public sealed record DoctorSlotDto(DayOfWeek Weekday, string Start, string End, string? Place = null);
 
-/// <param name="Reps">Reps (visible to the caller) who have the doctor on their list.</param>
+/// <param name="Reps">
+/// "In lists of": the people inside the caller's customers:read scope who have the doctor on their list
+/// (everyone for "all"). A rep with the "own" scope sees only themselves here.
+/// </param>
 /// <param name="OnMyList">The doctor is on the caller's own list.</param>
 /// <param name="OutsideMyArea">The doctor's town is outside the caller's area.</param>
 /// <param name="CreatedByName">Who added the doctor (null for doctors added before this was kept).</param>
 /// <param name="Availability">Visiting hours, Saturday first (empty: no hours set).</param>
+/// <param name="Limited">
+/// The doctor is outside the caller's customers:read scope (seen through the shared doctor directory):
+/// phone, notes and the saved location are not given.
+/// </param>
 public sealed record DoctorDto(
     Guid Id,
     string Name,
@@ -57,7 +64,8 @@ public sealed record DoctorDto(
     string? Landmark = null,
     Guid? CreatedById = null,
     string? CreatedByName = null,
-    IReadOnlyList<DoctorSlotDto>? Availability = null);
+    IReadOnlyList<DoctorSlotDto>? Availability = null,
+    bool Limited = false);
 
 /// <summary>A visit to the doctor as the location history shows it.</summary>
 public sealed record DoctorVisitLocationDto(
@@ -119,6 +127,10 @@ public sealed record DoctorLocationHistoryDto(
 /// <param name="CreatedById">Only doctors added by this user.</param>
 /// <param name="Page">1-based page; without it the list returns up to 1000 rows.</param>
 /// <param name="PageSize">Rows per page (1-100, default 20).</param>
+/// <param name="InScope">
+/// Only doctors inside the caller's customers:read scope (on the list of someone in it, or in a town of a
+/// territory scope) instead of the whole shared directory. Archived doctors are always read this way.
+/// </param>
 public sealed record DoctorQuery(
     bool Mine = false,
     Guid? RepId = null,
@@ -135,13 +147,18 @@ public sealed record DoctorQuery(
     Guid? CreatedById = null,
     int? Page = null,
     int? PageSize = null,
-    Guid? ListOf = null);
+    Guid? ListOf = null,
+    bool InScope = false);
 
 /// <summary>A visiting slot as the forms send it: weekday, "HH:mm" start and end, optional place.</summary>
 public sealed record DoctorSlotInput(DayOfWeek Weekday, string Start, string End, string? Place = null);
 
 /// <param name="RepId">List to add the new doctor to. Defaults to the caller; another rep needs customers:assign.</param>
 /// <param name="Availability">Visiting hours (optional): end after start, no overlap on the same weekday.</param>
+/// <param name="DuplicateConfirmed">
+/// The person saw the similar doctors of the town and adds this one anyway. Without it, similar doctors
+/// make the request fail with 409 <c>duplicate_suspected</c> and the candidates.
+/// </param>
 public sealed record CreateDoctorRequest(
     string Name,
     string? NameAr,
@@ -152,7 +169,8 @@ public sealed record CreateDoctorRequest(
     Guid? RepId = null,
     string? Address = null,
     string? Landmark = null,
-    IReadOnlyList<DoctorSlotInput>? Availability = null);
+    IReadOnlyList<DoctorSlotInput>? Availability = null,
+    bool DuplicateConfirmed = false);
 
 /// <summary>Where the clinic is, for the visit geofence. Leave both coordinates empty to keep no location.</summary>
 public sealed record DoctorLocationInput(double? Lat, double? Lng, int GeofenceRadiusMeters = 150);
@@ -311,9 +329,12 @@ public static class DoctorAvailabilityRules
 }
 
 /// <summary>
-/// Reps' personal doctor lists. A doctor is stored once; <see cref="RepDoctor"/> rows put it on
-/// reps' lists. Reading follows customers:read: own = the caller's list, team/territory = the
-/// lists of the reps in scope (territory also covers doctors in its towns), all = everything.
+/// Reps' personal doctor lists. A doctor is stored once; <see cref="RepDoctor"/> rows put it on as many
+/// reps' lists as needed. Doctors are a shared directory: anyone with customers:read (any scope) sees
+/// every doctor that is not archived. The scope still decides the rest: own = the caller's list,
+/// team/territory = the lists of the reps in scope (territory also covers doctors in its towns), all =
+/// everything. Doctors outside it come without phone, notes and location (<see cref="DoctorDto.Limited"/>)
+/// and with only the in-scope reps as "in lists of"; archived doctors and editing follow the scope.
 /// </summary>
 public sealed class DoctorService(
     IAppDbContext db,
@@ -321,7 +342,8 @@ public sealed class DoctorService(
     IDataScopeResolver scopeResolver,
     IPermissionService permissions,
     AuditTrail audit,
-    TimeProvider time)
+    TimeProvider time,
+    SimilarCustomerFinder similar)
 {
     public const int MaxRows = 1000;
     public const int DefaultPageSize = 20;
@@ -353,7 +375,7 @@ public sealed class DoctorService(
         {
             doctors = doctors.Where(c => c.Reps.Any(a => a.UserId == rep));
         }
-        else
+        else if (query.InScope || query.Archived)
         {
             doctors = WhereVisible(doctors, scope, visibleReps);
         }
@@ -426,7 +448,8 @@ public sealed class DoctorService(
                 .Take(Math.Clamp(query.PageSize ?? DefaultPageSize, 1, MaxPageSize))
             : ordered.Take(MaxRows);
         var rows = await Project(page).ToListAsync(cancellationToken);
-        return await ToDtosAsync(rows, me, visibleReps, tree, cancellationToken);
+        var inScope = await InScopeIdsAsync(rows.Select(r => r.Id).ToArray(), scope, visibleReps, cancellationToken);
+        return await ToDtosAsync(rows, me, visibleReps, tree, cancellationToken, inScope);
     }
 
     public async Task<DoctorDto> GetAsync(Guid id, CancellationToken cancellationToken = default)
@@ -434,9 +457,13 @@ public sealed class DoctorService(
         var me = currentUser.RequireUserId();
         var scope = await scopeResolver.ResolveAsync(Permissions.Customers.Read, cancellationToken);
         var visibleReps = await VisibleRepIdsAsync(scope, cancellationToken);
+        var inScope = await InScopeIdsAsync([id], scope, visibleReps, cancellationToken);
+
+        // Any doctor of the shared directory; an archived one only inside the scope or on the caller's list.
         var visible = await db.RepDoctors.AnyAsync(a => a.UserId == me && a.CustomerId == id, cancellationToken) ||
-                      await WhereVisible(db.Customers.Where(c => c.Id == id && c.Type == CustomerType.Doctor), scope, visibleReps)
-                          .AnyAsync(cancellationToken);
+                      (inScope is null || inScope.Contains(id)
+                          ? await db.Customers.AnyAsync(c => c.Id == id && c.Type == CustomerType.Doctor, cancellationToken)
+                          : await db.Customers.AnyAsync(c => c.Id == id && c.Type == CustomerType.Doctor && c.ArchivedAt == null, cancellationToken));
         if (!visible)
         {
             throw new NotFoundException("Doctor", id);
@@ -444,7 +471,7 @@ public sealed class DoctorService(
 
         var row = await Project(db.Customers.AsNoTracking().Where(c => c.Id == id)).SingleAsync(cancellationToken);
         var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
-        return (await ToDtosAsync([row], me, visibleReps, tree, cancellationToken))[0];
+        return (await ToDtosAsync([row], me, visibleReps, tree, cancellationToken, inScope))[0];
     }
 
     /// <summary>
@@ -513,8 +540,8 @@ public sealed class DoctorService(
     }
 
     /// <summary>
-    /// Search all active doctors (name, town, specialty only) so a rep can pick an existing doctor
-    /// instead of creating a duplicate.
+    /// Search all active doctors so a rep can pick an existing doctor instead of creating a duplicate:
+    /// name, town, specialty, address, landmark, hours and who added it; no phone, notes or location.
     /// </summary>
     public async Task<IReadOnlyList<DoctorDto>> SearchDirectoryAsync(
         string? search,
@@ -544,15 +571,8 @@ public sealed class DoctorService(
         var rows = await Project(ordered.Take(DirectoryRows)).ToListAsync(cancellationToken);
         var tree = await TerritoryTree.LoadAsync(db, cancellationToken);
 
-        // Other reps' names are not part of the directory; phone and notes neither.
-        return (await ToDtosAsync(rows, me, [me], tree, cancellationToken))
-            .Select(d => d with
-            {
-                Phone = null, Notes = null, Lat = null, Lng = null, LocationSource = null, LocationCapturedAt = null,
-                LocationCapturedByName = null, LocationAccuracyMeters = null, LocationVisitId = null,
-                Address = null, Landmark = null, CreatedById = null, CreatedByName = null, Availability = [],
-            })
-            .ToList();
+        // Other reps' names are not part of the directory; phone, notes and location neither.
+        return await ToDtosAsync(rows, me, [me], tree, cancellationToken, inScope: new HashSet<Guid>());
     }
 
     /// <summary>Creates a doctor and puts it on the caller's list (or another rep's, with customers:assign).</summary>
@@ -566,6 +586,8 @@ public sealed class DoctorService(
         }
 
         await EnsureTownAndSpecialtyAsync(request.TownId, request.SpecialtyId, cancellationToken);
+        await similar.EnsureNoDuplicateAsync(
+            CustomerType.Doctor, request.TownId, [request.Name, request.NameAr], request.Phone, request.DuplicateConfirmed, cancellationToken);
 
         var name = request.Name.Trim();
         var lower = name.ToLower();
@@ -873,6 +895,25 @@ public sealed class DoctorService(
         }
     }
 
+    /// <summary>
+    /// Which of these doctors are inside the scope (<see cref="WhereVisible"/>); null when all of them are.
+    /// The caller's own list is always inside.
+    /// </summary>
+    private async Task<HashSet<Guid>?> InScopeIdsAsync(Guid[] ids, DataScope scope, HashSet<Guid>? visibleReps, CancellationToken cancellationToken)
+    {
+        if (visibleReps is null)
+        {
+            return null;
+        }
+
+        var me = currentUser.RequireUserId();
+        return (await WhereVisible(db.Customers.AsNoTracking().Where(c => ids.Contains(c.Id)), scope, visibleReps)
+                .Select(c => c.Id)
+                .Union(db.RepDoctors.Where(a => a.UserId == me && ids.Contains(a.CustomerId)).Select(a => a.CustomerId))
+                .ToListAsync(cancellationToken))
+            .ToHashSet();
+    }
+
     /// <summary>Users visible in the scope, or null when the scope is "all".</summary>
     private async Task<HashSet<Guid>?> VisibleRepIdsAsync(DataScope scope, CancellationToken cancellationToken)
     {
@@ -937,12 +978,14 @@ public sealed class DoctorService(
             c.CreatedById,
             db.Users.Where(u => u.Id == c.CreatedById).Select(u => u.FullName).FirstOrDefault()));
 
+    /// <param name="inScope">Doctors inside the caller's scope (null: all); the others are <see cref="DoctorDto.Limited"/>.</param>
     private async Task<List<DoctorDto>> ToDtosAsync(
         IReadOnlyList<DoctorRow> rows,
         Guid me,
         IReadOnlyCollection<Guid>? visibleReps,
         TerritoryTree tree,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlySet<Guid>? inScope = null)
     {
         var ids = rows.Select(r => r.Id).ToArray();
         var assignments = await db.RepDoctors.AsNoTracking()
@@ -958,7 +1001,7 @@ public sealed class DoctorService(
         var myTerritory = await db.Users.AsNoTracking().Where(u => u.Id == me).Select(u => u.TerritoryId).SingleOrDefaultAsync(cancellationToken);
 
         return rows
-            .Select(r => new DoctorDto(
+            .Select(r => Limit(new DoctorDto(
                 r.Id, r.Name, r.NameAr, r.TownId, r.TownName, r.TownNameAr, tree.AreaOf(r.TownId), r.SpecialtyId,
                 r.SpecialtyNameAr, r.SpecialtyNameEn, r.Phone, r.Notes, r.IsActive,
                 byDoctor[r.Id]
@@ -984,9 +1027,19 @@ public sealed class DoctorService(
                 slots[r.Id]
                     .Select(a => new DoctorSlotDto(
                         a.Weekday, DoctorAvailabilityRules.Format(a.StartTime), DoctorAvailabilityRules.Format(a.EndTime), a.Place))
-                    .ToList()))
+                    .ToList()), inScope))
             .ToList();
     }
+
+    /// <summary>A doctor outside the scope: no phone, notes or location.</summary>
+    private static DoctorDto Limit(DoctorDto doctor, IReadOnlySet<Guid>? inScope) =>
+        inScope is null || inScope.Contains(doctor.Id) || doctor.OnMyList
+            ? doctor
+            : doctor with
+            {
+                Phone = null, Notes = null, Lat = null, Lng = null, LocationSource = null, LocationCapturedAt = null,
+                LocationCapturedByName = null, LocationAccuracyMeters = null, LocationVisitId = null, Limited = true,
+            };
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

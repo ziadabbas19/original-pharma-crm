@@ -8,7 +8,7 @@ import {
   useCustomersCreatePharmacy,
   useCustomersPharmacyTowns,
 } from '@/api/generated/endpoints'
-import type { CustomerDto, TownDto } from '@/api/generated/model'
+import type { CustomerDto, SimilarCustomerDto, TownDto } from '@/api/generated/model'
 import { FormError } from '@/components/states'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,9 @@ import {
   withPharmacy,
   type PharmacyFormValues,
 } from './pharmacy-form'
+import { duplicateCandidates } from './similar-customers'
+import { OpenCandidateButton, SimilarCustomersNotice } from './SimilarCustomersNotice'
+import { useSimilarCustomers } from './use-similar-customers'
 
 const TOWNS_KEY = 'pharmacy-towns'
 const PHARMACIES_KEY = 'my-pharmacies'
@@ -35,7 +38,8 @@ const PHARMACIES_KEY = 'my-pharmacies'
 /**
  * Add a pharmacy from the rep app (customers:create-pharmacy), like adding a doctor: name, town (only
  * the towns of the rep's own area), address, phone and notes. No location now: the first visit saves
- * it. A pharmacy already known in that town is offered instead of a duplicate.
+ * it. Look-alike pharmacies of the town are shown while typing, and one already known is offered
+ * instead of a duplicate.
  */
 export function AddPharmacySheet({
   open,
@@ -67,7 +71,19 @@ export function AddPharmacySheet({
   const onlyTown = towns.data?.length === 1 ? towns.data[0].id : ''
   const form = { ...values, townId: values.townId || onlyTown }
   const problems = pharmacyProblems(form)
-  const set = (patch: Partial<PharmacyFormValues>) => setValues((v) => ({ ...v, ...patch }))
+  const [conflict, setConflict] = useState<SimilarCustomerDto[] | null>(null)
+  const live = useSimilarCustomers({
+    type: 'pharmacy',
+    name: form.name || form.nameAr,
+    townId: form.townId,
+    phone: form.phone,
+    enabled: open,
+  })
+  const candidates = conflict ?? live
+  const set = (patch: Partial<PharmacyFormValues>) => {
+    setConflict(null)
+    setValues((v) => ({ ...v, ...patch }))
+  }
 
   useEffect(() => {
     if (towns.data && towns.isFetchedAfterMount) writeCache(TOWNS_KEY, towns.data)
@@ -78,17 +94,21 @@ export function AddPharmacySheet({
     setTouched(false)
     setError(null)
     setExistingId(null)
+    setConflict(null)
     onOpenChange(false)
   }
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
+  /** Saves the pharmacy; `confirmed` after "Add anyway" next to look-alike pharmacies. */
+  const submit = async (e?: FormEvent, confirmed = false) => {
+    e?.preventDefault()
     setTouched(true)
     setError(null)
     setExistingId(null)
     if (problems.name || problems.townId) return
     try {
-      const pharmacy = await create.mutateAsync({ data: toCreatePharmacyRequest(form) })
+      const pharmacy = await create.mutateAsync({
+        data: { ...toCreatePharmacyRequest(form), duplicateConfirmed: confirmed },
+      })
       // On the list at once, and on the phone's copy for offline use.
       const key = getCustomersListQueryKey({ type: 'pharmacy' })
       const next = withPharmacy(queryClient.getQueryData<CustomerDto[]>(key), pharmacy)
@@ -99,8 +119,11 @@ export function AddPharmacySheet({
       close()
     } catch (err) {
       const failure = handleError(err, { silent: true, context: 'pharmacies.add' })
+      const similar = duplicateCandidates(failure)
       // Already known in that town: open the existing pharmacy instead.
-      if (failure.code === 'pharmacy_exists' && typeof failure.details.pharmacyId === 'string') {
+      if (similar) {
+        setConflict(similar)
+      } else if (failure.code === 'pharmacy_exists' && typeof failure.details.pharmacyId === 'string') {
         setExistingId(failure.details.pharmacyId)
       } else {
         setError(failure)
@@ -164,6 +187,18 @@ export function AddPharmacySheet({
               )}
               <p className="text-xs text-muted-foreground">{t('pharmacies.townHint')}</p>
             </div>
+            <SimilarCustomersNotice
+              candidates={candidates}
+              adding={create.isPending}
+              onAddAnyway={() => void submit(undefined, true)}
+              action={(c) => (
+                <OpenCandidateButton>
+                  <Link to="/rep/customers/$customerId" params={{ customerId: c.id }} onClick={close}>
+                    {t('similar.open')}
+                  </Link>
+                </OpenCandidateButton>
+              )}
+            />
             <div className="grid gap-2">
               <Label htmlFor="pharmacy-new-address">{t('pharmacies.address')}</Label>
               <Input

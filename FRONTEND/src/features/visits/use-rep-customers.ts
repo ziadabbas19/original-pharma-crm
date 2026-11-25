@@ -113,7 +113,7 @@ export function useRepCustomers() {
     { query: { initialData: copy?.data, initialDataUpdatedAt: copy?.savedAt, staleTime: 60_000 } },
   )
   const emptyList = doctors.data !== undefined && doctors.data.length === 0
-  const inScope = useDoctorsList({}, { query: { enabled: emptyList, staleTime: 60_000 } })
+  const inScope = useDoctorsList({ InScope: true }, { query: { enabled: emptyList, staleTime: 60_000 } })
   const doctorRows = emptyList ? (inScope.data ?? doctors.data) : doctors.data
   const pharmacies = usePharmacies()
   const places = useAmPlaces()

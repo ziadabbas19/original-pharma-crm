@@ -64,7 +64,7 @@ export function DoctorDetailsSheet({
           {doctor.notes && <p className="whitespace-pre-line text-muted-foreground">{doctor.notes}</p>}
           <DoctorSchedule slots={doctor.availability} className="border-t pt-3" />
           <div className="grid gap-1.5 border-t pt-3">
-            <p className="font-semibold">{t('doctors.reps')}</p>
+            <p className="font-semibold">{t('doctors.inListsOf')}</p>
             {doctor.reps.length === 0 ? (
               <p className="text-muted-foreground">{t('doctors.unassigned')}</p>
             ) : (

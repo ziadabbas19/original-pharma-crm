@@ -68,9 +68,13 @@ export function LiveMapPage() {
   const canReviewFlags = usePermission(P.tracking.reviewFlags)
   const canReadDoctors = usePermission(P.customers.read)
   const [showDoctors, setShowDoctors] = useState(false)
-  const doctorList = useDoctorsList(undefined, {
-    query: { enabled: showDoctors && canReadDoctors, staleTime: 5 * 60_000 },
-  })
+  // Only the doctors in scope: the others of the shared directory come without a location.
+  const doctorList = useDoctorsList(
+    { InScope: true },
+    {
+      query: { enabled: showDoctors && canReadDoctors, staleTime: 5 * 60_000 },
+    },
+  )
   const doctors = useMemo<MapDoctor[]>(
     () =>
       showDoctors

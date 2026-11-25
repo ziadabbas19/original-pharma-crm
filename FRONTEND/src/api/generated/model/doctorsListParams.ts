@@ -21,4 +21,5 @@ export type DoctorsListParams = {
   Page?: number
   PageSize?: number
   ListOf?: string
+  InScope?: boolean
 }

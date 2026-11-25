@@ -18,4 +18,5 @@ export interface CreateHospitalRequest {
   notes?: string | null
   /** @nullable */
   repId?: string | null
+  duplicateConfirmed?: boolean
 }

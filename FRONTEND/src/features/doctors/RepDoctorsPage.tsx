@@ -275,6 +275,7 @@ function RepDoctorList() {
   const [searchingHours, setSearchingHours] = useState(false)
   const addToList = useDoctorsAddToMyList()
   const navigate = useNavigate()
+  const me = useAppSelector((s) => s.auth.user?.id)
 
   useEffect(() => {
     if (mine.data && mine.isFetchedAfterMount) writeCache('my-doctors', mine.data)
@@ -476,6 +477,14 @@ function RepDoctorList() {
                       </Link>
                       {d.outsideMyArea && <OutsideAreaBadge />}
                     </div>
+                    {/* Managers only: the server lists just the caller for a rep, so others mean a wider scope. */}
+                    {d.reps.some((r) => r.id !== me) && (
+                      <p className="text-sm text-muted-foreground" data-testid="rep-doctor-lists">
+                        {t('doctors.inListsOfLine', {
+                          names: d.reps.map((r) => r.fullName).join(t('common.listSeparator')),
+                        })}
+                      </p>
+                    )}
                     {d.notes && (
                       <p className="text-sm whitespace-pre-line text-muted-foreground">{d.notes}</p>
                     )}

@@ -26,7 +26,9 @@ import type {
   CreatePharmacyRequest,
   CustomerDto,
   CustomersListParams,
+  CustomersSimilarParams,
   ProblemDetails,
+  SimilarCustomerDto,
   TownDto,
   UpdateCustomerRequest,
 } from '../../model'
@@ -178,6 +180,120 @@ export function useCustomersList<TData = Awaited<ReturnType<typeof customersList
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getCustomersListQueryOptions(params, options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getCustomersSimilarUrl = (params?: CustomersSimilarParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/customers/similar?${stringifiedParams}`
+    : `/api/customers/similar`
+}
+
+export const customersSimilar = async (
+  params?: CustomersSimilarParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<SimilarCustomerDto[]> => {
+  return apiFetch<SimilarCustomerDto[]>(getCustomersSimilarUrl(params), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getCustomersSimilarQueryKey = (params?: CustomersSimilarParams) => {
+  return [`/api/customers/similar`, ...(params ? [params] : [])] as const
+}
+
+export const getCustomersSimilarQueryOptions = <
+  TData = Awaited<ReturnType<typeof customersSimilar>>,
+  TError = unknown,
+>(
+  params?: CustomersSimilarParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof customersSimilar>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getCustomersSimilarQueryKey(params)
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof customersSimilar>>> = ({ signal }) =>
+    customersSimilar(params, { signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof customersSimilar>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CustomersSimilarQueryResult = NonNullable<Awaited<ReturnType<typeof customersSimilar>>>
+export type CustomersSimilarQueryError = unknown
+
+export function useCustomersSimilar<TData = Awaited<ReturnType<typeof customersSimilar>>, TError = unknown>(
+  params: undefined | CustomersSimilarParams,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof customersSimilar>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof customersSimilar>>,
+          TError,
+          Awaited<ReturnType<typeof customersSimilar>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCustomersSimilar<TData = Awaited<ReturnType<typeof customersSimilar>>, TError = unknown>(
+  params?: CustomersSimilarParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof customersSimilar>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof customersSimilar>>,
+          TError,
+          Awaited<ReturnType<typeof customersSimilar>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCustomersSimilar<TData = Awaited<ReturnType<typeof customersSimilar>>, TError = unknown>(
+  params?: CustomersSimilarParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof customersSimilar>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCustomersSimilar<TData = Awaited<ReturnType<typeof customersSimilar>>, TError = unknown>(
+  params?: CustomersSimilarParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof customersSimilar>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getCustomersSimilarQueryOptions(params, options)
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>

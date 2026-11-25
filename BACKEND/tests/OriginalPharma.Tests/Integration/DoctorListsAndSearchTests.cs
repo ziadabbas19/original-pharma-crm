@@ -19,8 +19,9 @@ public sealed class DoctorListsAndSearchTests(PostgresFixture postgres)
     private static async Task<string[]> Names(TestDatabase db, Guid actor, DoctorQuery query) =>
         (await ListAsync(db, actor, query)).Select(d => d.Name).ToArray();
 
+    /// <summary>Adds a doctor; the search tests add look-alike names on purpose, so the duplicate warning is confirmed.</summary>
     private static Task<DoctorDto> CreateAsync(TestDatabase db, Guid actor, string name, string? nameAr, Guid town, Guid specialty, params DoctorSlotInput[] slots) =>
-        db.As<DoctorService, DoctorDto>(actor, s => s.CreateAsync(new CreateDoctorRequest(name, nameAr, town, specialty, Availability: slots), Ct));
+        db.As<DoctorService, DoctorDto>(actor, s => s.CreateAsync(new CreateDoctorRequest(name, nameAr, town, specialty, Availability: slots, DuplicateConfirmed: true), Ct));
 
     [Fact]
     public async Task A_rep_sees_only_their_own_list_and_managers_open_the_lists_below_them()

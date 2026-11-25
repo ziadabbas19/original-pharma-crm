@@ -3,7 +3,7 @@ import { Loader2Icon, MapPinPlusIcon, PlusIcon, SearchIcon, UserPlusIcon } from 
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDoctorsAddToMyList, useDoctorsCreate, useDoctorsSearchDirectory } from '@/api/generated/endpoints'
-import type { DoctorDto } from '@/api/generated/model'
+import type { DoctorDto, SimilarCustomerDto } from '@/api/generated/model'
 import { EmptyState, FormError, Spinner } from '@/components/states'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -14,12 +14,18 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { handleError, inlineErrors } from '@/lib/errors'
 import { localizedName } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { duplicateCandidates } from '@/features/customers/similar-customers'
+import { SameDoctorButton, SimilarCustomersNotice } from '@/features/customers/SimilarCustomersNotice'
+import { useSimilarCustomers } from '@/features/customers/use-similar-customers'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
 import { slotProblems } from './availability'
 import { DoctorFields, OutsideAreaBadge } from './doctor-fields'
 import { doctorProblems, EMPTY_DOCTOR, toCreateDoctorRequest, type DoctorFormValues } from './doctor-form'
 
-/** Add a doctor to your own list: pick an existing one (avoids duplicates) or create a new one. */
+/**
+ * Add a doctor to your own list: pick an existing one (avoids duplicates) or create a new one. While the
+ * new doctor's name is typed, look-alike doctors of the chosen town are offered first.
+ */
 export function AddDoctorSheet({
   open,
   onOpenChange,
@@ -45,6 +51,20 @@ export function AddDoctorSheet({
   const [touched, setTouched] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [existingId, setExistingId] = useState<string | null>(null)
+  // Candidates from a refused save (409 duplicate_suspected); the live check takes over on the next change.
+  const [conflict, setConflict] = useState<SimilarCustomerDto[] | null>(null)
+  const live = useSimilarCustomers({
+    type: 'doctor',
+    name: values.name || values.nameAr,
+    townId: values.townId,
+    phone: values.phone,
+    enabled: open && tab === 'new',
+  })
+  const candidates = conflict ?? live
+  const change = (next: DoctorFormValues) => {
+    setConflict(null)
+    setValues(next)
+  }
 
   const finish = async (doctor: DoctorDto) => {
     await queryClient.invalidateQueries({ queryKey: ['/api/doctors'] })
@@ -53,6 +73,7 @@ export function AddDoctorSheet({
     setTouched(false)
     setSearch('')
     setExistingId(null)
+    setConflict(null)
     onOpenChange(false)
   }
 
@@ -65,8 +86,9 @@ export function AddDoctorSheet({
     }
   }
 
-  const submitNew = async (e: FormEvent) => {
-    e.preventDefault()
+  /** Saves the new doctor; `confirmed` after "Add anyway" next to look-alike doctors. */
+  const submitNew = async (e?: FormEvent, confirmed = false) => {
+    e?.preventDefault()
     setTouched(true)
     setError(null)
     setExistingId(null)
@@ -74,11 +96,18 @@ export function AddDoctorSheet({
     if (problems.name || problems.townId || problems.specialtyId || slotProblems(values.slots).some(Boolean))
       return
     try {
-      await finish(await create.mutateAsync({ data: toCreateDoctorRequest(values) }))
+      await finish(
+        await create.mutateAsync({
+          data: { ...toCreateDoctorRequest(values), duplicateConfirmed: confirmed },
+        }),
+      )
     } catch (err) {
       const failure = handleError(err, { silent: true, context: 'doctors.add' })
+      const similar = duplicateCandidates(failure)
       // The doctor is already known: offer the existing record instead of an error.
-      if (failure.code === 'doctor_exists' && typeof failure.details.doctorId === 'string') {
+      if (similar) {
+        setConflict(similar)
+      } else if (failure.code === 'doctor_exists' && typeof failure.details.doctorId === 'string') {
         setExistingId(failure.details.doctorId)
       } else {
         setError(failure)
@@ -160,6 +189,11 @@ export function AddDoctorSheet({
                             .filter(Boolean)
                             .join(' · ')}
                         </p>
+                        {(d.address || d.landmark) && (
+                          <p className="truncate text-sm text-muted-foreground">
+                            {[d.address, d.landmark].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
                         {d.outsideMyArea && <OutsideAreaBadge />}
                       </div>
                       {d.onMyList ? (
@@ -183,10 +217,23 @@ export function AddDoctorSheet({
             <form className="grid gap-4" noValidate onSubmit={(e) => void submitNew(e)}>
               <DoctorFields
                 values={values}
-                onChange={setValues}
+                onChange={change}
                 towns={towns.data ?? []}
                 specialties={specialties.data ?? []}
                 touched={touched}
+                afterTown={
+                  <SimilarCustomersNotice
+                    candidates={candidates}
+                    adding={create.isPending}
+                    onAddAnyway={() => void submitNew(undefined, true)}
+                    action={(c) => (
+                      <SameDoctorButton
+                        busy={add.isPending && add.variables?.id === c.id}
+                        onClick={() => void addExisting(c.id)}
+                      />
+                    )}
+                  />
+                }
               />
               <p
                 className="flex items-start gap-2 text-sm text-muted-foreground"

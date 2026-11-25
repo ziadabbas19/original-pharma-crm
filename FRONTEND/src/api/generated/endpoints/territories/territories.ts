@@ -753,3 +753,163 @@ export const useTerritoriesSetExpenseDefault = <TError = unknown, TContext = unk
 > => {
   return useMutation(getTerritoriesSetExpenseDefaultMutationOptions(options), queryClient)
 }
+export const getTerritoriesSetMyExpenseDefaultUrl = (id: string) => {
+  return `/api/territories/${id}/my-expense-default`
+}
+
+export const territoriesSetMyExpenseDefault = async (
+  id: string,
+  setCityExpenseRequest: SetCityExpenseRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TownDto> => {
+  return apiFetch<TownDto>(getTerritoriesSetMyExpenseDefaultUrl(id), {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(setCityExpenseRequest),
+  })
+}
+
+export const getTerritoriesSetMyExpenseDefaultMutationKey = () => ['territoriesSetMyExpenseDefault'] as const
+
+export const getTerritoriesSetMyExpenseDefaultMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof territoriesSetMyExpenseDefault>>,
+    TError,
+    TerritoriesSetMyExpenseDefaultMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof territoriesSetMyExpenseDefault>>,
+  TError,
+  TerritoriesSetMyExpenseDefaultMutationVariables,
+  TContext
+> => {
+  const mutationKey = getTerritoriesSetMyExpenseDefaultMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof territoriesSetMyExpenseDefault>>,
+    TerritoriesSetMyExpenseDefaultMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {}
+
+    return territoriesSetMyExpenseDefault(id, data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type TerritoriesSetMyExpenseDefaultMutationResult = NonNullable<
+  Awaited<ReturnType<typeof territoriesSetMyExpenseDefault>>
+>
+export type TerritoriesSetMyExpenseDefaultMutationBody = SetCityExpenseRequest
+export type TerritoriesSetMyExpenseDefaultMutationError = unknown
+export type TerritoriesSetMyExpenseDefaultMutationVariables = { id: string; data: SetCityExpenseRequest }
+
+export const useTerritoriesSetMyExpenseDefault = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof territoriesSetMyExpenseDefault>>,
+      TError,
+      TerritoriesSetMyExpenseDefaultMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof territoriesSetMyExpenseDefault>>,
+  TError,
+  TerritoriesSetMyExpenseDefaultMutationVariables,
+  TContext
+> => {
+  return useMutation(getTerritoriesSetMyExpenseDefaultMutationOptions(options), queryClient)
+}
+export const getTerritoriesClearMyExpenseDefaultUrl = (id: string) => {
+  return `/api/territories/${id}/my-expense-default`
+}
+
+export const territoriesClearMyExpenseDefault = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TownDto> => {
+  return apiFetch<TownDto>(getTerritoriesClearMyExpenseDefaultUrl(id), {
+    ...options,
+    method: 'DELETE',
+  })
+}
+
+export const getTerritoriesClearMyExpenseDefaultMutationKey = () =>
+  ['territoriesClearMyExpenseDefault'] as const
+
+export const getTerritoriesClearMyExpenseDefaultMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof territoriesClearMyExpenseDefault>>,
+    TError,
+    TerritoriesClearMyExpenseDefaultMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof territoriesClearMyExpenseDefault>>,
+  TError,
+  TerritoriesClearMyExpenseDefaultMutationVariables,
+  TContext
+> => {
+  const mutationKey = getTerritoriesClearMyExpenseDefaultMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof territoriesClearMyExpenseDefault>>,
+    TerritoriesClearMyExpenseDefaultMutationVariables
+  > = (props) => {
+    const { id } = props ?? {}
+
+    return territoriesClearMyExpenseDefault(id, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type TerritoriesClearMyExpenseDefaultMutationResult = NonNullable<
+  Awaited<ReturnType<typeof territoriesClearMyExpenseDefault>>
+>
+
+export type TerritoriesClearMyExpenseDefaultMutationError = unknown
+export type TerritoriesClearMyExpenseDefaultMutationVariables = { id: string }
+
+export const useTerritoriesClearMyExpenseDefault = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof territoriesClearMyExpenseDefault>>,
+      TError,
+      TerritoriesClearMyExpenseDefaultMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof territoriesClearMyExpenseDefault>>,
+  TError,
+  TerritoriesClearMyExpenseDefaultMutationVariables,
+  TContext
+> => {
+  return useMutation(getTerritoriesClearMyExpenseDefaultMutationOptions(options), queryClient)
+}

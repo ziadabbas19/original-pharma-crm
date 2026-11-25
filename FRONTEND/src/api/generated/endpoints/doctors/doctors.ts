@@ -28,6 +28,7 @@ import type {
   DoctorLocationHistoryDto,
   DoctorsListParams,
   DoctorsSearchDirectoryParams,
+  ProblemDetails,
   UpdateDoctorRequest,
 } from '../../model'
 
@@ -201,7 +202,7 @@ export const doctorsCreate = async (
 
 export const getDoctorsCreateMutationKey = () => ['doctorsCreate'] as const
 
-export const getDoctorsCreateMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+export const getDoctorsCreateMutationOptions = <TError = ProblemDetails, TContext = unknown>(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof doctorsCreate>>,
     TError,
@@ -236,10 +237,10 @@ export const getDoctorsCreateMutationOptions = <TError = unknown, TContext = unk
 
 export type DoctorsCreateMutationResult = NonNullable<Awaited<ReturnType<typeof doctorsCreate>>>
 export type DoctorsCreateMutationBody = CreateDoctorRequest
-export type DoctorsCreateMutationError = unknown
+export type DoctorsCreateMutationError = ProblemDetails
 export type DoctorsCreateMutationVariables = { data: CreateDoctorRequest }
 
-export const useDoctorsCreate = <TError = unknown, TContext = unknown>(
+export const useDoctorsCreate = <TError = ProblemDetails, TContext = unknown>(
   options?: {
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof doctorsCreate>>,

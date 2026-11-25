@@ -59,4 +59,5 @@ export interface DoctorDto {
   createdByName?: string | null
   /** @nullable */
   availability?: DoctorSlotDto[] | null
+  limited?: boolean
 }

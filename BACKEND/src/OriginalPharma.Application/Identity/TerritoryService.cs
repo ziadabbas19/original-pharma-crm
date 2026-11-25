@@ -8,6 +8,7 @@ using OriginalPharma.Application.Common.Organization;
 using OriginalPharma.Application.Common.Scoping;
 using OriginalPharma.Application.Lookups;
 using OriginalPharma.Domain.Audit;
+using OriginalPharma.Domain.Expenses;
 using OriginalPharma.Domain.Identity;
 
 namespace OriginalPharma.Application.Identity;
@@ -52,7 +53,8 @@ public sealed class TerritoryService(
     IDataScopeResolver scopeResolver,
     IOrgHierarchy hierarchy,
     AuditTrail audit,
-    TimeProvider time)
+    TimeProvider time,
+    ICurrentUser currentUser)
 {
     /// <param name="archived">Only archived nodes (true), or only nodes that are not archived (default).</param>
     public async Task<IReadOnlyList<TerritoryDto>> ListAsync(bool archived = false, CancellationToken cancellationToken = default)
@@ -140,12 +142,15 @@ public sealed class TerritoryService(
     }
 
     /// <summary>
-    /// The towns whose default daily expense the caller may set (expenses:settings, within its scope:
-    /// own and team mean the areas of the people concerned, territory the caller's part of the tree),
-    /// with their area and current amount. Archived towns are left out.
+    /// The towns whose daily expense the caller may set (expenses:settings, within its scope: own and
+    /// team mean the areas of the people concerned, territory the caller's part of the tree), with their
+    /// area. The amount is the one that applies to the caller: their own when they set one
+    /// (<see cref="TownDto.IsOwn"/>), otherwise the town's default (<see cref="TownDto.FallbackAmount"/>).
+    /// Archived towns are left out.
     /// </summary>
     public async Task<List<TownDto>> ListExpenseDefaultsAsync(CancellationToken cancellationToken = default)
     {
+        var me = currentUser.RequireUserId();
         var allowed = await ExpenseSettingsIdsAsync(cancellationToken);
         var towns = db.Territories.AsNoTracking().Where(t => t.Level == TerritoryLevel.Town && t.ArchivedAt == null);
         if (allowed is not null)
@@ -153,19 +158,40 @@ public sealed class TerritoryService(
             towns = towns.Where(t => allowed.Contains(t.Id));
         }
 
-        return await towns
+        var rows = await towns
             .OrderBy(t => t.Parent!.Name).ThenBy(t => t.Name)
-            .Select(t => new TownDto(t.Id, t.Name, t.NameAr, t.ParentId, t.Parent!.Name, t.Parent.NameAr, t.DefaultDailyExpense))
+            .Select(t => new
+            {
+                Town = new TownDto(t.Id, t.Name, t.NameAr, t.ParentId, t.Parent!.Name, t.Parent.NameAr, t.DefaultDailyExpense, false, null),
+                Own = db.RepTownExpenseDefaults.Where(d => d.UserId == me && d.TerritoryId == t.Id).Select(d => (decimal?)d.Amount).FirstOrDefault(),
+            })
             .ToListAsync(cancellationToken);
+        return rows
+            .Select(r => r.Town with
+            {
+                DefaultDailyExpense = r.Own ?? r.Town.DefaultDailyExpense,
+                IsOwn = r.Own is not null,
+                FallbackAmount = r.Town.DefaultDailyExpense,
+            })
+            .ToList();
     }
 
     /// <summary>
-    /// Sets a city's default daily expense (expenses:settings, inside its scope). Only the amount
-    /// changes; name, code and area need territories:manage. Zero means visits there add no expense.
-    /// Lines already created keep their amount.
+    /// Sets a city's default daily expense, the fallback for reps without an amount of their own
+    /// (expenses:settings, inside its scope). Only the amount changes; name, code and area need
+    /// territories:manage. Zero means visits there add no expense. Lines already created keep their amount.
+    /// A caller whose expenses:settings scope is "own" (a rep, also from an older app) sets their own
+    /// amount instead (<see cref="SetMyExpenseDefaultAsync"/>): a rep never changes the amount of others.
     /// </summary>
     public async Task<TerritoryDto> SetDefaultExpenseAsync(Guid id, decimal amount, CancellationToken cancellationToken = default)
     {
+        var scope = await scopeResolver.ResolveAsync(Permissions.Expenses.Settings, cancellationToken);
+        if (scope.Level == PermissionScope.Own)
+        {
+            var mine = await SetMyExpenseDefaultAsync(id, amount, cancellationToken);
+            return (await GetAsync(id, cancellationToken)) with { DefaultDailyExpense = mine.DefaultDailyExpense };
+        }
+
         var territory = await db.Territories.SingleOrDefaultAsync(t => t.Id == id, cancellationToken)
                         ?? throw new NotFoundException("Territory", id);
         var allowed = await ExpenseSettingsIdsAsync(cancellationToken);
@@ -174,7 +200,7 @@ public sealed class TerritoryService(
             throw new ForbiddenException("This city is outside your scope.");
         }
 
-        var rounded = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
+        var rounded = RoundAmount(amount);
         if (rounded != territory.DefaultDailyExpense)
         {
             await audit.AddAsync(AuditEntities.Territory, territory.Id, AuditAction.Updated,
@@ -186,6 +212,76 @@ public sealed class TerritoryService(
 
         return await GetAsync(territory.Id, cancellationToken);
     }
+
+    /// <summary>
+    /// Sets the caller's own daily expense for a town (expenses:settings, the town inside its scope). Only
+    /// the caller's amount changes: other reps keep theirs and the town's default stays as it is. New
+    /// automatic lines of the caller use it; lines already created keep their amount.
+    /// </summary>
+    public async Task<TownDto> SetMyExpenseDefaultAsync(Guid id, decimal amount, CancellationToken cancellationToken = default)
+    {
+        var me = currentUser.RequireUserId();
+        await EnsureExpenseTownAsync(id, cancellationToken);
+        var rounded = RoundAmount(amount);
+        var row = await db.RepTownExpenseDefaults.SingleOrDefaultAsync(d => d.UserId == me && d.TerritoryId == id, cancellationToken);
+        if (row is null || row.Amount != rounded)
+        {
+            await audit.AddAsync(AuditEntities.Territory, id, AuditAction.Updated,
+                new { ownAmountOf = me, before = new { Amount = row?.Amount }, after = new { Amount = rounded } },
+                cancellationToken: cancellationToken);
+            if (row is null)
+            {
+                db.RepTownExpenseDefaults.Add(new RepTownExpenseDefault { UserId = me, TerritoryId = id, Amount = rounded, UpdatedAt = time.GetUtcNow() });
+            }
+            else
+            {
+                row.Amount = rounded;
+                row.UpdatedAt = time.GetUtcNow();
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return await ExpenseTownAsync(id, cancellationToken);
+    }
+
+    /// <summary>"Use the default amount": removes the caller's own amount for a town, so the town's default applies again.</summary>
+    public async Task<TownDto> ClearMyExpenseDefaultAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var me = currentUser.RequireUserId();
+        await EnsureExpenseTownAsync(id, cancellationToken);
+        var row = await db.RepTownExpenseDefaults.SingleOrDefaultAsync(d => d.UserId == me && d.TerritoryId == id, cancellationToken);
+        if (row is not null)
+        {
+            await audit.AddAsync(AuditEntities.Territory, id, AuditAction.Updated,
+                new { ownAmountOf = me, before = new { row.Amount }, after = new { Amount = (decimal?)null } },
+                cancellationToken: cancellationToken);
+            db.RepTownExpenseDefaults.Remove(row);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return await ExpenseTownAsync(id, cancellationToken);
+    }
+
+    /// <summary>A town that is not archived and lies inside the caller's expenses:settings scope (404 / 403 otherwise).</summary>
+    private async Task EnsureExpenseTownAsync(Guid id, CancellationToken cancellationToken)
+    {
+        if (!await db.Territories.AnyAsync(t => t.Id == id && t.Level == TerritoryLevel.Town && t.ArchivedAt == null, cancellationToken))
+        {
+            throw new NotFoundException("Territory", id);
+        }
+
+        var allowed = await ExpenseSettingsIdsAsync(cancellationToken);
+        if (allowed is not null && !allowed.Contains(id))
+        {
+            throw new ForbiddenException("This city is outside your scope.");
+        }
+    }
+
+    private async Task<TownDto> ExpenseTownAsync(Guid id, CancellationToken cancellationToken) =>
+        (await ListExpenseDefaultsAsync(cancellationToken)).Single(t => t.Id == id);
+
+    private static decimal RoundAmount(decimal amount) => Math.Round(amount, 2, MidpointRounding.AwayFromZero);
 
     /// <summary>
     /// Deletes one node (territories:delete): removed when nothing points at it, archived while doctors,

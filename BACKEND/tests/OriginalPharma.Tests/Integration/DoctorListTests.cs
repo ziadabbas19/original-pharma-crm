@@ -22,13 +22,16 @@ public sealed class DoctorListTests(PostgresFixture postgres)
         Assert.All(mine, d => Assert.True(d.OnMyList));
         Assert.Equal(["Dr. Youssef Samir"], mine.Where(d => d.OutsideMyArea).Select(d => d.Name)); // Dokki is in Giza
 
-        // Without a filter a rep (own scope) still only gets their own list.
-        Assert.Equal(mine.Select(d => d.Id).Order(), (await ListAsync(db, p.Rep, new DoctorQuery())).Select(d => d.Id).Order());
+        // Without a filter every doctor of the shared directory; inside the own scope only the rep's own list.
+        Assert.Equal(mine.Select(d => d.Id).Order(), (await ListAsync(db, p.Rep, new DoctorQuery(InScope: true))).Select(d => d.Id).Order());
+        var directory = await ListAsync(db, p.Rep, new DoctorQuery());
+        Assert.Equal(10, directory.Count);
+        Assert.All(directory, d => Assert.Equal(!d.OnMyList, d.Limited));
         Assert.Equal(3, (await ListAsync(db, p.RepEast, new DoctorQuery(Mine: true))).Count);
         await Assert.ThrowsAsync<ForbiddenException>(() => ListAsync(db, p.Rep, new DoctorQuery(RepId: p.RepEast)));
 
         // Team: both reps' lists (one doctor is on both); unassigned doctors are not part of a team.
-        var team = await ListAsync(db, p.Supervisor, new DoctorQuery());
+        var team = await ListAsync(db, p.Supervisor, new DoctorQuery(InScope: true));
         Assert.Equal(8, team.Count);
         Assert.DoesNotContain(team, d => d.Name is "Dr. Salma Ibrahim" or "Dr. Omar Khaled");
         var shared = team.Single(d => d.Name == "Dr. Mona Saeed");
@@ -69,8 +72,12 @@ public sealed class DoctorListTests(PostgresFixture postgres)
         var again = await db.As<DoctorService, DoctorDto>(p.Rep, s => s.AddToMyListAsync(found.Id, Ct));
         Assert.Single(again.Reps);
 
-        var duplicate = await Assert.ThrowsAsync<ConflictException>(() => db.As<DoctorService, DoctorDto>(p.Rep, s =>
+        // The same name: first the duplicate warning, then (added anyway) still refused.
+        var suspected = await Assert.ThrowsAsync<ConflictException>(() => db.As<DoctorService, DoctorDto>(p.Rep, s =>
             s.CreateAsync(new CreateDoctorRequest("dr. ahmed fathy", null, nasrCity, cardiology), Ct)));
+        Assert.Equal(DuplicateErrorCodes.Suspected, suspected.Code);
+        var duplicate = await Assert.ThrowsAsync<ConflictException>(() => db.As<DoctorService, DoctorDto>(p.Rep, s =>
+            s.CreateAsync(new CreateDoctorRequest("dr. ahmed fathy", null, nasrCity, cardiology, DuplicateConfirmed: true), Ct)));
         Assert.Equal(DoctorErrorCodes.Exists, duplicate.Code);
         Assert.Equal(await DemoPeople.DoctorAsync(db, "Dr. Ahmed Fathy"), duplicate.Details!["doctorId"]);
 

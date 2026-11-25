@@ -30,6 +30,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<ExpenseLine> ExpenseLines => Set<ExpenseLine>();
     public DbSet<ExpenseDay> ExpenseDays => Set<ExpenseDay>();
+    public DbSet<RepTownExpenseDefault> RepTownExpenseDefaults => Set<RepTownExpenseDefault>();
     public DbSet<WeeklyPlan> WeeklyPlans => Set<WeeklyPlan>();
     public DbSet<WeeklyPlanDay> WeeklyPlanDays => Set<WeeklyPlanDay>();
     public DbSet<WeeklyPlanCustomer> WeeklyPlanCustomers => Set<WeeklyPlanCustomer>();

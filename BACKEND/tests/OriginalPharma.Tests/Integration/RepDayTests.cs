@@ -116,7 +116,9 @@ public sealed class RepDayTests(PostgresFixture postgres)
         var fevers = await HospitalAsync(db, p.Rep, "Fevers Hospital", newCairo);
         Assert.Equal((CustomerType.Hospital, "Opposite the station"), (fevers.Type, fevers.Landmark));
         Assert.Equal(HospitalErrorCodes.TownOutOfScope, (await Assert.ThrowsAsync<ForbiddenException>(() => HospitalAsync(db, p.Rep, "Dokki Hospital", dokki))).Code);
-        Assert.Equal(HospitalErrorCodes.Exists, (await Assert.ThrowsAsync<ConflictException>(() => HospitalAsync(db, p.RepEast, " fevers hospital", newCairo))).Code);
+        Assert.Equal(DuplicateErrorCodes.Suspected, (await Assert.ThrowsAsync<ConflictException>(() => HospitalAsync(db, p.RepEast, " fevers hospital", newCairo))).Code);
+        Assert.Equal(HospitalErrorCodes.Exists, (await Assert.ThrowsAsync<ConflictException>(() => db.As<CustomerService, CustomerDto>(p.RepEast, s =>
+            s.CreateHospitalAsync(new CreateHospitalRequest(" fevers hospital", null, newCairo, DuplicateConfirmed: true), Ct)))).Code);
         var created = await db.DbAsync(c => c.AuditEntries.SingleAsync(e => e.EntityType == AuditEntities.Customer && e.EntityId == fevers.Id && e.Action == AuditAction.Created, Ct));
         Assert.Equal(p.Rep, created.ActorId);
 

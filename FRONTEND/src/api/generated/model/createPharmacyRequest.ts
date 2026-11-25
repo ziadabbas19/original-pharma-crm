@@ -14,4 +14,5 @@ export interface CreatePharmacyRequest {
   phone?: string | null
   /** @nullable */
   notes?: string | null
+  duplicateConfirmed?: boolean
 }

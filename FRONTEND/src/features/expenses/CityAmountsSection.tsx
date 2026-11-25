@@ -12,9 +12,10 @@ import { useAppSelector } from '@/store'
 import { groupTownsByArea, showsCityAmounts } from './city-amounts'
 
 /**
- * "Default daily amounts" on the rep's expenses screen, for people whose role was given
- * expenses:settings: the towns they may set (the server limits them to the role's scope) with the
- * current amount, each changed in a bottom sheet.
+ * "My daily amounts" on the rep's expenses screen, for people whose role was given expenses:settings:
+ * the towns they may set (the server limits them to the role's scope) with the amount that applies to
+ * them. Each change is the caller's own amount for that town; other reps keep theirs, and towns without
+ * an own amount show the town's default.
  */
 export function CityAmountsSection() {
   const granted = useAppSelector((s) => s.permissions.byKey)
@@ -58,11 +59,13 @@ function CityAmounts() {
                       className="flex min-h-12 items-center gap-2 ps-3 pe-1"
                       data-testid="city-amount"
                     >
-                      <span
-                        className="min-w-0 flex-1 truncate text-sm font-medium"
-                        data-testid="city-amount-name"
-                      >
-                        {city}
+                      <span className="grid min-w-0 flex-1">
+                        <span className="truncate text-sm font-medium" data-testid="city-amount-name">
+                          {city}
+                        </span>
+                        <span className="text-xs text-muted-foreground" data-testid="city-amount-kind">
+                          {town.isOwn ? t('expenses.cityAmounts.own') : t('expenses.cityAmounts.default')}
+                        </span>
                       </span>
                       <span
                         className={
@@ -94,7 +97,7 @@ function CityAmounts() {
           {t('expenses.cityAmounts.note')}
         </p>
       </CardContent>
-      {editing && <CityExpenseDialog town={editing} onClose={() => setEditing(null)} />}
+      {editing && <CityExpenseDialog mine town={editing} onClose={() => setEditing(null)} />}
     </Card>
   )
 }

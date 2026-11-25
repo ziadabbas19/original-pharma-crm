@@ -51,6 +51,7 @@ public interface IAppDbContext
 
     DbSet<ExpenseLine> ExpenseLines { get; }
     DbSet<ExpenseDay> ExpenseDays { get; }
+    DbSet<RepTownExpenseDefault> RepTownExpenseDefaults { get; }
 
     DbSet<WeeklyPlan> WeeklyPlans { get; }
     DbSet<WeeklyPlanDay> WeeklyPlanDays { get; }

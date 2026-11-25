@@ -314,7 +314,14 @@ export function PlacesPage() {
           onClose={target.close}
         />
       )}
-      {canAdd && <AddPlaceSheet open={adding} onOpenChange={setAdding} reps={canAssign ? reps : undefined} />}
+      {canAdd && (
+        <AddPlaceSheet
+          open={adding}
+          onOpenChange={setAdding}
+          reps={canAssign ? reps : undefined}
+          onOpenExisting={(place) => setSearch(place.name)}
+        />
+      )}
       {editing && <PharmacyEditDialog key={editing.id} customer={editing} onClose={() => setEditing(null)} />}
     </>
   )

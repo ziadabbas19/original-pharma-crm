@@ -290,12 +290,15 @@ public sealed class ClinicLocationTests(PostgresFixture postgres)
         var sales = await db.As<DoctorService, DoctorLocationHistoryDto>(p.Sales, s => s.LocationHistoryAsync(karim, Ct));
         Assert.Equal(seeded + 3, sales.Visits.Count);
 
-        // The rep sees their own visits only; the other rep does not have the doctor on their list.
+        // The rep sees their own visits only. The other rep does not have the doctor on their list: the
+        // shared directory entry without the saved location, and their own visit only.
         var rep = await db.As<DoctorService, DoctorLocationHistoryDto>(p.Rep, s => s.LocationHistoryAsync(karim, Ct));
         Assert.Equal(seeded + 2, rep.Visits.Count);
         Assert.All(rep.Visits, v => Assert.Equal(p.Rep, v.RepId));
-        await Assert.ThrowsAsync<NotFoundException>(() =>
-            db.As<DoctorService, DoctorLocationHistoryDto>(p.RepEast, s => s.LocationHistoryAsync(karim, Ct)));
+        var outsider = await db.As<DoctorService, DoctorLocationHistoryDto>(p.RepEast, s => s.LocationHistoryAsync(karim, Ct));
+        Assert.Null(outsider.Lat);
+        Assert.Null(outsider.LocationSource);
+        Assert.Equal(new[] { other.Id }, outsider.Visits.Select(v => v.VisitId));
     }
 
     [Fact]

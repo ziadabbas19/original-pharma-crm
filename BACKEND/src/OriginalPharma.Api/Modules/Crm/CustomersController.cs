@@ -12,7 +12,7 @@ namespace OriginalPharma.Api.Modules.Crm;
 [ApiController]
 [Route("api/customers")]
 [Tags("Customers")]
-public sealed class CustomersController(CustomerService customers) : ControllerBase
+public sealed class CustomersController(CustomerService customers, SimilarCustomerFinder similar) : ControllerBase
 {
     /// <summary>Customers in the caller's territory scope, by name (at most 1000 rows).</summary>
     /// <param name="archived">Only archived customers (true), otherwise only customers that are not archived.</param>
@@ -25,6 +25,17 @@ public sealed class CustomersController(CustomerService customers) : ControllerB
         [FromQuery] bool archived = false) =>
         customers.ListAsync(type, search, archived, cancellationToken);
 
+    /// <summary>
+    /// Existing customers of the same type in the same town that look like the one being added (same or
+    /// similar name, or the same phone), up to 5, the same ones first. Every customer of the town is
+    /// compared whatever your scope; those outside it come with name and area only (<c>limited</c>).
+    /// Archived customers are left out; inactive ones are included and marked.
+    /// </summary>
+    [HttpGet("similar")]
+    [HasPermission(Permissions.Customers.Read)]
+    public Task<IReadOnlyList<SimilarCustomerDto>> Similar([FromQuery] SimilarCustomersQuery query, CancellationToken cancellationToken) =>
+        similar.FindAsync(query, cancellationToken);
+
     /// <summary>Towns where you may add a pharmacy (customers:create-pharmacy within its scope).</summary>
     [HttpGet("pharmacy-towns")]
     [HasPermission(Permissions.Customers.CreatePharmacy)]
@@ -32,9 +43,11 @@ public sealed class CustomersController(CustomerService customers) : ControllerB
         customers.PharmacyTownsAsync(cancellationToken);
 
     /// <summary>
-    /// Add a pharmacy in a town of your area (customers:create-pharmacy). 409 <c>pharmacy_exists</c> (with
-    /// <c>pharmacyId</c>) when the same name exists in that town; 403 <c>pharmacy_town_out_of_scope</c>
-    /// for a town outside your scope. The location is saved from the first visit.
+    /// Add a pharmacy in a town of your area (customers:create-pharmacy). 409 <c>duplicate_suspected</c>
+    /// (with <c>candidates</c>) when similar pharmacies exist there and <c>duplicateConfirmed</c> is not
+    /// set; 409 <c>pharmacy_exists</c> (with <c>pharmacyId</c>) when the very same name exists in that town;
+    /// 403 <c>pharmacy_town_out_of_scope</c> for a town outside your scope. The location is saved from the
+    /// first visit.
     /// </summary>
     [HttpPost("pharmacies")]
     [HasPermission(Permissions.Customers.CreatePharmacy)]
@@ -52,8 +65,9 @@ public sealed class CustomersController(CustomerService customers) : ControllerB
     /// <summary>
     /// Add an AM place, such as a hospital visited in the morning: a rep in a town of their area
     /// (customers:create-pharmacy), a manager inside their customers:manage scope, optionally on a rep's list
-    /// (customers:assign). 409 <c>hospital_exists</c> (with <c>hospitalId</c>) for the same name in that town;
-    /// 403 <c>hospital_town_out_of_scope</c> for a town outside your scope.
+    /// (customers:assign). 409 <c>duplicate_suspected</c> (with <c>candidates</c>) when similar places exist
+    /// there and <c>duplicateConfirmed</c> is not set; 409 <c>hospital_exists</c> (with <c>hospitalId</c>)
+    /// for the very same name in that town; 403 <c>hospital_town_out_of_scope</c> for a town outside your scope.
     /// </summary>
     [HttpPost("hospitals")]
     [Microsoft.AspNetCore.Authorization.Authorize]
@@ -90,9 +104,11 @@ public sealed class CustomersController(CustomerService customers) : ControllerB
 public sealed class DoctorsController(DoctorService doctors) : ControllerBase
 {
     /// <summary>
-    /// Doctors visible to the caller (at most 1000, or one page with <c>page</c>), by name. <c>mine=true</c>
-    /// is the caller's own list. With a day or time filter, doctors with a matching visiting slot come first,
-    /// then (only when an area or town is chosen) the doctors with no hours set.
+    /// Doctors (at most 1000, or one page with <c>page</c>), by name: every doctor of the shared directory,
+    /// those outside your customers:read scope without phone, notes and location (<c>limited</c>).
+    /// <c>mine=true</c> is your own list, <c>inScope=true</c> only the doctors inside your scope. With a day or
+    /// time filter, doctors with a matching visiting slot come first, then (only when an area or town is
+    /// chosen) the doctors with no hours set.
     /// </summary>
     [HttpGet]
     [HasPermission(Permissions.Customers.Read)]
@@ -124,11 +140,15 @@ public sealed class DoctorsController(DoctorService doctors) : ControllerBase
         doctors.SearchDirectoryAsync(search, townId, specialtyId, cancellationToken);
 
     /// <summary>
-    /// Create a doctor and put it on your list (or another rep's with customers:assign).
-    /// 409 <c>doctor_exists</c> (with <c>doctorId</c>) when the same name exists in that town.
+    /// Create a doctor and put it on your list (or another rep's with customers:assign). 409
+    /// <c>duplicate_suspected</c> (with <c>candidates</c>) when similar doctors exist in that town and
+    /// <c>duplicateConfirmed</c> is not set; 409 <c>doctor_exists</c> (with <c>doctorId</c>) when the very
+    /// same name exists in that town.
     /// </summary>
     [HttpPost]
     [HasPermission(Permissions.Customers.Create)]
+    [ProducesResponseType<DoctorDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
     public Task<DoctorDto> Create(CreateDoctorRequest request, CancellationToken cancellationToken) =>
         doctors.CreateAsync(request, cancellationToken);
 

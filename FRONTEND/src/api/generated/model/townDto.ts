@@ -15,4 +15,7 @@ export interface TownDto {
   /** @nullable */
   areaNameAr: string | null
   defaultDailyExpense?: number
+  isOwn?: boolean
+  /** @nullable */
+  fallbackAmount?: number | null
 }

@@ -10,8 +10,9 @@ using OriginalPharma.Domain.Identity;
 namespace OriginalPharma.Tests.Integration;
 
 /// <summary>
-/// A city's default daily expense set by someone whose role was given expenses:settings (a rep, from the
-/// phone): only the amount, only inside the scope, logged with the values before and after; nobody else.
+/// A city's daily expense set by someone whose role was given expenses:settings: a rep (scope "own", from
+/// the phone) sets their own amount, a manager the town's; only the amount, only inside the scope, logged
+/// with the values before and after; nobody else.
 /// </summary>
 [Collection(PostgresCollection.Name)]
 public sealed class CityExpenseDefaultTests(PostgresFixture postgres)
@@ -19,7 +20,7 @@ public sealed class CityExpenseDefaultTests(PostgresFixture postgres)
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task A_rep_given_only_the_expense_setting_changes_the_amount_of_their_towns_and_nothing_else()
+    public async Task A_rep_given_only_the_expense_setting_changes_their_own_amount_of_their_towns_and_nothing_else()
     {
         await using var db = await postgres.CreateDatabaseAsync();
         var p = await DemoPeople.LoadAsync(db);
@@ -50,19 +51,20 @@ public sealed class CityExpenseDefaultTests(PostgresFixture postgres)
         Assert.Equal(72.5m, changed.DefaultDailyExpense);
         var after = await db.DbAsync(c => c.Territories.AsNoTracking().SingleAsync(t => t.Id == nasr, Ct));
         Assert.Equal(
-            (before.Name, before.NameAr, before.Code, before.ParentId, before.Level, before.ArchivedAt),
-            (after.Name, after.NameAr, after.Code, after.ParentId, after.Level, after.ArchivedAt));
+            (before.Name, before.NameAr, before.Code, before.ParentId, before.Level, before.ArchivedAt, before.DefaultDailyExpense),
+            (after.Name, after.NameAr, after.Code, after.ParentId, after.Level, after.ArchivedAt, after.DefaultDailyExpense));
         Assert.Equal(72.5m, (await db.As<TerritoryService, List<TownDto>>(p.Rep, s => s.ListExpenseDefaultsAsync(Ct)))
             .Single(t => t.Id == nasr).DefaultDailyExpense);
 
-        // Logged with the rep as the actor and the amounts before and after.
+        // Logged with the rep as the actor and their amounts before (none) and after.
         var entry = await db.DbAsync(c => c.AuditEntries
             .Where(e => e.EntityType == AuditEntities.Territory && e.EntityId == nasr && e.Action == AuditAction.Updated)
             .OrderByDescending(e => e.CreatedAt).FirstAsync(Ct));
         Assert.Equal(p.Rep, entry.ActorId);
         using var details = JsonDocument.Parse(entry.Details);
-        Assert.Equal(before.DefaultDailyExpense, details.RootElement.GetProperty("before").GetProperty("defaultDailyExpense").GetDecimal());
-        Assert.Equal(72.5m, details.RootElement.GetProperty("after").GetProperty("defaultDailyExpense").GetDecimal());
+        Assert.Equal(p.Rep, details.RootElement.GetProperty("ownAmountOf").GetGuid());
+        Assert.Equal(JsonValueKind.Null, details.RootElement.GetProperty("before").GetProperty("amount").ValueKind);
+        Assert.Equal(72.5m, details.RootElement.GetProperty("after").GetProperty("amount").GetDecimal());
 
         // Outside the area, and anything else about a town, stays out of reach.
         await Assert.ThrowsAsync<ForbiddenException>(() =>
@@ -71,7 +73,7 @@ public sealed class CityExpenseDefaultTests(PostgresFixture postgres)
             db.As<TerritoryService, TerritoryDto>(p.Rep, s => s.UpdateAsync(nasr, new UpdateTerritoryRequest("Renamed", null, before.ParentId), Ct)));
         Assert.Equal(before.Name, await db.DbAsync(c => c.Territories.Where(t => t.Id == nasr).Select(t => t.Name).SingleAsync(Ct)));
 
-        // The admin still sets any town, as before.
+        // The admin still sets any town's amount, as before.
         var admin = await db.As<TerritoryService, TerritoryDto>(p.Admin, s => s.SetDefaultExpenseAsync(dokki, 55m, Ct));
         Assert.Equal(55m, admin.DefaultDailyExpense);
         Assert.Contains(await db.As<TerritoryService, List<TownDto>>(p.Admin, s => s.ListExpenseDefaultsAsync(Ct)), t => t.Id == dokki);

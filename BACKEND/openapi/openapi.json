@@ -6818,6 +6818,106 @@
         }
       }
     },
+    "/api/territories/{id}/my-expense-default": {
+      "put": {
+        "tags": [
+          "Territories"
+        ],
+        "operationId": "territoriesSetMyExpenseDefault",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCityExpenseRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCityExpenseRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCityExpenseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TownDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TownDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TownDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Territories"
+        ],
+        "operationId": "territoriesClearMyExpenseDefault",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TownDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TownDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TownDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/login": {
       "post": {
         "tags": [
@@ -7710,6 +7810,76 @@
         }
       }
     },
+    "/api/customers/similar": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customersSimilar",
+        "parameters": [
+          {
+            "name": "Type",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/CustomerType"
+            }
+          },
+          {
+            "name": "Name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "TerritoryId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Phone",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SimilarCustomerDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SimilarCustomerDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SimilarCustomerDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/customers/pharmacy-towns": {
       "get": {
         "tags": [
@@ -8195,6 +8365,13 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "InScope",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -8271,6 +8448,16 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DoctorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -10193,6 +10380,10 @@
             "items": {
               "$ref": "#/components/schemas/DoctorSlotInput"
             }
+          },
+          "duplicateConfirmed": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -10314,6 +10505,10 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "duplicateConfirmed": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -10460,6 +10655,10 @@
               "null",
               "string"
             ]
+          },
+          "duplicateConfirmed": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -11310,6 +11509,10 @@
             "items": {
               "$ref": "#/components/schemas/DoctorSlotDto"
             }
+          },
+          "limited": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -15528,6 +15731,100 @@
           "ended"
         ]
       },
+      "SimilarCustomerDto": {
+        "required": [
+          "id",
+          "type",
+          "name",
+          "nameAr",
+          "townName",
+          "townNameAr",
+          "areaName",
+          "areaNameAr",
+          "same",
+          "limited"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/CustomerType"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "townName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "townNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "areaName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "areaNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "same": {
+            "type": "boolean"
+          },
+          "limited": {
+            "type": "boolean"
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "landmark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "addedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inMyList": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "isInactive": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "SnoozeNoteRequest": {
         "required": [
           "minutes"
@@ -15903,6 +16200,17 @@
             "type": "number",
             "format": "double",
             "default": 0
+          },
+          "isOwn": {
+            "type": "boolean",
+            "default": false
+          },
+          "fallbackAmount": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
           }
         }
       },

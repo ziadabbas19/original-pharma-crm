@@ -226,8 +226,8 @@ public sealed class TerritoriesController(TerritoryService territories) : Contro
         territories.UpdateAsync(id, request, cancellationToken);
 
     /// <summary>
-    /// Towns whose default daily expense you may set (expenses:settings within its scope), with their
-    /// area and current amount.
+    /// Towns whose daily expense you may set (expenses:settings within its scope), with their area and the
+    /// amount that applies to you: your own (<c>isOwn</c>) or the town's default (<c>fallbackAmount</c>).
     /// </summary>
     [HttpGet("expense-defaults")]
     [HasPermission(Permissions.Expenses.Settings)]
@@ -235,13 +235,30 @@ public sealed class TerritoriesController(TerritoryService territories) : Contro
         territories.ListExpenseDefaultsAsync(cancellationToken);
 
     /// <summary>
-    /// A city's default daily expense in EGP (expenses:settings, within its scope; nothing else about the
-    /// town changes). Zero: visits there add no expense line. 403 for a city outside the scope.
+    /// A city's default daily expense in EGP, the fallback for reps without an amount of their own
+    /// (expenses:settings, within its scope; nothing else about the town changes). Zero: visits there add
+    /// no expense line. 403 for a city outside the scope. With expenses:settings at "own" this sets only
+    /// your own amount, as <c>my-expense-default</c> does.
     /// </summary>
     [HttpPut("{id:guid}/expense-default")]
     [HasPermission(Permissions.Expenses.Settings)]
     public Task<TerritoryDto> SetExpenseDefault(Guid id, SetCityExpenseRequest request, CancellationToken cancellationToken) =>
         territories.SetDefaultExpenseAsync(id, request.DefaultDailyExpense, cancellationToken);
+
+    /// <summary>
+    /// Your own daily expense for a town (expenses:settings, the town within its scope). Other reps and the
+    /// town's default are not changed. 403 for a town outside the scope.
+    /// </summary>
+    [HttpPut("{id:guid}/my-expense-default")]
+    [HasPermission(Permissions.Expenses.Settings)]
+    public Task<TownDto> SetMyExpenseDefault(Guid id, SetCityExpenseRequest request, CancellationToken cancellationToken) =>
+        territories.SetMyExpenseDefaultAsync(id, request.DefaultDailyExpense, cancellationToken);
+
+    /// <summary>"Use the default amount": removes your own amount for a town, so the town's default applies again.</summary>
+    [HttpDelete("{id:guid}/my-expense-default")]
+    [HasPermission(Permissions.Expenses.Settings)]
+    public Task<TownDto> ClearMyExpenseDefault(Guid id, CancellationToken cancellationToken) =>
+        territories.ClearMyExpenseDefaultAsync(id, cancellationToken);
 
     /// <summary>Delete one node (archived when used). 409 <c>territory_in_use</c> while it has active towns or users.</summary>
     [HttpDelete("{id:guid}")]

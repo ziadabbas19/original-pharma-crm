@@ -861,6 +861,34 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.ToTable("expense_lines", (string)null);
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Expenses.RepTownExpenseDefault", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("TerritoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("territory_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("UserId", "TerritoryId")
+                        .HasName("pk_rep_town_expense_defaults");
+
+                    b.HasIndex("TerritoryId")
+                        .HasDatabaseName("ix_rep_town_expense_defaults_territory_id");
+
+                    b.ToTable("rep_town_expense_defaults", (string)null);
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Identity.Permission", b =>
                 {
                     b.Property<int>("Id")
@@ -3417,6 +3445,23 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_expense_lines_asp_net_users_user_id");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Expenses.RepTownExpenseDefault", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Identity.Territory", null)
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_rep_town_expense_defaults_territories_territory_id");
+
+                    b.HasOne("OriginalPharma.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_rep_town_expense_defaults_asp_net_users_user_id");
                 });
 
             modelBuilder.Entity("OriginalPharma.Domain.Identity.RefreshToken", b =>

@@ -227,7 +227,7 @@ export function DoctorsPage() {
         }),
         column.accessor((d) => d.reps.length, {
           id: 'reps',
-          header: () => t('doctors.reps'),
+          header: () => t('doctors.inListsOf'),
           cell: ({ row }) =>
             row.original.reps.length === 0 ? (
               <span className="text-muted-foreground">{t('doctors.unassigned')}</span>
@@ -264,7 +264,7 @@ export function DoctorsPage() {
                     >
                       <MapPinnedIcon />
                     </Button>
-                    {canEdit && (
+                    {canEdit && !row.original.limited && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -517,7 +517,7 @@ export function DoctorsPage() {
           doctor={viewing}
           onClose={() => setViewing(null)}
           onEdit={
-            canEdit
+            canEdit && !viewing.limited
               ? (doctor) => {
                   setViewing(null)
                   setEditing(doctor)

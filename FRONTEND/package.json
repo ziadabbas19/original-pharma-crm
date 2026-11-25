@@ -29,6 +29,7 @@
     "test:ui:pharmacy": "node tests/ui/add-pharmacy.mjs",
     "test:ui:doctor-lists": "node tests/ui/doctor-lists.mjs",
     "test:ui:notes": "node tests/ui/notes-flow.mjs",
+    "test:ui:duplicates": "node tests/ui/similar-doctor.mjs",
     "routes:generate": "tsr generate",
     "api:generate": "orval --config orval.config.ts",
     "cap:sync": "npm run build && cap sync android",

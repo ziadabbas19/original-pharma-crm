@@ -40,3 +40,17 @@ internal sealed class ExpenseDayConfiguration : IEntityTypeConfiguration<Expense
         builder.HasOne<User>().WithMany().HasForeignKey(d => d.UserId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+/// <summary>A rep's own amount per town; the town's DefaultDailyExpense is the fallback.</summary>
+internal sealed class RepTownExpenseDefaultConfiguration : IEntityTypeConfiguration<RepTownExpenseDefault>
+{
+    public void Configure(EntityTypeBuilder<RepTownExpenseDefault> builder)
+    {
+        builder.ToTable("rep_town_expense_defaults");
+        builder.HasKey(d => new { d.UserId, d.TerritoryId });
+        builder.Property(d => d.Amount).HasPrecision(12, 2);
+        builder.HasIndex(d => d.TerritoryId);
+        builder.HasOne<User>().WithMany().HasForeignKey(d => d.UserId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Territory>().WithMany().HasForeignKey(d => d.TerritoryId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
