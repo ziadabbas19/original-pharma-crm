@@ -1,5 +1,5 @@
 import { keepPreviousData } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
   BatteryWarningIcon,
   BellOffIcon,
@@ -44,6 +44,7 @@ export function DevicesPage() {
   const { t } = useTranslation()
   const canReviewFlags = usePermission(P.tracking.reviewFlags)
   const canViewLive = usePermission(P.tracking.viewLive)
+  const navigate = useNavigate()
   const canDelete = usePermission(P.devices.delete)
   const now = useNow(60_000)
   const target = useDeleteTarget()
@@ -242,6 +243,15 @@ export function DevicesPage() {
         error={devices.error}
         onRetry={() => void devices.refetch()}
         getRowId={deviceId}
+        onRowClick={
+          canViewLive || canReviewFlags
+            ? (d) => {
+                // The first action of the row: the rep on the live map, otherwise their tracking flags.
+                if (canViewLive) void navigate({ to: '/admin/live-map', search: { rep: d.userId } })
+                else void navigate({ to: '/admin/flags', search: { userId: d.userId, status: 'open' } })
+              }
+            : undefined
+        }
         selection={canDelete ? selection : undefined}
         rowLabel={nameOfDevice}
         bulkActions={

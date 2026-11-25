@@ -76,7 +76,15 @@ function RepShell({ tracking }: { tracking: { recheck: () => Promise<void>; chec
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col bg-background">
         <header className="sticky top-0 z-20 border-b bg-card/95 pt-safe backdrop-blur">
           <div className="flex h-14 items-center justify-between px-4">
-            <BrandLogo className="h-9" />
+            <Link
+              to="/rep"
+              aria-label={t('nav.logoHome.home')}
+              title={t('nav.logoHome.home')}
+              className="-m-1 rounded-control p-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              data-testid="header-logo"
+            >
+              <BrandLogo className="h-9" decorative />
+            </Link>
             <div className="flex items-center gap-1">
               <NotificationBell to="/rep/notifications" />
               <LanguageSwitcher />

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePermission } from '@/features/auth/usePermission'
 import { notificationText } from '@/features/notifications/notification-text'
 import { CheckInSheet } from '@/features/visits/CheckInSheet'
+import { CustomerQuickActions } from '@/features/visits/CustomerQuickActions'
 import { useRepCustomers } from '@/features/visits/use-rep-customers'
 import { formatNumber, formatRelative, localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
@@ -160,6 +161,7 @@ function StartNextVisit({ plan }: { plan: TodayPlan }) {
           <p className="text-center text-xs text-muted-foreground">{t('repHome.startNext.allVisited')}</p>
         )
       )}
+      {next && <CustomerQuickActions customer={next} />}
       {open && next && <CheckInSheet customer={next} onClose={() => setOpen(false)} />}
     </div>
   )

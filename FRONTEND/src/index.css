@@ -66,6 +66,10 @@
   --sidebar-border: rgb(255 255 255 / 8%);
   --sidebar-active: #0063ad; /* white text 6.2:1, also in dark mode */
   --sidebar-active-foreground: #ffffff;
+  --sidebar-heading: #8cc4f0; /* group titles: 9.1:1 on the sidebar, 9.7:1 on the dark-mode sidebar */
+
+  /* Group and section titles (sidebar groups, roles page sections): 8.3:1 on cards, 7.8:1 on the background. */
+  --section-heading: #00508c;
 
   /* Rep app bottom bar. */
   --nav-inactive: #6b7686;
@@ -128,6 +132,8 @@
   --sidebar-icon: #8b95a3;
   --sidebar-hover: rgb(255 255 255 / 6%);
   --sidebar-border: rgb(255 255 255 / 7%);
+
+  --section-heading: #8cc4f0; /* 7.9:1 on cards, 9.1:1 on the background */
 
   --nav-inactive: #a9b2bf;
 
@@ -229,6 +235,29 @@
   body {
     @apply min-h-dvh bg-background font-sans text-foreground antialiased;
     font-feature-settings: 'kern';
+  }
+}
+
+/*
+ * The one heading style for groups and sections (sidebar groups, the phone More menu, the roles page): accent
+ * colour, bold, with a thin divider after the text. On the navy sidebar the container sets
+ * --section-heading to --sidebar-heading.
+ */
+@utility section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  color: var(--section-heading);
+  &::after {
+    content: '';
+    flex: 1 1 0%;
+    height: 1px;
+    background-color: currentColor;
+    opacity: 0.22;
   }
 }
 

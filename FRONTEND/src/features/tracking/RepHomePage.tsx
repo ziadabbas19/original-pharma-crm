@@ -17,6 +17,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { usePermission } from '@/features/auth/usePermission'
 import { HomeSection } from '@/features/home/HomeSections'
+import { HomeShortcuts } from '@/features/home/HomeShortcuts'
+import { RecentCustomersStrip } from '@/features/home/RecentCustomersStrip'
+import { SyncChip } from '@/features/home/SyncChip'
 import { TodayAreaSheet } from '@/features/home/TodayAreaSheet'
 import { useRepDay } from '@/features/home/use-rep-day'
 import { RemindersHomeCard } from '@/features/notes/RemindersHomeCard'
@@ -52,9 +55,13 @@ export function RepHomePage() {
     <div className="space-y-4">
       <RepHero name={user?.fullName ?? ''}>
         <DayControl />
+        <SyncChip className="mt-3" />
       </RepHero>
 
       <div className="relative z-10 -mt-12 space-y-4" data-testid="home-sections">
+        <HomeShortcuts plan={plan} />
+        <RecentCustomersStrip />
+
         {!ready && (
           <Alert variant="warning" className="bg-card shadow-card">
             <ShieldAlertIcon />

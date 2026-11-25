@@ -12,7 +12,8 @@ import type {
 } from '@/api/generated/model'
 import { EmptyState, ErrorState, LoadingState } from '@/components/states'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { SectionHeading } from '@/components/SectionHeading'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { useNow } from '@/hooks/use-now'
 import { formatDateTime, formatNumber, formatPercent, formatRelative, localizedName } from '@/lib/format'
 import { permissionLabel } from './permission-labels'
@@ -44,10 +45,10 @@ export function RecentChanges({
   return (
     <Card className="min-w-0 gap-3">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <HistoryIcon className="size-4 text-muted-foreground" aria-hidden />
+        <SectionHeading>
+          <HistoryIcon className="size-4" aria-hidden />
           {t('roles.audit.title')}
-        </CardTitle>
+        </SectionHeading>
       </CardHeader>
       <CardContent>
         {audit.error && !audit.data ? (

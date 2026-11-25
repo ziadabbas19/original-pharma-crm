@@ -95,7 +95,11 @@
     "expenses": "Expenses",
     "plans": "Weekly plans",
     "places": "AM places",
-    "notes": "Notes"
+    "notes": "Notes",
+    "logoHome": {
+      "dashboard": "Original Pharma: go to the dashboard",
+      "home": "Original Pharma: go to Home"
+    }
   },
   "admin": {
     "welcome": "Welcome, {{name}}",
@@ -240,7 +244,8 @@
       "save": "Save changes",
       "saved": "Saved. Affected users get the new permissions on their next request.",
       "saveFailed": "Could not save the permissions of {{role}}.",
-      "scopeBeyond": "{{scope}} (broader than your access)"
+      "scopeBeyond": "{{scope}} (broader than your access)",
+      "title": "Permissions by role"
     },
     "create": {
       "title": "New role",
@@ -297,7 +302,8 @@
       "reset": "Reset",
       "unsaved": "Unsaved changes",
       "saved": "Saved",
-      "delete": "Delete role"
+      "delete": "Delete role",
+      "title": "Role details"
     },
     "copy": {
       "title": "Copy permissions from another role",
@@ -347,8 +353,11 @@
       "hint": "Each step down is a higher level number (less authority); roles on the same level sit side by side. People can manage, and assign, only roles below their own level.",
       "yourLevel": "Your level: {{level}}",
       "noLevel": "You have no role, so you cannot manage roles.",
-      "yours": "Your role"
-    }
+      "yours": "Your role",
+      "locked": "Permissions locked",
+      "top": "Top of the hierarchy"
+    },
+    "scopeLegend": "What the scopes mean"
   },
   "visits": {
     "title": "Visits",
@@ -2592,5 +2601,71 @@
     "addedToRepList": "Added to the rep's list",
     "open": "Open",
     "addAnyway": "Add anyway"
+  },
+  "signOut": {
+    "title": "Sign out?",
+    "description": "You will need your email and password to sign in again."
+  },
+  "shortcuts": {
+    "title": "Shortcuts",
+    "edit": "Edit",
+    "add": "Add",
+    "reset": "Reset to default",
+    "remove": "Remove {{name}}",
+    "addTitle": "Add shortcuts",
+    "addHint": "Tap to add or remove. Up to {{value}} shortcuts.",
+    "full": "You have {{value}} shortcuts, the most there can be. Remove one to add another.",
+    "empty": "No shortcuts yet. Tap Edit to add some.",
+    "badge_one": "{{count}} new",
+    "badge_other": "{{count}} new",
+    "items": {
+      "startVisit": "Start visit",
+      "todayPlan": "Today's plan",
+      "weeklyPlan": "Weekly plan",
+      "newOrder": "New order",
+      "orders": "Orders",
+      "newExpense": "New expense",
+      "expenses": "Expenses",
+      "newNote": "New note",
+      "notes": "Notes",
+      "addDoctor": "Add doctor",
+      "doctors": "Doctors",
+      "pharmacies": "Pharmacies",
+      "addPharmacy": "Add pharmacy",
+      "places": "AM places",
+      "products": "Products",
+      "notifications": "Messages",
+      "statistics": "Reports",
+      "myVisits": "My visits",
+      "account": "Account",
+      "trackingHealth": "Tracking health",
+      "management": "Management"
+    },
+    "badge": "{{count}} new"
+  },
+  "quickActions": {
+    "call": "Call",
+    "navigate": "Directions",
+    "callName": "Call {{name}}",
+    "navigateName": "Directions to {{name}}"
+  },
+  "recent": {
+    "title": "Recently visited",
+    "start": "Start a visit with {{name}}"
+  },
+  "sync": {
+    "offline": "Offline",
+    "offlineWaiting_one": "Offline · {{value}} waiting to send",
+    "offlineWaiting_other": "Offline · {{value}} waiting to send",
+    "waiting_one": "{{value}} waiting to send",
+    "waiting_other": "{{value}} waiting to send",
+    "tapToSend": "Send waiting changes now",
+    "allSent": "Everything is sent.",
+    "someLeft_one": "{{value}} item is still waiting. It will be sent when possible.",
+    "someLeft_other": "{{value}} items are still waiting. They will be sent when possible.",
+    "stillOffline": "You are offline. Changes will be sent when you are back online.",
+    "offlineWaiting": "Offline · {{value}} waiting to send",
+    "waiting": "{{value}} waiting to send",
+    "someLeft": "{{value}} items are still waiting. They will be sent when possible."
   }
 }

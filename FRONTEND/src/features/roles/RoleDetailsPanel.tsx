@@ -8,6 +8,7 @@ import type { RoleDto } from '@/api/generated/model'
 import { FormError } from '@/components/states'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { SectionHeading } from '@/components/SectionHeading'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -106,6 +107,7 @@ export function RoleDetailsPanel({
   return (
     <Card className="min-w-0 gap-4">
       <CardHeader>
+        <SectionHeading className="mb-1">{t('roles.details.title')}</SectionHeading>
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle className="text-lg">{roleName(role)}</CardTitle>
           <LevelBadge level={role.level} />

@@ -9,7 +9,8 @@ import { useSelection } from '@/components/bulk/use-selection'
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/components/states'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { SectionHeading } from '@/components/SectionHeading'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { useMyRoleLevel, usePermission } from '@/features/auth/usePermission'
 import { P } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
@@ -210,7 +211,10 @@ function ViewButton({
 function ScopeLegend() {
   const { t } = useTranslation()
   return (
-    <Card className="gap-2 py-3">
+    <Card className="gap-3 py-4">
+      <CardHeader>
+        <SectionHeading>{t('roles.scopeLegend')}</SectionHeading>
+      </CardHeader>
       <CardContent className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2 xl:grid-cols-4">
         {SCOPES.map((scope) => (
           <div key={scope}>

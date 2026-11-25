@@ -279,6 +279,13 @@ export function UsersPage() {
         error={users.error}
         onRetry={() => void users.refetch()}
         getRowId={(u) => u.id}
+        onRowClick={
+          canManage
+            ? (u) => {
+                if (!u.archivedAt && userLock(u, myId, myLevel) === null) setEditing(u)
+              }
+            : undefined
+        }
         initialSorting={[{ id: 'fullName', desc: false }]}
         filtered={isFiltered}
         onClearFilters={clearFilters}

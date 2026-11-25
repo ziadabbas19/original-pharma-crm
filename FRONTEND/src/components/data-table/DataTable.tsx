@@ -34,8 +34,12 @@ import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { dataTableFeatures, type DataTableFeatures } from './features'
 import { FilterBar } from './FilterBar'
+import { rowClickProps } from './row-click'
 
 const PAGE_SIZES = [10, 25, 50, 100]
+/** Rows with a primary action: pointer, hover tint (from TableRow) and a visible keyboard focus ring. */
+const CLICKABLE_ROW =
+  'cursor-pointer hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring'
 const NO_ROWS: never[] = []
 
 /**
@@ -66,7 +70,12 @@ export interface DataTableProps<TData extends RowData> {
   /** Shown under the table, e.g. "showing the first 1000 rows". */
   footer?: ReactNode
   rowClassName?: (row: TData) => string | undefined
-  /** Makes rows clickable (and reachable with the keyboard: Enter or Space). */
+  /**
+   * The row's primary action, run by a click on the row (or its phone card) and by Enter or Space on it:
+   * the first non-destructive action of its row menu (view or open, otherwise edit), never delete, archive
+   * or deactivate. Clicks on checkboxes, links, buttons and the menu itself, and selecting text, do not
+   * trigger it.
+   */
   onRowClick?: (row: TData) => void
   empty: { title: string; description?: string; icon?: LucideIcon; action?: ReactNode }
   /** When filters are active an empty result reads "no matches" and offers to clear them. */
@@ -248,20 +257,8 @@ export function DataTable<TData extends RowData>({
                 <TableRow
                   key={row.id}
                   data-state={selection?.has(row.id) ? 'selected' : undefined}
-                  className={cn(onRowClick && 'cursor-pointer', rowClassName?.(row.original))}
-                  tabIndex={onRowClick ? 0 : undefined}
-                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                  onKeyDown={
-                    onRowClick
-                      ? (e) => {
-                          if (e.target !== e.currentTarget) return
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            onRowClick(row.original)
-                          }
-                        }
-                      : undefined
-                  }
+                  className={cn(onRowClick && CLICKABLE_ROW, rowClassName?.(row.original))}
+                  {...rowClickProps(row.original, onRowClick)}
                 >
                   {selection && (
                     <TableCell className="w-10 px-3" onClick={(e) => e.stopPropagation()}>
@@ -281,6 +278,7 @@ export function DataTable<TData extends RowData>({
                         cell.column.columnDef.meta?.className,
                         cell.column.id === 'actions' && ACTIONS_CELL,
                       )}
+                      data-no-row-click={cell.column.id === 'actions' || undefined}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
@@ -446,22 +444,10 @@ function CardList<TData extends RowData>({
               data-state={selection?.has(row.id) ? 'selected' : undefined}
               className={cn(
                 'flex items-start gap-3 p-3 data-[state=selected]:bg-primary/5',
-                onRowClick && 'cursor-pointer active:bg-accent',
+                onRowClick && cn(CLICKABLE_ROW, 'active:bg-accent'),
                 rowClassName?.(row.original),
               )}
-              tabIndex={onRowClick ? 0 : undefined}
-              onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-              onKeyDown={
-                onRowClick
-                  ? (e) => {
-                      if (e.target !== e.currentTarget) return
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        onRowClick(row.original)
-                      }
-                    }
-                  : undefined
-              }
+              {...rowClickProps(row.original, onRowClick)}
               data-testid="card-row"
             >
               {selection && (

@@ -328,6 +328,7 @@ export function DoctorsPage() {
         error={doctors.error}
         onRetry={() => void doctors.refetch()}
         getRowId={(d) => d.id}
+        onRowClick={setViewing}
         initialSorting={term ? undefined : [{ id: 'name', desc: false }]}
         filtered={isFiltered}
         onClearFilters={clear}

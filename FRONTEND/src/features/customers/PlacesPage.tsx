@@ -214,6 +214,7 @@ export function PlacesPage() {
         error={places.error}
         onRetry={() => void places.refetch()}
         getRowId={(c) => c.id}
+        onRowClick={canEdit && !archived ? setEditing : undefined}
         initialSorting={[{ id: 'name', desc: false }]}
         filtered={isFiltered}
         onClearFilters={() => {

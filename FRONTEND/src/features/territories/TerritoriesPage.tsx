@@ -265,6 +265,9 @@ export function TerritoriesPage() {
         error={territories.error}
         onRetry={() => void territories.refetch()}
         getRowId={(n) => n.id}
+        onRowClick={
+          canManage && !archived ? (node) => setEditing({ territory: node, level: node.level }) : undefined
+        }
         pageSize={50}
         filtered={search !== '' || level !== ''}
         onClearFilters={() => {

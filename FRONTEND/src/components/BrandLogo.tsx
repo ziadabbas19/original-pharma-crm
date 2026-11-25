@@ -19,6 +19,7 @@ export function BrandLogo({
   className,
   decorative = false,
   tile = false,
+  onDark = false,
 }: {
   variant?: 'full' | 'emblem'
   className?: string
@@ -26,11 +27,13 @@ export function BrandLogo({
   decorative?: boolean
   /** On the white logo tile: always the light artwork, whatever the theme. */
   tile?: boolean
+  /** On a surface that stays dark in both themes (the navy sidebar): always the artwork for dark backgrounds. */
+  onDark?: boolean
 }) {
   const { theme } = useTheme()
   return (
     <img
-      src={SOURCES[variant][tile ? 'light' : theme]}
+      src={SOURCES[variant][tile ? 'light' : onDark ? 'dark' : theme]}
       alt={decorative ? '' : 'Original Pharma'}
       aria-hidden={decorative || undefined}
       draggable={false}
@@ -39,7 +42,7 @@ export function BrandLogo({
   )
 }
 
-/** The logo on a white rounded tile (dashboard sidebar, rep app header). */
+/** The logo on a white rounded tile (the emblem in the rep Home header). */
 export function BrandTile({
   variant = 'full',
   className,

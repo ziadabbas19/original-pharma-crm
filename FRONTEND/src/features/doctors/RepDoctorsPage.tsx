@@ -1,11 +1,10 @@
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
 import {
   ClockIcon,
   HospitalIcon,
   ListPlusIcon,
   PencilIcon,
-  PhoneIcon,
   PillIcon,
   PlusIcon,
   StethoscopeIcon,
@@ -27,6 +26,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { usePermission } from '@/features/auth/usePermission'
 import { useDoctorReferenceData } from '@/features/orders/use-order-data'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { CustomerQuickActions } from '@/features/visits/CustomerQuickActions'
 import { StartVisitButton } from '@/features/visits/StartVisitButton'
 import { fromDoctor, fromPharmacy, useAmPlaces, usePharmacies } from '@/features/visits/use-rep-customers'
 import { formatNumber, localizedName } from '@/lib/format'
@@ -45,6 +45,8 @@ import { DoctorEditDialog } from './DoctorEditDialog'
 import { DoctorHoursSearch } from './DoctorHoursSearch'
 import { searchByName } from './name-search'
 
+const route = getRouteApi('/rep/doctors')
+
 const doctorId = (d: DoctorDto) => d.id
 const NO_DOCTORS: DoctorDto[] = []
 
@@ -53,11 +55,11 @@ const removeFromList = (request: BulkDeleteRequest): Promise<BulkResult> =>
   doctorsRemoveManyFromMyList({ ids: request.ids })
 
 /** Pharmacies in the rep's area; a visit can start from here as from the doctor list. */
-function RepPharmacies() {
+function RepPharmacies({ openAdd = false }: { openAdd?: boolean }) {
   const { t } = useTranslation()
   const pharmacies = usePharmacies()
   const canAdd = useAppSelector((s) => canAddPharmacy(s.permissions.byKey))
-  const [adding, setAdding] = useState(false)
+  const [adding, setAdding] = useState(openAdd && canAdd)
   const [search, setSearch] = useState('')
   const q = search.trim().toLowerCase()
   const rows = (pharmacies.data ?? []).filter(
@@ -116,6 +118,7 @@ function RepPharmacies() {
                     </p>
                   </Link>
                   <StartVisitButton customer={fromPharmacy(p)} className="w-full" />
+                  <CustomerQuickActions customer={fromPharmacy(p)} />
                 </CardContent>
               </Card>
             </li>
@@ -201,6 +204,7 @@ function RepPlaces() {
                     </p>
                   </Link>
                   <StartVisitButton customer={fromPharmacy(p)} className="w-full" />
+                  <CustomerQuickActions customer={fromPharmacy(p)} />
                 </CardContent>
               </Card>
             </li>
@@ -215,7 +219,14 @@ function RepPlaces() {
 /** The rep's doctors, the pharmacies and the AM places of their area, each with "Start visit". */
 export function RepDoctorsPage() {
   const { t } = useTranslation()
-  const [kind, setKind] = useState<'doctors' | 'pharmacies' | 'places'>('doctors')
+  const search = route.useSearch()
+  const navigate = route.useNavigate()
+  const [kind, setKind] = useState<'doctors' | 'pharmacies' | 'places'>(search.tab ?? 'doctors')
+  // "Add" from a Home shortcut opens the sheet once; the address bar forgets it so Back does not reopen it.
+  const [openAdd] = useState(search.add === true)
+  useEffect(() => {
+    if (search.add) void navigate({ search: { tab: search.tab }, replace: true })
+  }, [search.add, search.tab, navigate])
 
   return (
     <div className="space-y-4">
@@ -241,7 +252,13 @@ export function RepDoctorsPage() {
           </button>
         ))}
       </div>
-      {kind === 'doctors' ? <RepDoctorList /> : kind === 'pharmacies' ? <RepPharmacies /> : <RepPlaces />}
+      {kind === 'doctors' ? (
+        <RepDoctorList openAdd={openAdd} />
+      ) : kind === 'pharmacies' ? (
+        <RepPharmacies openAdd={openAdd} />
+      ) : (
+        <RepPlaces />
+      )}
     </div>
   )
 }
@@ -251,7 +268,7 @@ export function RepDoctorsPage() {
  * "All doctors" in the rep's customers:read scope (searched on the server), with town / specialty
  * filters. Cards add a doctor to the rep's list or take it off; the doctor itself is never deleted.
  */
-function RepDoctorList() {
+function RepDoctorList({ openAdd = false }: { openAdd?: boolean }) {
   const { t } = useTranslation()
   const canAdd = usePermission(P.customers.create)
   const queryClient = useQueryClient()
@@ -270,7 +287,7 @@ function RepDoctorList() {
   const doctors = list === 'mine' ? mine : all
   const [townId, setTownId] = useState('')
   const [specialtyId, setSpecialtyId] = useState('')
-  const [adding, setAdding] = useState(false)
+  const [adding, setAdding] = useState(openAdd && canAdd)
   const [editing, setEditing] = useState<DoctorDto | null>(null)
   const [searchingHours, setSearchingHours] = useState(false)
   const addToList = useDoctorsAddToMyList()
@@ -474,6 +491,11 @@ function RepDoctorList() {
                             {[d.address, d.landmark].filter(Boolean).join(' · ')}
                           </p>
                         )}
+                        {d.phone && (
+                          <p className="text-sm text-muted-foreground">
+                            <span dir="ltr">{d.phone}</span>
+                          </p>
+                        )}
                       </Link>
                       {d.outsideMyArea && <OutsideAreaBadge />}
                     </div>
@@ -489,15 +511,8 @@ function RepDoctorList() {
                       <p className="text-sm whitespace-pre-line text-muted-foreground">{d.notes}</p>
                     )}
                     {d.onMyList && <StartVisitButton customer={fromDoctor(d)} className="w-full" />}
+                    <CustomerQuickActions customer={fromDoctor(d)} />
                     <div className="flex flex-wrap gap-1">
-                      {d.phone && (
-                        <Button asChild size="lg" variant="outline">
-                          <a href={`tel:${d.phone.replace(/\s+/g, '')}`} dir="ltr">
-                            <PhoneIcon />
-                            {d.phone}
-                          </a>
-                        </Button>
-                      )}
                       {canAdd && d.onMyList && (
                         <>
                           <Button size="lg" variant="ghost" onClick={() => setEditing(d)}>

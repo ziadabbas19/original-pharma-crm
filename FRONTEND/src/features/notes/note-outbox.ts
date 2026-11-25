@@ -150,6 +150,11 @@ async function readPending(): Promise<NoteChange[]> {
   return items.map((i) => i.payload).filter((c) => c.userId === userId)
 }
 
+/** How many of the signed-in user's note changes are still waiting on this device. */
+export async function pendingNoteCount(): Promise<number> {
+  return (await readPending()).length
+}
+
 /** The signed-in user's note changes still waiting on this device, oldest first. */
 export function useNoteOutbox(): NoteChange[] {
   const [pending, setPending] = useState<NoteChange[]>([])

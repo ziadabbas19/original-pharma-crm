@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useCustomersList, useDoctorsList } from '@/api/generated/endpoints'
-import type { CustomerDto, DoctorDto, DoctorSlotDto } from '@/api/generated/model'
+import type { CustomerDto, DoctorDto, DoctorSlotDto, RecentCustomerDto } from '@/api/generated/model'
 import { readCache, writeCache } from '@/lib/offline-cache'
 
 /** A doctor, pharmacy or AM place the rep can visit, whichever list it came from. */
@@ -64,6 +64,25 @@ export const fromPharmacy = (c: CustomerDto): VisitCustomer => ({
   townName: c.territoryName,
   townNameAr: c.territoryNameAr,
 })
+
+/** A customer from "Recently visited" on Home (when it is not in the loaded lists). */
+export function fromRecent(c: RecentCustomerDto): VisitCustomer {
+  return {
+    id: c.id,
+    type: c.type,
+    name: c.name,
+    nameAr: c.nameAr,
+    lat: c.lat,
+    lng: c.lng,
+    geofenceRadiusMeters: c.geofenceRadiusMeters,
+    phone: c.phone,
+    address: c.address,
+    landmark: c.landmark,
+    townId: c.townId,
+    townName: c.townName,
+    townNameAr: c.townNameAr,
+  }
+}
 
 const PHARMACIES_KEY = 'my-pharmacies'
 const PLACES_KEY = 'my-places'

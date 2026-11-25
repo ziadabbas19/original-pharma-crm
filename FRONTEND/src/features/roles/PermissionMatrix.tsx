@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { NativeSelect } from '@/components/ui/native-select'
+import { SectionHeading } from '@/components/SectionHeading'
 import { useGrantedPermissions, useMyRoleLevel } from '@/features/auth/usePermission'
 import { formatList, formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -48,6 +49,7 @@ export function PermissionMatrix({
 
   return (
     <div className="space-y-3">
+      <SectionHeading className="px-1">{t('roles.matrix.title')}</SectionHeading>
       <Card className="gap-0 overflow-hidden py-0">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
@@ -109,7 +111,7 @@ export function PermissionMatrix({
                 <Fragment key={group.resource}>
                   <tr className="border-b bg-muted/30">
                     <th colSpan={roles.length + 1} scope="colgroup" className="px-3 py-1.5 text-start">
-                      <span className="sticky inset-s-3 text-xs font-semibold tracking-wide text-muted-foreground">
+                      <span className="sticky inset-s-3 section-heading inline-flex">
                         {resourceLabel(t, group.resource)}
                       </span>
                     </th>

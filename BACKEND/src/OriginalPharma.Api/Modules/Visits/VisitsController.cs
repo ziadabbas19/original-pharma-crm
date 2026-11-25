@@ -38,6 +38,18 @@ public sealed class VisitsController(VisitService visits) : ControllerBase
         visits.ListAsync(from, to, userId, status, needsReview, cancellationToken, mine, productId, feedbackCategory, hasFeedback, archived,
             locationDrift, day, limit);
 
+    /// <summary>
+    /// The customers you visited most recently (doctors, pharmacies, AM places), each once, latest first. Only
+    /// your own visits count. <c>limit</c> 1 to 20, default 6.
+    /// </summary>
+    [HttpGet("recent-customers")]
+    [HasPermission(Permissions.Visits.Read)]
+    public Task<IReadOnlyList<RecentCustomerDto>> RecentCustomers(
+        [FromServices] RecentCustomersService recent,
+        CancellationToken cancellationToken,
+        [FromQuery] int? limit = null) =>
+        recent.ListAsync(limit, cancellationToken);
+
     /// <summary>The verification rules of this server (accuracy limit, geofence allowance, edit window).</summary>
     [HttpGet("rules")]
     [Microsoft.AspNetCore.Authorization.Authorize]

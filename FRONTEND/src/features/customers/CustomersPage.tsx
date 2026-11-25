@@ -235,6 +235,17 @@ export function CustomersPage() {
         error={customers.error}
         onRetry={() => void customers.refetch()}
         getRowId={(c) => c.id}
+        onRowClick={
+          canEdit && !archived
+            ? (c) => {
+                if (c.type !== 'doctor') setEditingPharmacy(c)
+                else
+                  void doctorsGet(c.id)
+                    .then(setEditingDoctor)
+                    .catch((e: unknown) => handleError(e, { context: 'doctors.open' }))
+              }
+            : undefined
+        }
         initialSorting={[{ id: 'name', desc: false }]}
         filtered={isFiltered}
         onClearFilters={() => {

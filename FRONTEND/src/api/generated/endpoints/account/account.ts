@@ -22,7 +22,9 @@ import type {
   AccountSetAvatarBody,
   AvatarDto,
   ChangePasswordRequest,
+  HomeShortcutsDto,
   ProblemDetails,
+  UpdateHomeShortcutsRequest,
   UserSessionDto,
 } from '../../model'
 
@@ -69,6 +71,191 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result
 }
 
+export const getAccountGetHomeShortcutsUrl = () => {
+  return `/api/account/home-shortcuts`
+}
+
+export const accountGetHomeShortcuts = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<HomeShortcutsDto> => {
+  return apiFetch<HomeShortcutsDto>(getAccountGetHomeShortcutsUrl(), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getAccountGetHomeShortcutsQueryKey = () => {
+  return [`/api/account/home-shortcuts`] as const
+}
+
+export const getAccountGetHomeShortcutsQueryOptions = <
+  TData = Awaited<ReturnType<typeof accountGetHomeShortcuts>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof accountGetHomeShortcuts>>, TError, TData>>
+  request?: SecondParameter<typeof apiFetch>
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getAccountGetHomeShortcutsQueryKey()
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof accountGetHomeShortcuts>>> = ({ signal }) =>
+    accountGetHomeShortcuts({ signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof accountGetHomeShortcuts>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AccountGetHomeShortcutsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof accountGetHomeShortcuts>>
+>
+export type AccountGetHomeShortcutsQueryError = unknown
+
+export function useAccountGetHomeShortcuts<
+  TData = Awaited<ReturnType<typeof accountGetHomeShortcuts>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof accountGetHomeShortcuts>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof accountGetHomeShortcuts>>,
+          TError,
+          Awaited<ReturnType<typeof accountGetHomeShortcuts>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAccountGetHomeShortcuts<
+  TData = Awaited<ReturnType<typeof accountGetHomeShortcuts>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof accountGetHomeShortcuts>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof accountGetHomeShortcuts>>,
+          TError,
+          Awaited<ReturnType<typeof accountGetHomeShortcuts>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAccountGetHomeShortcuts<
+  TData = Awaited<ReturnType<typeof accountGetHomeShortcuts>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof accountGetHomeShortcuts>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAccountGetHomeShortcuts<
+  TData = Awaited<ReturnType<typeof accountGetHomeShortcuts>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof accountGetHomeShortcuts>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getAccountGetHomeShortcutsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getAccountUpdateHomeShortcutsUrl = () => {
+  return `/api/account/home-shortcuts`
+}
+
+export const accountUpdateHomeShortcuts = async (
+  updateHomeShortcutsRequest: UpdateHomeShortcutsRequest,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<HomeShortcutsDto> => {
+  return apiFetch<HomeShortcutsDto>(getAccountUpdateHomeShortcutsUrl(), {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(updateHomeShortcutsRequest),
+  })
+}
+
+export const getAccountUpdateHomeShortcutsMutationKey = () => ['accountUpdateHomeShortcuts'] as const
+
+export const getAccountUpdateHomeShortcutsMutationOptions = <TError = unknown, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof accountUpdateHomeShortcuts>>,
+    TError,
+    AccountUpdateHomeShortcutsMutationVariables,
+    TContext
+  >
+  request?: SecondParameter<typeof apiFetch>
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof accountUpdateHomeShortcuts>>,
+  TError,
+  AccountUpdateHomeShortcutsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getAccountUpdateHomeShortcutsMutationKey()
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined }
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof accountUpdateHomeShortcuts>>,
+    AccountUpdateHomeShortcutsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {}
+
+    return accountUpdateHomeShortcuts(data, requestOptions)
+  }
+
+  return { mutationFn, ...mutationOptions }
+}
+
+export type AccountUpdateHomeShortcutsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountUpdateHomeShortcuts>>
+>
+export type AccountUpdateHomeShortcutsMutationBody = UpdateHomeShortcutsRequest
+export type AccountUpdateHomeShortcutsMutationError = unknown
+export type AccountUpdateHomeShortcutsMutationVariables = { data: UpdateHomeShortcutsRequest }
+
+export const useAccountUpdateHomeShortcuts = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof accountUpdateHomeShortcuts>>,
+      TError,
+      AccountUpdateHomeShortcutsMutationVariables,
+      TContext
+    >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof accountUpdateHomeShortcuts>>,
+  TError,
+  AccountUpdateHomeShortcutsMutationVariables,
+  TContext
+> => {
+  return useMutation(getAccountUpdateHomeShortcutsMutationOptions(options), queryClient)
+}
 export const getAccountChangePasswordUrl = () => {
   return `/api/account/password`
 }

@@ -133,6 +133,11 @@ async function readState(): Promise<OutboxState> {
   }
 }
 
+/** How many of the signed-in user's orders are still waiting to be sent from this device. */
+export async function pendingOrderCount(): Promise<number> {
+  return (await readState()).pending.length
+}
+
 /** Pending and failed orders of the signed-in user, kept up to date. */
 export function useOrderOutbox(): OutboxState {
   const [state, setState] = useState<OutboxState>({ pending: [], failed: [], syncing: false })

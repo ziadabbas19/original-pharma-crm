@@ -15,12 +15,14 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BrandLogo, BrandTile } from '@/components/BrandLogo'
+import { BrandLogo } from '@/components/BrandLogo'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { SectionHeading } from '@/components/SectionHeading'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { UserAvatar } from '@/components/UserAvatar'
+import { SignOutDialog } from '@/features/auth/SignOutDialog'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { ProfileDialog } from '@/features/profile/ProfileDialog'
 import { roleName } from '@/features/roles/role-rules'
@@ -36,7 +38,6 @@ import {
   tracksLocation,
   P,
 } from '@/lib/permissions'
-import { logout } from '@/lib/session'
 import { cn } from '@/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/store'
 import { liveLocationsSelectors } from '@/store/slices/liveLocationsSlice'
@@ -65,6 +66,7 @@ export function AdminLayout() {
   const permissionsVersion = useAppSelector((s) => s.permissions.version)
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [moreOpen, setMoreOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
 
   useLiveTracking()
   // Private notes: queued changes go out, reminders are scheduled on the phone and shown when they arrive.
@@ -98,11 +100,6 @@ export function AdminLayout() {
     [pathname],
   )
 
-  const signOut = async () => {
-    await logout()
-    await navigate({ to: '/login' })
-  }
-
   return (
     <div className="flex min-h-dvh bg-background">
       <aside
@@ -117,7 +114,15 @@ export function AdminLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b bg-card/95 pt-safe backdrop-blur">
           <div className="flex h-14 items-center gap-2 px-3 md:h-16 md:px-6">
-            <BrandLogo variant="emblem" className="size-7 md:hidden" decorative />
+            <Link
+              to="/admin"
+              aria-label={t('nav.logoHome.dashboard')}
+              title={t('nav.logoHome.dashboard')}
+              className="-m-1 rounded-control p-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:hidden"
+              data-testid="header-logo"
+            >
+              <BrandLogo variant="emblem" className="size-7" decorative />
+            </Link>
             <div className="min-w-0 flex-1 truncate font-semibold md:hidden" data-testid="phone-title">
               {current ? t(current.label) : t('common.appName')}
             </div>
@@ -128,6 +133,7 @@ export function AdminLayout() {
               aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
               title={collapsed ? t('nav.expand') : t('nav.collapse')}
               onClick={() => dispatch(sidebarCollapsedToggled())}
+              data-testid="sidebar-collapse"
             >
               {collapsed ? (
                 <PanelLeftOpenIcon className="rtl:-scale-x-100" />
@@ -149,14 +155,16 @@ export function AdminLayout() {
               variant="ghost"
               size="sm"
               className="hidden md:inline-flex"
-              onClick={() => void signOut()}
+              onClick={() => setSigningOut(true)}
               aria-label={t('common.signOut')}
+              data-testid="header-sign-out"
             >
               <LogOutIcon className="rtl:rotate-180" />
               <span className="hidden lg:inline">{t('common.signOut')}</span>
             </Button>
           </div>
           <OfflineNotice />
+          {signingOut && <SignOutDialog onClose={() => setSigningOut(false)} />}
         </header>
         {/* Phones: bottom padding keeps the end of every page clear of the floating tab bar. */}
         <main className="min-w-0 flex-1 p-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:p-6 [&>*]:animate-page-in">
@@ -165,12 +173,7 @@ export function AdminLayout() {
       </div>
 
       <PhoneTabBar pathname={pathname} onMore={() => setMoreOpen(true)} moreActive={moreOpen} />
-      <MoreMenu
-        open={moreOpen}
-        onOpenChange={setMoreOpen}
-        pathname={pathname}
-        onSignOut={() => void signOut()}
-      />
+      <MoreMenu open={moreOpen} onOpenChange={setMoreOpen} pathname={pathname} />
     </div>
   )
 }
@@ -254,17 +257,16 @@ function MoreMenu({
   open,
   onOpenChange,
   pathname,
-  onSignOut,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   pathname: string
-  onSignOut: () => void
 }) {
   const { t } = useTranslation()
   const granted = useAppSelector((s) => s.permissions.byKey)
   const user = useAppSelector((s) => s.auth.user)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
   const inBar = new Set(phoneTabs(granted).map((tab) => tab.to))
   const sections = allowedNav(granted)
     .map((section) => ({ ...section, items: section.items.filter((item) => !inBar.has(item.to)) }))
@@ -350,11 +352,17 @@ function MoreMenu({
               </div>
             </MoreGroup>
 
-            <Button variant="outlineDestructive" size="lg" onClick={onSignOut} data-testid="more-sign-out">
+            <Button
+              variant="outlineDestructive"
+              size="lg"
+              onClick={() => setSigningOut(true)}
+              data-testid="more-sign-out"
+            >
               <LogOutIcon className="rtl:rotate-180" />
               {t('common.signOut')}
             </Button>
           </div>
+          {signingOut && <SignOutDialog onClose={() => setSigningOut(false)} />}
         </SheetContent>
       </Sheet>
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
@@ -365,7 +373,7 @@ function MoreMenu({
 function MoreGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="grid gap-1" aria-label={title}>
-      <h2 className="px-1 pb-1 text-xs font-semibold text-muted-foreground">{title}</h2>
+      <SectionHeading className="px-1 pb-1">{title}</SectionHeading>
       <div className="grid divide-y overflow-hidden rounded-card border bg-background">{children}</div>
     </section>
   )
@@ -409,15 +417,28 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
 
   return (
     <div className="flex h-full flex-col">
-      <div className={cn('flex shrink-0 items-center py-4', collapsed ? 'justify-center px-2' : 'px-4')}>
-        {collapsed ? (
-          <BrandTile variant="emblem" logoClassName="size-8" />
-        ) : (
-          <BrandTile className="w-full" logoClassName="h-10" />
-        )}
+      {/* The artwork made for dark backgrounds: the sidebar is navy in both themes. */}
+      <div className={cn('shrink-0 border-b border-sidebar-border', collapsed ? 'p-2' : 'px-3 py-2')}>
+        <Link
+          to="/admin"
+          onClick={onNavigate}
+          aria-label={t('nav.logoHome.dashboard')}
+          title={t('nav.logoHome.dashboard')}
+          className="flex h-[4.5rem] w-full items-center justify-center rounded-control transition-colors hover:bg-sidebar-hover focus-visible:ring-2 focus-visible:ring-sidebar-active focus-visible:outline-none"
+          data-testid="sidebar-logo"
+        >
+          {collapsed ? (
+            <BrandLogo variant="emblem" onDark decorative className="size-10" />
+          ) : (
+            <BrandLogo onDark decorative className="h-16" />
+          )}
+        </Link>
       </div>
       <nav
-        className={cn('flex-1 space-y-5 overflow-y-auto', collapsed ? 'p-2' : 'px-3 pb-3')}
+        className={cn(
+          'flex-1 space-y-5 overflow-y-auto [--section-heading:var(--sidebar-heading)]',
+          collapsed ? 'p-2' : 'px-3 pt-4 pb-3',
+        )}
         aria-label={t('nav.menu')}
       >
         {sections.map((section) => (
@@ -425,7 +446,9 @@ function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => 
             {collapsed ? (
               <div className="mx-2 border-t border-sidebar-border first:hidden" aria-hidden />
             ) : (
-              <p className="px-3 pb-1 text-xs font-semibold text-sidebar-muted">{t(section.title)}</p>
+              <SectionHeading as="p" className="px-3 pb-1.5">
+                {t(section.title)}
+              </SectionHeading>
             )}
             {section.items.map((item) => (
               <NavLink key={item.to} item={item} onNavigate={onNavigate} collapsed={collapsed} />

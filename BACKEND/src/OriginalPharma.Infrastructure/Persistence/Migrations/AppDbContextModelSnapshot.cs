@@ -1383,6 +1383,27 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.ToTable("user_audit_entries", (string)null);
                 });
 
+            modelBuilder.Entity("OriginalPharma.Domain.Identity.UserHomeShortcuts", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("Keys")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("keys");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("UserId")
+                        .HasName("pk_user_home_shortcuts");
+
+                    b.ToTable("user_home_shortcuts", (string)null);
+                });
+
             modelBuilder.Entity("OriginalPharma.Domain.Identity.UserPermissionOverride", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3525,6 +3546,16 @@ namespace OriginalPharma.Infrastructure.Persistence.Migrations
                     b.Navigation("Manager");
 
                     b.Navigation("Territory");
+                });
+
+            modelBuilder.Entity("OriginalPharma.Domain.Identity.UserHomeShortcuts", b =>
+                {
+                    b.HasOne("OriginalPharma.Domain.Identity.User", null)
+                        .WithOne()
+                        .HasForeignKey("OriginalPharma.Domain.Identity.UserHomeShortcuts", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_home_shortcuts_users_user_id");
                 });
 
             modelBuilder.Entity("OriginalPharma.Domain.Identity.UserPermissionOverride", b =>

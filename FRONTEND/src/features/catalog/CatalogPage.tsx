@@ -328,6 +328,7 @@ function ProductsTable({
         error={products.error}
         onRetry={() => void products.refetch()}
         getRowId={productId}
+        onRowClick={setViewing}
         initialSorting={[{ id: 'name', desc: false }]}
         filtered={search !== '' || lineFilter !== ''}
         onClearFilters={() => {
@@ -591,6 +592,7 @@ function LinesTable({
         error={lines.error}
         onRetry={() => void lines.refetch()}
         getRowId={lineId}
+        onRowClick={canManage ? onEdit : undefined}
         initialSorting={[{ id: 'name', desc: false }]}
         filtered={search !== ''}
         onClearFilters={() => setSearch('')}

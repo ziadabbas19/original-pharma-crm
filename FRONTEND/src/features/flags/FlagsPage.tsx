@@ -156,6 +156,7 @@ export function FlagsPage() {
         error={flags.error}
         onRetry={() => void flags.refetch()}
         getRowId={(f) => f.id}
+        onRowClick={setReviewing}
         initialSorting={[{ id: 'createdAt', desc: true }]}
         rowClassName={(f) => (f.status === 'open' && f.score >= 70 ? 'bg-destructive/5' : undefined)}
         filtered={isFiltered}

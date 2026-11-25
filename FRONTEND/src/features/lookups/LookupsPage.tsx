@@ -230,6 +230,13 @@ function LookupTable({
         error={query.error}
         onRetry={() => void query.refetch()}
         getRowId={getId}
+        onRowClick={
+          canManage
+            ? (item) => {
+                if (!item.archivedAt) setEditing(item)
+              }
+            : undefined
+        }
         pageSize={10}
         filtered={search !== ''}
         onClearFilters={() => setSearch('')}

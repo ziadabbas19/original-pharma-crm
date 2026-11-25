@@ -116,6 +116,11 @@ async function readPending(): Promise<ExpenseChange[]> {
   return items.map((i) => i.payload).filter((c) => c.userId === userId)
 }
 
+/** How many of the signed-in rep's changes are still waiting on this device. */
+export async function pendingExpenseCount(): Promise<number> {
+  return (await readPending()).length
+}
+
 /** The signed-in rep's changes still waiting on this device, oldest first. */
 export function useExpenseOutbox(): ExpenseChange[] {
   const [pending, setPending] = useState<ExpenseChange[]>([])

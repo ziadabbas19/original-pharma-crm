@@ -59,6 +59,7 @@ public interface IAppDbContext
     DbSet<WeeklyPlanEvent> WeeklyPlanEvents { get; }
 
     DbSet<RepNote> RepNotes { get; }
+    DbSet<UserHomeShortcuts> UserHomeShortcuts { get; }
 
     DbSet<Visit> Visits { get; }
     DbSet<VisitPhoto> VisitPhotos { get; }

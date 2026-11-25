@@ -24,6 +24,7 @@ import type {
   BulkResult,
   CheckInRequest,
   CheckOutRequest,
+  RecentCustomerDto,
   UpdateVisitContentRequest,
   VisitDetailDto,
   VisitDto,
@@ -32,6 +33,7 @@ import type {
   VisitReplyRequest,
   VisitRulesDto,
   VisitsListParams,
+  VisitsRecentCustomersParams,
   VisitsUploadPhotoBody,
   VisitsUploadPhotoParams,
 } from '../../model'
@@ -180,6 +182,132 @@ export function useVisitsList<TData = Awaited<ReturnType<typeof visitsList>>, TE
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getVisitsListQueryOptions(params, options)
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>
+  }
+
+  return withQueryKey(query, queryOptions.queryKey)
+}
+
+export const getVisitsRecentCustomersUrl = (params?: VisitsRecentCustomersParams) => {
+  const normalizedParams = new URLSearchParams()
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  })
+
+  const stringifiedParams = normalizedParams.toString()
+
+  return stringifiedParams.length > 0
+    ? `/api/visits/recent-customers?${stringifiedParams}`
+    : `/api/visits/recent-customers`
+}
+
+export const visitsRecentCustomers = async (
+  params?: VisitsRecentCustomersParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<RecentCustomerDto[]> => {
+  return apiFetch<RecentCustomerDto[]>(getVisitsRecentCustomersUrl(params), {
+    ...options,
+    method: 'GET',
+  })
+}
+
+export const getVisitsRecentCustomersQueryKey = (params?: VisitsRecentCustomersParams) => {
+  return [`/api/visits/recent-customers`, ...(params ? [params] : [])] as const
+}
+
+export const getVisitsRecentCustomersQueryOptions = <
+  TData = Awaited<ReturnType<typeof visitsRecentCustomers>>,
+  TError = unknown,
+>(
+  params?: VisitsRecentCustomersParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsRecentCustomers>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {}
+
+  const queryKey = queryOptions?.queryKey ?? getVisitsRecentCustomersQueryKey(params)
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof visitsRecentCustomers>>> = ({ signal }) =>
+    visitsRecentCustomers(params, { signal, ...requestOptions })
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof visitsRecentCustomers>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type VisitsRecentCustomersQueryResult = NonNullable<Awaited<ReturnType<typeof visitsRecentCustomers>>>
+export type VisitsRecentCustomersQueryError = unknown
+
+export function useVisitsRecentCustomers<
+  TData = Awaited<ReturnType<typeof visitsRecentCustomers>>,
+  TError = unknown,
+>(
+  params: undefined | VisitsRecentCustomersParams,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsRecentCustomers>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof visitsRecentCustomers>>,
+          TError,
+          Awaited<ReturnType<typeof visitsRecentCustomers>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useVisitsRecentCustomers<
+  TData = Awaited<ReturnType<typeof visitsRecentCustomers>>,
+  TError = unknown,
+>(
+  params?: VisitsRecentCustomersParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsRecentCustomers>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof visitsRecentCustomers>>,
+          TError,
+          Awaited<ReturnType<typeof visitsRecentCustomers>>
+        >,
+        'initialData'
+      >
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useVisitsRecentCustomers<
+  TData = Awaited<ReturnType<typeof visitsRecentCustomers>>,
+  TError = unknown,
+>(
+  params?: VisitsRecentCustomersParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsRecentCustomers>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useVisitsRecentCustomers<
+  TData = Awaited<ReturnType<typeof visitsRecentCustomers>>,
+  TError = unknown,
+>(
+  params?: VisitsRecentCustomersParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof visitsRecentCustomers>>, TError, TData>>
+    request?: SecondParameter<typeof apiFetch>
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getVisitsRecentCustomersQueryOptions(params, options)
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>

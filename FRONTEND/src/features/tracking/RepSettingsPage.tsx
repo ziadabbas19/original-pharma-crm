@@ -1,4 +1,4 @@
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import {
   ActivityIcon,
   BarChart3Icon,
@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/components/ThemeSwitcher'
+import { SignOutDialog } from '@/features/auth/SignOutDialog'
 import { AvatarEditor } from '@/features/profile/AvatarEditor'
 import { ChangePasswordForm } from '@/features/profile/ChangePasswordForm'
 import { roleName } from '@/features/roles/role-rules'
@@ -35,13 +36,11 @@ import { useOrderOutbox } from '@/features/orders/order-outbox'
 import { canUseDashboard, P, tracksLocation } from '@/lib/permissions'
 import { accountStatus } from './account-status'
 import { collectionMode } from './collection'
-import { logout } from '@/lib/session'
 import { useAppSelector } from '@/store'
 
 /** Rep settings menu, including the re-runnable "Tracking setup" entry. */
 export function RepSettingsPage() {
   const { t, i18n } = useTranslation()
-  const navigate = useNavigate()
   const shift = useAppSelector((s) => s.tracking.shift)
   const user = useAppSelector((s) => s.auth.user)
   const issues = useAppSelector((s) => s.tracking.healthIssues)
@@ -58,17 +57,13 @@ export function RepSettingsPage() {
   const configMode = useAppSelector((s) => s.tracking.config?.collectionMode)
   const visitOnly = (configMode ?? collectionMode()) === 'visitOnly'
   const [changingPassword, setChangingPassword] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
   const [info, setInfo] = useState<AppInfo | null>(null)
   const Chevron = i18n.dir() === 'rtl' ? ChevronLeftIcon : ChevronRightIcon
 
   useEffect(() => {
     void platform().app.info().then(setInfo)
   }, [])
-
-  const signOut = async () => {
-    await logout()
-    await navigate({ to: '/login' })
-  }
 
   return (
     <div className="space-y-4">
@@ -236,11 +231,13 @@ export function RepSettingsPage() {
         size="lg"
         className="w-full"
         disabled={shift !== null}
-        onClick={() => void signOut()}
+        onClick={() => setSigningOut(true)}
+        data-testid="account-sign-out"
       >
         <LogOutIcon />
         {t('common.signOut')}
       </Button>
+      {signingOut && <SignOutDialog onClose={() => setSigningOut(false)} />}
 
       {info && (
         <div className="space-y-1 text-center text-xs text-muted-foreground">

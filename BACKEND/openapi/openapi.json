@@ -325,6 +325,55 @@
         }
       }
     },
+    "/api/visits/recent-customers": {
+      "get": {
+        "tags": [
+          "Visits"
+        ],
+        "operationId": "visitsRecentCustomers",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecentCustomerDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecentCustomerDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecentCustomerDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/visits/rules": {
       "get": {
         "tags": [
@@ -5102,6 +5151,84 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LookupDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/account/home-shortcuts": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "operationId": "accountGetHomeShortcuts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeShortcutsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeShortcutsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeShortcutsDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Account"
+        ],
+        "operationId": "accountUpdateHomeShortcuts",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHomeShortcutsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHomeShortcutsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHomeShortcutsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeShortcutsDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeShortcutsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeShortcutsDto"
                 }
               }
             }
@@ -12338,6 +12465,31 @@
           }
         }
       },
+      "HomeShortcutsDto": {
+        "required": [
+          "keys",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "IFormFile": {
         "type": "string",
         "format": "binary"
@@ -14654,6 +14806,102 @@
           }
         }
       },
+      "RecentCustomerDto": {
+        "required": [
+          "id",
+          "type",
+          "name",
+          "nameAr",
+          "lat",
+          "lng",
+          "geofenceRadiusMeters",
+          "phone",
+          "address",
+          "landmark",
+          "townId",
+          "townName",
+          "townNameAr",
+          "lastVisitAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/CustomerType"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lat": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "lng": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "geofenceRadiusMeters": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "phone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "landmark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "townId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "townName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "townNameAr": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastVisitAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "RecordConsentRequest": {
         "required": [
           "consentVersion",
@@ -16556,6 +16804,20 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "UpdateHomeShortcutsRequest": {
+        "required": [
+          "keys"
+        ],
+        "type": "object",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

@@ -61,6 +61,8 @@ public static class DependencyInjection
         services.AddScoped<UserAdminService>();
         services.AddScoped<TerritoryService>();
         services.AddScoped<AccountService>();
+        services.AddScoped<HomeShortcutsService>();
+        services.AddScoped<RecentCustomersService>();
         services.AddScoped<SessionService>();
         services.AddSingleton<ISessionRevocationList, SessionRevocationList>();
 

@@ -6,6 +6,7 @@ import type { Selection } from '@/components/bulk/use-selection'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { SectionHeading } from '@/components/SectionHeading'
 import { cn } from '@/lib/utils'
 import { roleLock, roleName } from './role-rules'
 import { LevelBadge, SystemBadge } from './RoleBadges'
@@ -34,8 +35,8 @@ export function RoleList({
   const { t } = useTranslation()
   return (
     <Card className="min-w-0 gap-0 py-0">
-      <div className="flex items-baseline justify-between gap-2 border-b px-4 py-3">
-        <h2 className="font-semibold">{t('roles.list.title')}</h2>
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+        <SectionHeading className="flex-1">{t('roles.list.title')}</SectionHeading>
         <span className="text-xs text-muted-foreground">{t('roles.list.order')}</span>
       </div>
       {selection && (

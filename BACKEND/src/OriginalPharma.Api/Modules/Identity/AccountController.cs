@@ -11,8 +11,21 @@ namespace OriginalPharma.Api.Modules.Identity;
 [Route("api/account")]
 [Tags("Account")]
 [Authorize]
-public sealed class AccountController(AccountService accounts, SessionService sessions) : ControllerBase
+public sealed class AccountController(AccountService accounts, SessionService sessions, HomeShortcutsService shortcuts) : ControllerBase
 {
+    /// <summary>
+    /// Your Home shortcuts in their order. <c>keys</c> is null until you save some (the app then shows the
+    /// defaults of your role); keys the app no longer offers are left out.
+    /// </summary>
+    [HttpGet("home-shortcuts")]
+    public Task<HomeShortcutsDto> GetHomeShortcuts(CancellationToken cancellationToken) =>
+        shortcuts.GetAsync(cancellationToken);
+
+    /// <summary>Save your Home shortcuts: at most 8 known keys, each once, in the order they are shown.</summary>
+    [HttpPut("home-shortcuts")]
+    public Task<HomeShortcutsDto> UpdateHomeShortcuts(UpdateHomeShortcutsRequest request, CancellationToken cancellationToken) =>
+        shortcuts.UpdateAsync(request, cancellationToken);
+
     /// <summary>
     /// Change your password (current password required). Signs out your other sessions and clears
     /// the "must change password" flag. 422 <c>current_password_incorrect</c> or <c>password_policy</c>.

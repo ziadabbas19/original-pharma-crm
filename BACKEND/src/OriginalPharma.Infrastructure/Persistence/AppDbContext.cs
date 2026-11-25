@@ -36,6 +36,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<WeeklyPlanCustomer> WeeklyPlanCustomers => Set<WeeklyPlanCustomer>();
     public DbSet<WeeklyPlanEvent> WeeklyPlanEvents => Set<WeeklyPlanEvent>();
     public DbSet<RepNote> RepNotes => Set<RepNote>();
+    public DbSet<UserHomeShortcuts> UserHomeShortcuts => Set<UserHomeShortcuts>();
 
     public Task<int> ExecuteSqlAsync(FormattableString sql, CancellationToken cancellationToken = default) =>
         Database.ExecuteSqlInterpolatedAsync(sql, cancellationToken);
