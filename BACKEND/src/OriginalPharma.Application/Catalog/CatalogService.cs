@@ -34,7 +34,7 @@ public sealed record SaveProductLineRequest(
 /// <summary>A brochure page of a product. <paramref name="Url"/> needs a signed-in user who can read the product.</summary>
 public sealed record ProductImageDto(Guid Id, int Position, string ContentType, int SizeBytes, string Url);
 
-/// <param name="ProductLineId">Null for an unassigned product (only catalog and order managers see it).</param>
+/// <param name="ProductLineId">Null for an unassigned product (seen only by users not limited to specific lines).</param>
 /// <param name="Price">Unit price in EGP.</param>
 /// <param name="ImageUrl">Display size (about 1024 px).</param>
 /// <param name="ThumbnailUrl">List size (about 320 px).</param>
@@ -146,9 +146,10 @@ public static class DiscountRules
 }
 
 /// <summary>
-/// Which product lines a user may see and order from. Users holding orders:manage or
-/// products:manage see every line and the unassigned products; everyone else only the lines
-/// assigned to them.
+/// Which product lines a user may see and order from. This is the one place the rule lives:
+/// product lists, brochure pages, orders, visit products and the catalog stats all ask here.
+/// Users holding orders:manage or products:manage, and users with no line assigned, see every
+/// line and the unassigned products; a user limited to one or more lines sees only those.
 /// </summary>
 public sealed class ProductAccess(IAppDbContext db, IPermissionService permissions)
 {
@@ -168,7 +169,9 @@ public sealed class ProductAccess(IAppDbContext db, IPermissionService permissio
             .Where(l => l.UserId == userId)
             .Select(l => l.ProductLineId)
             .ToListAsync(cancellationToken);
-        return ids.ToHashSet();
+
+        // No line assigned means no limit: the user sees and orders every product.
+        return ids.Count == 0 ? null : ids.ToHashSet();
     }
 
     /// <summary>Products a restricted user can see: active, not archived, in one of their active lines.</summary>

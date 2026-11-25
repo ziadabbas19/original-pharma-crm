@@ -384,6 +384,9 @@ public sealed class UserAdminService(
             await db.SaveChangesAsync(cancellationToken);
             await accounts.AuditAsync(userId, actor.Id, UserAuditAction.ProductLinesChanged,
                 new { before = before.ToArray(), after = lineIds }, cancellationToken);
+
+            // The user's apps key their product copy on this version, so they reload the catalog.
+            await permissionService.BumpVersionAsync([userId], cancellationToken);
         }
 
         return await GetListItemAsync(userId, cancellationToken);

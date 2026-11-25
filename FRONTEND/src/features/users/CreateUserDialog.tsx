@@ -30,6 +30,8 @@ import { inlineErrors, useFormErrors } from '@/lib/errors'
 import { localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { ManagerSelect } from './ManagerSelect'
+import { initialLineChoice, lineChoiceMissing, lineIdsToSave } from './product-line-choice'
+import { ProductLinesField } from './ProductLinesField'
 
 /** Fields that can carry a server validation message. */
 const USERS_CREATE_FIELDS = ['email', 'fullName', 'managerId', 'password', 'roles', 'territoryId']
@@ -79,7 +81,8 @@ export function CreateUserDialog({
       passwordMode: 'generate' as 'generate' | 'set',
       password: '',
       roles: [] as string[],
-      productLineIds: [] as string[],
+      // New users see every product until limited to specific lines.
+      lines: initialLineChoice([]),
       territoryId: '',
       managerId: '',
       preferredLanguage: 'ar',
@@ -96,7 +99,7 @@ export function CreateUserDialog({
             territoryId: value.territoryId || null,
             managerId: value.managerId || null,
             preferredLanguage: value.preferredLanguage,
-            productLineIds: value.productLineIds,
+            productLineIds: lineIdsToSave(value.lines),
           },
         })
         await invalidateRoleData(queryClient)
@@ -445,37 +448,21 @@ export function CreateUserDialog({
             </form.Field>
 
             {canReadProducts && (productLines.data ?? []).length > 0 && (
-              <form.Field name="productLineIds">
+              <form.Field
+                name="lines"
+                validators={{
+                  onSubmit: ({ value }) =>
+                    lineChoiceMissing(value) ? t('users.productLinesAtLeastOne') : undefined,
+                }}
+              >
                 {(field) => (
-                  <fieldset className="grid gap-2">
-                    <legend className="mb-1 text-sm font-medium">{t('users.productLines')}</legend>
-                    <p className="text-xs text-muted-foreground">{t('users.productLinesHint')}</p>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {(productLines.data ?? []).map((line) => {
-                        const id = `new-user-line-${line.id}`
-                        return (
-                          <Label
-                            key={line.id}
-                            htmlFor={id}
-                            className="flex items-center gap-2 rounded-md border p-2.5 font-normal"
-                          >
-                            <Checkbox
-                              id={id}
-                              checked={field.state.value.includes(line.id)}
-                              onCheckedChange={(v) =>
-                                field.handleChange(
-                                  v === true
-                                    ? [...field.state.value, line.id]
-                                    : field.state.value.filter((x) => x !== line.id),
-                                )
-                              }
-                            />
-                            {localizedName(line.nameEn, line.nameAr)}
-                          </Label>
-                        )
-                      })}
-                    </div>
-                  </fieldset>
+                  <ProductLinesField
+                    idPrefix="new-user-line"
+                    lines={productLines.data ?? []}
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                    error={field.state.meta.errors.join(' ') || null}
+                  />
                 )}
               </form.Field>
             )}

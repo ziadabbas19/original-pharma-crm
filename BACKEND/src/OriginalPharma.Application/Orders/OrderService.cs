@@ -654,7 +654,7 @@ public sealed class OrderService(
         return (lines, products, warnings);
     }
 
-    /// <summary>Active, not archived, and in a line the actor may sell (unassigned products only for managers).</summary>
+    /// <summary>Active, not archived, and in a line the actor may sell (see <see cref="ProductAccess"/>; null lines = any product).</summary>
     private static bool IsOrderable(Product product, HashSet<Guid>? visibleLines) =>
         product.IsActive &&
         product.ArchivedAt is null &&

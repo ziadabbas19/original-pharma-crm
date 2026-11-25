@@ -4,19 +4,25 @@
  */
 const PREFIX = 'op.cache.'
 
-export function readCache<T>(key: string): { data: T; savedAt: number } | undefined {
+/**
+ * `owner` ties a copy to who it was loaded for (for example the user and their grants version);
+ * a copy saved for someone else is ignored.
+ */
+export function readCache<T>(key: string, owner?: string): { data: T; savedAt: number } | undefined {
   try {
     const raw = localStorage.getItem(PREFIX + key)
     if (!raw) return undefined
-    return JSON.parse(raw) as { data: T; savedAt: number }
+    const copy = JSON.parse(raw) as { data: T; savedAt: number; owner?: string }
+    if (owner !== undefined && copy.owner !== owner) return undefined
+    return copy
   } catch {
     return undefined
   }
 }
 
-export function writeCache<T>(key: string, data: T): void {
+export function writeCache<T>(key: string, data: T, owner?: string): void {
   try {
-    localStorage.setItem(PREFIX + key, JSON.stringify({ data, savedAt: Date.now() }))
+    localStorage.setItem(PREFIX + key, JSON.stringify({ data, savedAt: Date.now(), owner }))
   } catch {
     // Quota or private mode: the app still works online.
   }

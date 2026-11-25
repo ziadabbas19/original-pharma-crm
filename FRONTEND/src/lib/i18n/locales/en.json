@@ -204,7 +204,9 @@
     },
     "area": "Area",
     "productLines": "Product lines",
-    "productLinesHint": "Reps only see and order products from their lines.",
+    "productLinesHint": "The rep sees and orders all products unless you limit him to specific lines.",
+    "allProductLines": "All product lines",
+    "productLinesAtLeastOne": "Select at least one line, or tick All product lines.",
     "temporaryPassword": "Temporary password",
     "reset": {
       "title": "Reset password",

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OriginalPharma.Application.Catalog;
 using OriginalPharma.Application.Common;
 using OriginalPharma.Application.Common.Bulk;
+using OriginalPharma.Application.Identity;
 using OriginalPharma.Application.Orders;
 using OriginalPharma.Domain.Audit;
 using OriginalPharma.Domain.Orders;
@@ -15,6 +16,61 @@ public sealed class ProductLineTests(PostgresFixture postgres)
 
     private static Task<IReadOnlyList<ProductDto>> ProductsAsync(TestDatabase db, Guid actor, ProductQuery? query = null) =>
         db.As<CatalogService, IReadOnlyList<ProductDto>>(actor, s => s.ListProductsAsync(query ?? new ProductQuery(), Ct));
+
+    private static Task<IReadOnlyList<ProductLineDto>> LinesAsync(TestDatabase db, Guid actor) =>
+        db.As<CatalogService, IReadOnlyList<ProductLineDto>>(actor, s => s.ListLinesAsync(false, Ct));
+
+    private static Task<OrderDto> OrderAsync(TestDatabase db, Guid actor, Guid productId, Guid methodId) =>
+        db.As<OrderService, OrderDto>(actor, s => s.CreateAsync(new CreateOrderRequest(Guid.NewGuid(), new DateOnly(2026, 11, 18),
+            PlaceType.Pharmacy, "Al Shifa pharmacy", [new OrderLineInput(productId, 1)], CollectionMethodId: methodId), Ct));
+
+    private static Task<int> VersionAsync(TestDatabase db, Guid userId) =>
+        db.DbAsync(c => c.Users.Where(u => u.Id == userId).Select(u => u.PermissionsVersion).SingleAsync(Ct));
+
+    [Fact]
+    public async Task A_rep_with_no_line_sees_and_orders_every_product()
+    {
+        await using var db = await postgres.CreateDatabaseAsync();
+        var p = await DemoPeople.LoadAsync(db);
+        var dermacalm = await DemoPeople.ProductAsync(db, "Dermacalm cream 50 g"); // derma is not one of the rep's lines
+        var cash = await DemoPeople.MethodAsync(db, "Cash");
+        Assert.DoesNotContain(await ProductsAsync(db, p.Rep), x => x.Id == dermacalm);
+
+        var version = await VersionAsync(db, p.Rep);
+        var cleared = await db.UsersAsync(p.Admin, s => s.SetProductLinesAsync(p.Rep, new SetUserProductLinesRequest([]), Ct));
+        Assert.Empty(cleared.ProductLineIds ?? []);
+        // A new version makes the rep's app drop its copy of the catalog.
+        Assert.True(await VersionAsync(db, p.Rep) > version);
+
+        // The same products and lines a catalog manager sees.
+        Assert.Equal((await ProductsAsync(db, p.Sales)).Select(x => x.Id).Order(), (await ProductsAsync(db, p.Rep)).Select(x => x.Id).Order());
+        Assert.Equal((await LinesAsync(db, p.Sales)).Select(l => l.Id).Order(), (await LinesAsync(db, p.Rep)).Select(l => l.Id).Order());
+
+        var order = await OrderAsync(db, p.Rep, dermacalm, cash);
+        Assert.Equal(dermacalm, order.Lines.Single().ProductId);
+    }
+
+    [Fact]
+    public async Task A_rep_limited_to_a_line_sees_and_orders_only_that_line()
+    {
+        await using var db = await postgres.CreateDatabaseAsync();
+        var p = await DemoPeople.LoadAsync(db);
+        var pediatric = await DemoPeople.LineAsync(db, "Pediatric line");
+        var kidofen = await DemoPeople.ProductAsync(db, "Kidofen syrup 100 ml");
+        var cardiolin = await DemoPeople.ProductAsync(db, "Cardiolin 5 mg, 30 tablets");
+        var cash = await DemoPeople.MethodAsync(db, "Cash");
+
+        await db.UsersAsync(p.Admin, s => s.SetProductLinesAsync(p.Rep, new SetUserProductLinesRequest([pediatric]), Ct));
+
+        var products = await ProductsAsync(db, p.Rep);
+        Assert.NotEmpty(products);
+        Assert.All(products, x => Assert.Equal(pediatric, x.ProductLineId));
+        Assert.Equal([pediatric], (await LinesAsync(db, p.Rep)).Select(l => l.Id));
+
+        Assert.Equal(kidofen, (await OrderAsync(db, p.Rep, kidofen, cash)).Lines.Single().ProductId);
+        var refused = await Assert.ThrowsAsync<BusinessRuleException>(() => OrderAsync(db, p.Rep, cardiolin, cash));
+        Assert.Equal(OrderErrorCodes.ProductUnavailable, refused.Code);
+    }
 
     [Fact]
     public async Task Deleting_a_line_keeps_every_product_unassigned_and_hidden_from_reps()

@@ -14,9 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { usePermission, usePermissionScope } from '@/features/auth/usePermission'
 import { bestLevel, invalidateRoleData, reportsOf } from '@/features/roles/role-rules'
@@ -26,6 +24,8 @@ import { localizedName } from '@/lib/format'
 import { P } from '@/lib/permissions'
 import { Field } from './CreateUserDialog'
 import { ManagerSelect } from './ManagerSelect'
+import { initialLineChoice, lineChoiceMissing, lineIdsToSave, sameLineIds } from './product-line-choice'
+import { ProductLinesField } from './ProductLinesField'
 
 /** Fields that can carry a server validation message. */
 const USERS_EDIT_FIELDS = ['fullName', 'managerId', 'territoryId']
@@ -56,8 +56,12 @@ export function EditUserDialog({
   )
   const canReadProducts = usePermission(P.products.read)
   const productLines = useProductLinesList(undefined, { query: { enabled: canReadProducts } })
-  const setLines = useUsersSetProductLines(inlineErrors)
-  const [lineIds, setLineIds] = useState<string[]>(user.productLineIds ?? [])
+  const saveLines = useUsersSetProductLines(inlineErrors)
+  const savedLineIds = user.productLineIds ?? []
+  const [initialLines] = useState(() => initialLineChoice(user.productLineIds))
+  const [lines, setLines] = useState(initialLines)
+  const [linesMissing, setLinesMissing] = useState(false)
+  const linesChanged = lines.all !== initialLines.all || !sameLineIds(lines.lineIds, initialLines.lineIds)
   const userLevel = bestLevel(user.roles)
   const reports = useMemo(() => reportsOf(users, user.id), [users, user.id])
 
@@ -70,6 +74,10 @@ export function EditUserDialog({
     },
     onSubmit: async ({ value }) => {
       errors.clear()
+      if (lineChoiceMissing(lines)) {
+        setLinesMissing(true)
+        return
+      }
       try {
         await update.mutateAsync({
           userId: user.id,
@@ -80,9 +88,9 @@ export function EditUserDialog({
             managerId: value.managerId || null,
           },
         })
-        const before = new Set(user.productLineIds ?? [])
-        if (lineIds.length !== before.size || lineIds.some((id) => !before.has(id))) {
-          await setLines.mutateAsync({ userId: user.id, data: { productLineIds: lineIds } })
+        const lineIds = lineIdsToSave(lines)
+        if (!sameLineIds(lineIds, savedLineIds)) {
+          await saveLines.mutateAsync({ userId: user.id, data: { productLineIds: lineIds } })
         }
         await invalidateRoleData(queryClient)
         onClose()
@@ -218,28 +226,16 @@ export function EditUserDialog({
           </div>
 
           {canReadProducts && (productLines.data ?? []).length > 0 && (
-            <fieldset className="grid gap-2">
-              <legend className="mb-1 text-sm font-medium">{t('users.productLines')}</legend>
-              <p className="text-xs text-muted-foreground">{t('users.productLinesHint')}</p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {(productLines.data ?? []).map((line) => (
-                  <Label
-                    key={line.id}
-                    className="flex items-center gap-2 rounded-md border p-2.5 font-normal"
-                  >
-                    <Checkbox
-                      checked={lineIds.includes(line.id)}
-                      onCheckedChange={(v) =>
-                        setLineIds((current) =>
-                          v === true ? [...current, line.id] : current.filter((x) => x !== line.id),
-                        )
-                      }
-                    />
-                    {localizedName(line.nameEn, line.nameAr)}
-                  </Label>
-                ))}
-              </div>
-            </fieldset>
+            <ProductLinesField
+              idPrefix="edit-user-line"
+              lines={productLines.data ?? []}
+              value={lines}
+              onChange={(value) => {
+                setLines(value)
+                setLinesMissing(false)
+              }}
+              error={linesMissing ? t('users.productLinesAtLeastOne') : null}
+            />
           )}
 
           <FormError error={errors.formError} />
@@ -250,7 +246,7 @@ export function EditUserDialog({
             </Button>
             <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting, s.isDirty] as const}>
               {([canSubmit, isSubmitting, isDirty]) => (
-                <Button type="submit" disabled={!isDirty || !canSubmit || isSubmitting}>
+                <Button type="submit" disabled={!(isDirty || linesChanged) || !canSubmit || isSubmitting}>
                   {isSubmitting ? t('common.saving') : t('common.save')}
                 </Button>
               )}

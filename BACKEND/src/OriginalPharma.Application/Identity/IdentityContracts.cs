@@ -132,7 +132,7 @@ public sealed record UserListItemDto(
 /// <param name="Password">Temporary password. Leave empty to have one generated (returned once).</param>
 /// <param name="Roles">Role keys; at least one is required.</param>
 /// <param name="TerritoryId">The user's area (or region for managers).</param>
-/// <param name="ProductLineIds">Product lines the user sells.</param>
+/// <param name="ProductLineIds">Product lines the user is limited to; empty means every product.</param>
 public sealed record CreateUserRequest(
     string Email,
     string FullName,
@@ -146,6 +146,7 @@ public sealed record CreateUserRequest(
 /// <param name="TemporaryPassword">Only when the server generated it. Shown once; never stored in plain text.</param>
 public sealed record CreatedUserDto(UserListItemDto User, string? TemporaryPassword);
 
+/// <param name="ProductLineIds">Lines the user is limited to; an empty list lifts the limit (every product).</param>
 public sealed record SetUserProductLinesRequest(IReadOnlyList<Guid> ProductLineIds);
 
 /// <summary>Profile and reporting line of an existing user (roles and overrides have their own endpoints).</summary>
